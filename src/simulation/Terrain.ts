@@ -54,19 +54,38 @@ export class Terrain {
     }
 
     // Helper to bounce off obstacles
-    getBounceAngle(x: number, y: number, currentAngle: number): number {
+    // Helper to slide along obstacles
+    getCollisionAngle(x: number, y: number, currentAngle: number): number {
         for (const obs of this.obstacles) {
             const dx = x - obs.x;
             const dy = y - obs.y;
             const distSq = dx * dx + dy * dy;
+            const checkRad = obs.radius + 10; // Check slightly larger radius
 
-            if (distSq < obs.radius * obs.radius) {
+            if (distSq < checkRad * checkRad) {
                 // Normal vector from obstacle center to point
                 const normalAngle = Math.atan2(dy, dx);
-                // Simple reflection: just turn away
-                return normalAngle;
+
+                // Tangents
+                const t1 = normalAngle + Math.PI / 2;
+                const t2 = normalAngle - Math.PI / 2;
+
+                // Find which tangent is closer to current heading
+                const diff1 = Math.abs(this.normalizeAngle(t1 - currentAngle));
+                const diff2 = Math.abs(this.normalizeAngle(t2 - currentAngle));
+
+                return diff1 < diff2 ? t1 : t2;
             }
         }
-        return currentAngle + Math.PI; // Default bounce (wall)
+
+        // Wall collision (if no obstacle matched)
+        // Ideally we'd detect which wall, but simple bounce is okay for edges
+        return currentAngle + Math.PI;
+    }
+
+    normalizeAngle(a: number): number {
+        while (a > Math.PI) a -= Math.PI * 2;
+        while (a < -Math.PI) a += Math.PI * 2;
+        return a;
     }
 }
