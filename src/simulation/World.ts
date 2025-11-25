@@ -141,16 +141,37 @@ export class World {
                 this.insects.push(new Insect(pos.x, pos.y, 'PREY'));
             }
         }
-        // Spawn Predators
-        if (this.insects.filter(i => i.type === 'PREDATOR').length < CONFIG.maxPredators) {
+        // Spawn Predators (Generic)
+        if (this.insects.filter(i => i.type === 'PREDATOR').length < 1) {
             if (Math.random() < CONFIG.predatorSpawnRate) {
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'PREDATOR'));
             }
         }
-        // Spawn Aphids (Blattläuse) - New!
-        if (this.insects.filter(i => i.type === 'APHID').length < 5) { // Limit aphid herds
-            if (Math.random() < 0.002) {
+        // Spawn Spiders (Fast, Dangerous)
+        if (this.insects.filter(i => i.type === 'SPIDER').length < 1) {
+            if (Math.random() < 0.0003) {
+                const pos = this.getSafePosition();
+                this.insects.push(new Insect(pos.x, pos.y, 'SPIDER'));
+            }
+        }
+        // Spawn Beetles (Tanky)
+        if (this.insects.filter(i => i.type === 'BEETLE').length < 2) {
+            if (Math.random() < 0.0005) {
+                const pos = this.getSafePosition();
+                this.insects.push(new Insect(pos.x, pos.y, 'BEETLE'));
+            }
+        }
+        // Spawn Ladybugs (Aphid Hunters)
+        if (this.insects.filter(i => i.type === 'LADYBUG').length < 2) {
+            if (Math.random() < 0.001) {
+                const pos = this.getSafePosition();
+                this.insects.push(new Insect(pos.x, pos.y, 'LADYBUG'));
+            }
+        }
+        // Spawn Aphids (Blattläuse)
+        if (this.insects.filter(i => i.type === 'APHID').length < 8) { // Increased limit slightly
+            if (Math.random() < 0.003) {
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'APHID'));
             }

@@ -235,7 +235,7 @@ export class Renderer {
             this.ctx.fill();
 
         } else if (insect.type === 'PREDATOR') {
-            // Predator: Red Spider/Beetle
+            // Generic Predator: Red Spider/Beetle
             this.drawLegs(8, 12, '#AA0000', 1.5);
 
             // Body
@@ -250,6 +250,86 @@ export class Renderer {
             this.ctx.moveTo(5, -3); this.ctx.lineTo(10, -1); this.ctx.lineTo(5, 0);
             this.ctx.moveTo(5, 3); this.ctx.lineTo(10, 1); this.ctx.lineTo(5, 0);
             this.ctx.fill();
+
+        } else if (insect.type === 'SPIDER') {
+            // Spider: Black, long legs
+            this.drawLegs(8, 14, '#222', 2.0);
+
+            // Abdomen
+            this.ctx.fillStyle = '#111';
+            this.ctx.beginPath();
+            this.ctx.ellipse(-2, 0, 6, 5, 0, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // Cephalothorax
+            this.ctx.fillStyle = '#333';
+            this.ctx.beginPath();
+            this.ctx.arc(4, 0, 3, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // Eyes (Many)
+            this.ctx.fillStyle = '#F00';
+            this.ctx.fillRect(5, -1, 1, 1);
+            this.ctx.fillRect(5, 1, 1, 1);
+            this.ctx.fillRect(6, -2, 1, 1);
+            this.ctx.fillRect(6, 2, 1, 1);
+
+        } else if (insect.type === 'BEETLE') {
+            // Beetle: Dark Blue, Tanky
+            this.drawLegs(6, 5, '#000044', 0.5);
+
+            // Body (Elytra)
+            this.ctx.fillStyle = '#000088';
+            this.ctx.beginPath();
+            this.ctx.ellipse(0, 0, 8, 6, 0, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // Stripe
+            this.ctx.strokeStyle = '#000';
+            this.ctx.lineWidth = 1;
+            this.ctx.beginPath();
+            this.ctx.moveTo(-8, 0);
+            this.ctx.lineTo(8, 0);
+            this.ctx.stroke();
+
+            // Head
+            this.ctx.fillStyle = '#000044';
+            this.ctx.beginPath();
+            this.ctx.arc(6, 0, 4, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // Mandibles
+            this.ctx.fillStyle = '#000';
+            this.ctx.beginPath();
+            this.ctx.moveTo(8, -2); this.ctx.lineTo(12, -1); this.ctx.lineTo(8, 0);
+            this.ctx.moveTo(8, 2); this.ctx.lineTo(12, 1); this.ctx.lineTo(8, 0);
+            this.ctx.fill();
+
+        } else if (insect.type === 'LADYBUG') {
+            // Ladybug: Red with spots
+            this.drawLegs(6, 4, '#000', 1.0);
+
+            // Body
+            this.ctx.fillStyle = '#FF2200';
+            this.ctx.beginPath();
+            this.ctx.ellipse(0, 0, 5, 4, 0, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // Spots
+            this.ctx.fillStyle = '#000';
+            this.ctx.beginPath();
+            this.ctx.arc(-2, -2, 1, 0, Math.PI * 2);
+            this.ctx.arc(-2, 2, 1, 0, Math.PI * 2);
+            this.ctx.arc(2, -2, 1, 0, Math.PI * 2);
+            this.ctx.arc(2, 2, 1, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // Head
+            this.ctx.fillStyle = '#000';
+            this.ctx.beginPath();
+            this.ctx.arc(4, 0, 2.5, 0, Math.PI * 2);
+            this.ctx.fill();
+
         } else {
             // APHID (Green, small, cute)
             this.ctx.rotate(Math.sin(Date.now() * 0.005) * 0.1);
