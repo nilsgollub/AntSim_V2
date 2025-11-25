@@ -1,0 +1,75 @@
+import { CONFIG } from './config';
+import { World } from './simulation/World';
+import { Renderer } from './graphics/Renderer';
+
+const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
+canvas.width = CONFIG.width;
+canvas.height = CONFIG.height;
+
+let world = new World();
+const renderer = new Renderer(canvas);
+
+// Controls
+let simSpeed = 1;
+const speedRange = document.getElementById('speedRange') as HTMLInputElement;
+const speedVal = document.getElementById('speedVal') as HTMLElement;
+const restartBtn = document.getElementById('restartBtn') as HTMLButtonElement;
+const fpsDisplay = document.getElementById('fps') as HTMLElement;
+const popStat = document.getElementById('popStat') as HTMLElement;
+const foodStat = document.getElementById('foodStat') as HTMLElement;
+
+speedRange.addEventListener('input', () => {
+  simSpeed = parseFloat(speedRange.value);
+  speedVal.innerText = simSpeed + 'x';
+});
+
+const pheromoneToggle = document.getElementById('pheromoneToggle') as HTMLInputElement;
+pheromoneToggle.addEventListener('change', () => {
+  renderer.showPheromones = pheromoneToggle.checked;
+});
+
+restartBtn.addEventListener('click', () => {
+  world = new World();
+});
+
+// Loop
+let lastTime = performance.now();
+let frames = 0;
+let lastFpsTime = lastTime;
+
+function loop(now: number) {
+  requestAnimationFrame(loop);
+
+  lastTime = now;
+
+  // FPS
+  frames++;
+  if (now - lastFpsTime >= 1000) {
+    fpsDisplay.innerText = `FPS: ${frames}`;
+    frames = 0;
+    lastFpsTime = now;
+  }
+
+  popStat.innerText = `Population: ${world.ants.length} (W:${world.ants.filter(a => a.type === 'WORKER').length} S:${world.ants.filter(a => a.type === 'SOLDIER').length})`;
+  foodStat.innerText = `Protein: ${world.proteinStockpile} | Sugar: ${world.sugarStockpile}`;
+
+  // Update
+  // If speed is high, we might need multiple updates per frame for stability
+  // For now, we just scale the delta or run multiple steps
+  const steps = Math.floor(simSpeed);
+  const remainder = simSpeed - steps;
+
+  for (let i = 0; i < steps; i++) {
+    world.update();
+  }
+  // Probabilistic update for remainder? Or just skip. 
+  // For simplicity, let's just run integer steps + 1 with probability
+  if (Math.random() < remainder) {
+    world.update();
+  }
+
+  // Render
+  renderer.render(world);
+}
+
+requestAnimationFrame(loop);

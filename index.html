@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AntSim V3</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #111;
+      color: #eee;
+      font-family: sans-serif;
+    }
+
+    #gameCanvas {
+      display: block;
+    }
+
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      pointer-events: none;
+    }
+
+    #controls {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 10px;
+      border-radius: 8px;
+      pointer-events: auto;
+    }
+
+    #legend {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 10px;
+      border-radius: 8px;
+      pointer-events: none;
+    }
+
+    .item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 4px;
+      font-size: 12px;
+    }
+
+    .color {
+      width: 12px;
+      height: 12px;
+      display: inline-block;
+      margin-right: 8px;
+      border-radius: 50%;
+    }
+
+    #nestCanvas {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      border: 2px solid #444;
+      background: #222;
+    }
+
+    .stat {
+      margin-bottom: 5px;
+    }
+
+    button {
+      cursor: pointer;
+      padding: 5px 10px;
+      background: #444;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+    }
+
+    button:hover {
+      background: #666;
+    }
+
+    input[type=range] {
+      width: 100px;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="gameCanvas"></canvas>
+
+  <div id="ui">
+    <h1>AntSim V3</h1>
+    <div class="stat" id="fps">FPS: 0</div>
+    <div class="stat" id="popStat">Population: 0</div>
+    <div class="stat" id="foodStat">Protein: 0</div>
+  </div>
+
+  <div id="legend">
+    <h3>Legend</h3>
+    <div class="item"><span class="color" style="background: #FFF"></span> Worker</div>
+    <div class="item"><span class="color" style="background: #FFD700"></span> Soldier</div>
+    <div class="item"><span class="color" style="background: #333; border: 1px solid #555"></span> Queen</div>
+    <div class="item"><span class="color" style="background: #00FF00"></span> Sugar</div>
+    <div class="item"><span class="color" style="background: #FF4444"></span> Protein</div>
+    <div class="item"><span class="color" style="background: #00FFFF"></span> Prey</div>
+    <div class="item"><span class="color" style="background: #FF0000"></span> Predator</div>
+    <div class="item"><span class="color" style="background: rgba(0,0,255,0.5)"></span> Home Trail</div>
+    <div class="item"><span class="color" style="background: rgba(255,0,0,0.5)"></span> Food Trail</div>
+  </div>
+
+  <div id="controls">
+    <h3>Controls</h3>
+    <div>
+      <label>Speed: <span id="speedVal">1x</span></label>
+      <input type="range" id="speedRange" min="0" max="10" value="1" step="0.1">
+    </div>
+    <div style="margin-top: 10px;">
+      <input type="checkbox" id="pheromoneToggle" checked>
+      <label for="pheromoneToggle" style="cursor: pointer;">Show Pheromones</label>
+    </div>
+    <br>
+    <button id="restartBtn">Restart Simulation</button>
+  </div>
+
+  <canvas id="nestCanvas" width="200" height="200"></canvas>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>
