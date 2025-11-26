@@ -88,7 +88,7 @@ export class Ant {
                     const dy = this.y - insect.y;
                     if (dx * dx + dy * dy < 900) { // 30px range
                         const allies = this.countNearbyAllies(world, 100);
-                        if (allies >= 3) {
+                        if (allies >= 4) { // Need 4 allies to be brave
                             this.state = 'ATTACKING';
                         } else {
                             this.state = 'FLEEING';
@@ -162,6 +162,17 @@ export class Ant {
     handleCombat(world: World) {
         this.speedMultiplier = 1.5; // Combat adrenaline
 
+        // Cowardice Check for Workers: If fighting alone, run away!
+        if (this.type === 'WORKER' && this.attackCooldown % 30 === 0) {
+            const allies = this.countNearbyAllies(world, 100);
+            if (allies < 2) { // Need at least 2 friends to keep fighting
+                this.state = 'FLEEING';
+                this.fleeTimer = 60;
+                this.angle += Math.PI;
+                return;
+            }
+        }
+
         // Find nearest enemy
         let nearestEnemy = null;
         let minDist = Infinity;
@@ -215,7 +226,7 @@ export class Ant {
             } else {
                 // Worker Mob Courage
                 const allies = this.countNearbyAllies(world, 150); // Check wider area for support
-                if (allies >= 3) {
+                if (allies >= 4) { // Need 4 allies to charge into danger
                     brave = true;
                 }
             }
@@ -255,6 +266,12 @@ export class Ant {
                     const dx = this.x - insect.x;
                     const dy = this.y - insect.y;
                     if (dx * dx + dy * dy < 4900) { // 70px range (agressive search)
+                        // Workers need a group to hunt Prey
+                        if (this.type === 'WORKER') {
+                            const allies = this.countNearbyAllies(world, 80);
+                            if (allies < 3) continue; // Ignore prey if alone
+                        }
+
                         this.state = 'ATTACKING';
                         return;
                     }
