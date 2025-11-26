@@ -40,20 +40,28 @@ export class Ant {
         this.speedMultiplier = 1.0; // Reset speed
 
         if (this.health <= 0) {
-            // Death Pheromone
-            world.grid.depositCircle(this.x, this.y, 'DANGER', 1.0, 10);
+            // Death Pheromone - Massive range to alert everyone
+            world.grid.depositCircle(this.x, this.y, 'DANGER', 1.0, 30);
             return;
         }
 
         // Check for damage -> Alarm Pheromone & Panic
         if (this.health < this.prevHealth) {
-            world.grid.depositCircle(this.x, this.y, 'DANGER', 0.8, 8); // Stronger alarm
+            // Stronger alarm with larger range
+            world.grid.depositCircle(this.x, this.y, 'DANGER', 1.0, 20);
             this.prevHealth = this.health;
 
             if (this.type === 'WORKER') {
-                this.state = 'FLEEING';
-                this.fleeTimer = 60; // Flee for 1 second
-                this.angle += Math.PI; // Turn around immediately
+                // Check if we should fight or flight
+                const allies = this.countNearbyAllies(world, 100);
+                if (allies >= 3) {
+                    this.state = 'ATTACKING';
+                    this.speedMultiplier = 1.3;
+                } else {
+                    this.state = 'FLEEING';
+                    this.fleeTimer = 60;
+                    this.angle += Math.PI;
+                }
             }
         }
 
@@ -72,22 +80,20 @@ export class Ant {
         if (this.attackCooldown > 0) this.attackCooldown--;
         if (this.obstacleTimer > 0) this.obstacleTimer--;
 
-        // Self Defense for Workers: If attacked or near enemy, fight back!
+        // Self Defense for Workers
         if (this.type === 'WORKER' && this.state !== 'ATTACKING' && this.state !== 'FLEEING') {
-            // Simple check for nearby predators
             for (const insect of world.insects) {
-                if (insect.type === 'PREDATOR') {
+                if (insect.type === 'PREDATOR' || insect.type === 'SPIDER' || insect.type === 'BEETLE') {
                     const dx = this.x - insect.x;
                     const dy = this.y - insect.y;
                     if (dx * dx + dy * dy < 900) { // 30px range
-                        // 50% chance to flee, 50% to fight
-                        if (Math.random() < 0.5) {
+                        const allies = this.countNearbyAllies(world, 100);
+                        if (allies >= 3) {
+                            this.state = 'ATTACKING';
+                        } else {
                             this.state = 'FLEEING';
                             this.fleeTimer = 40;
-                            this.angle = Math.atan2(dy, dx) + Math.PI; // Run away
-                        } else {
-                            this.state = 'ATTACKING';
-                            this.targetId = 'PREDATOR';
+                            this.angle = Math.atan2(dy, dx) + Math.PI;
                         }
                         break;
                     }
@@ -115,6 +121,20 @@ export class Ant {
         this.move(world);
     }
 
+    countNearbyAllies(world: World, radius: number): number {
+        let count = 0;
+        const rSq = radius * radius;
+        for (const ant of world.ants) {
+            if (ant === this) continue;
+            const dx = this.x - ant.x;
+            const dy = this.y - ant.y;
+            if (dx * dx + dy * dy < rSq) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     handleFleeing(world: World) {
         this.speedMultiplier = 2.5; // Run fast!
         this.fleeTimer--;
@@ -131,7 +151,7 @@ export class Ant {
 
         // Drop Danger trail while fleeing to warn others
         if (this.fleeTimer % 5 === 0) {
-            world.grid.depositCircle(this.x, this.y, 'DANGER', 0.2, 4);
+            world.grid.depositCircle(this.x, this.y, 'DANGER', 0.5, 10); // Increased trail size
         }
 
         if (this.fleeTimer <= 0) {
@@ -147,10 +167,12 @@ export class Ant {
         let minDist = Infinity;
 
         const needsProtein = world.proteinStockpile < CONFIG.eggCost * 3;
-        const canHunt = this.type === 'SOLDIER' || (this.type === 'WORKER' && needsProtein);
+        // Workers hunt if they need protein OR if they are in a mob (courage)
+        const canHunt = true; // Once in combat state, everyone hunts
 
         for (const insect of world.insects) {
-            if (insect.type === 'PREDATOR' || (canHunt && insect.type === 'PREY')) {
+            // Attack everything except Aphids (unless hungry?)
+            if (insect.type !== 'APHID' || needsProtein) {
                 const dx = this.x - insect.x;
                 const dy = this.y - insect.y;
                 const d2 = dx * dx + dy * dy;
@@ -161,7 +183,7 @@ export class Ant {
             }
         }
 
-        if (nearestEnemy && minDist < 2500) { // 50px chase range
+        if (nearestEnemy && minDist < 10000) { // 100px chase range (increased)
             const dx = nearestEnemy.x - this.x;
             const dy = nearestEnemy.y - this.y;
             this.angle = Math.atan2(dy, dx);
@@ -170,7 +192,7 @@ export class Ant {
                 if (this.attackCooldown <= 0) {
                     const dmg = this.type === 'SOLDIER' ? CONFIG.soldierDamage : CONFIG.workerDamage;
                     nearestEnemy.health -= dmg;
-                    this.attackCooldown = 20; // 1 second cooldown (approx)
+                    this.attackCooldown = 20;
                 }
             }
         } else {
@@ -185,16 +207,22 @@ export class Ant {
 
         // 0. Check for DANGER
         const dangerLevel = world.grid.get(this.x, this.y, 'DANGER');
-        if (dangerLevel > 0.05) { // Sensitive to danger
-            if (this.type === 'WORKER') {
-                // Panic!
-                this.state = 'FLEEING';
-                this.fleeTimer = 30 + Math.random() * 30;
-                this.angle += Math.PI + (Math.random() - 0.5);
-                return;
-            } else if (this.type === 'SOLDIER') {
-                // Charge!
-                this.speedMultiplier = 2.0;
+        if (dangerLevel > 0.05) {
+            let brave = false;
+
+            if (this.type === 'SOLDIER') {
+                brave = true;
+            } else {
+                // Worker Mob Courage
+                const allies = this.countNearbyAllies(world, 150); // Check wider area for support
+                if (allies >= 3) {
+                    brave = true;
+                }
+            }
+
+            if (brave) {
+                // Charge towards danger!
+                this.speedMultiplier = this.type === 'SOLDIER' ? 2.0 : 1.3;
 
                 // Follow gradient strongly
                 const sensorDist = CONFIG.antSensorDist;
@@ -210,6 +238,12 @@ export class Ant {
                 else this.angle += CONFIG.antTurnSpeed * 2;
 
                 this.move(world);
+                return;
+            } else {
+                // Panic!
+                this.state = 'FLEEING';
+                this.fleeTimer = 30 + Math.random() * 30;
+                this.angle += Math.PI + (Math.random() - 0.5);
                 return;
             }
         }
