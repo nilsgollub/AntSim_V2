@@ -129,7 +129,6 @@ export class World {
             const ant = this.ants[i];
             ant.update(this);
             if (ant.health <= 0) {
-                this.foods.push(new Food(ant.x, ant.y, 'CORPSE', 1));
                 this.ants.splice(i, 1);
             }
         }

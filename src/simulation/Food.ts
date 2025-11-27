@@ -1,4 +1,4 @@
-export type FoodType = 'SUGAR' | 'PROTEIN' | 'CORPSE';
+export type FoodType = 'SUGAR' | 'PROTEIN';
 
 export class Food {
     x: number;
