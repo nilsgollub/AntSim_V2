@@ -7,8 +7,13 @@ export class Renderer {
     ctx: CanvasRenderingContext2D;
     width: number;
     height: number;
-    imageData: ImageData;
-    buf32: Uint32Array;
+
+    // Pheromone Rendering
+    pheromoneCanvas: HTMLCanvasElement;
+    pheromoneCtx: CanvasRenderingContext2D;
+    pheroImageData: ImageData;
+    pheroBuf32: Uint32Array;
+
     nestCanvas: HTMLCanvasElement;
     nestCtx: CanvasRenderingContext2D;
     showPheromones: boolean = true;
@@ -18,8 +23,15 @@ export class Renderer {
         this.ctx = canvas.getContext('2d', { alpha: false })!;
         this.width = canvas.width;
         this.height = canvas.height;
-        this.imageData = this.ctx.createImageData(this.width, this.height);
-        this.buf32 = new Uint32Array(this.imageData.data.buffer);
+
+        // Setup Pheromone Offscreen Canvas (1/4 resolution)
+        const scale = 0.25;
+        this.pheromoneCanvas = document.createElement('canvas');
+        this.pheromoneCanvas.width = Math.ceil(this.width * scale);
+        this.pheromoneCanvas.height = Math.ceil(this.height * scale);
+        this.pheromoneCtx = this.pheromoneCanvas.getContext('2d', { alpha: false })!;
+        this.pheroImageData = this.pheromoneCtx.createImageData(this.pheromoneCanvas.width, this.pheromoneCanvas.height);
+        this.pheroBuf32 = new Uint32Array(this.pheroImageData.data.buffer);
 
         this.nestCanvas = document.getElementById('nestCanvas') as HTMLCanvasElement;
         this.nestCtx = this.nestCanvas.getContext('2d')!;
@@ -33,19 +45,14 @@ export class Renderer {
             const toProtein = world.grid.toProtein;
             const toDanger = world.grid.toDanger;
 
-            for (let i = 0; i < this.buf32.length; i++) {
+            // Iterate over the smaller buffer
+            for (let i = 0; i < this.pheroBuf32.length; i++) {
                 const home = toHome[i];
                 const sugar = toSugar[i];
                 const protein = toProtein[i];
                 const danger = toDanger[i];
 
                 if (home > 0.01 || sugar > 0.01 || protein > 0.01 || danger > 0.01) {
-                    // Mix colors
-                    // Protein: Red
-                    // Sugar: Green
-                    // Home: Blue
-                    // Danger: Purple (Red + Blue)
-
                     let r = protein;
                     let g = sugar;
                     let b = home;
@@ -58,16 +65,25 @@ export class Renderer {
                     const gVal = Math.min(255, Math.floor(g * 255));
                     const bVal = Math.min(255, Math.floor(b * 255));
 
-                    this.buf32[i] = (255 << 24) | (bVal << 16) | (gVal << 8) | rVal;
+                    this.pheroBuf32[i] = (255 << 24) | (bVal << 16) | (gVal << 8) | rVal;
                 } else {
-                    this.buf32[i] = 0xFF000000;
+                    this.pheroBuf32[i] = 0xFF000000;
                 }
             }
+
+            // Put data to offscreen canvas
+            this.pheromoneCtx.putImageData(this.pheroImageData, 0, 0);
+
+            // Draw scaled up to main canvas
+            this.ctx.imageSmoothingEnabled = true; // Smooth scaling
+            this.ctx.drawImage(this.pheromoneCanvas, 0, 0, this.width, this.height);
+            this.ctx.imageSmoothingEnabled = false; // Reset for sprites if needed
+
         } else {
             // Clear background
-            this.buf32.fill(0xFF000000);
+            this.ctx.fillStyle = '#000';
+            this.ctx.fillRect(0, 0, this.width, this.height);
         }
-        this.ctx.putImageData(this.imageData, 0, 0);
 
         // 2. Obstacles (Rocks)
         this.ctx.fillStyle = '#555';

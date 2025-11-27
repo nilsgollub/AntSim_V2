@@ -124,7 +124,11 @@ export class Ant {
     countNearbyAllies(world: World, radius: number): number {
         let count = 0;
         const rSq = radius * radius;
-        for (const ant of world.ants) {
+
+        // Use Spatial Grid for O(1) lookup
+        const potentialNeighbors = world.spatialGrid.getNearby(this.x, this.y, radius);
+
+        for (const ant of potentialNeighbors) {
             if (ant === this) continue;
             const dx = this.x - ant.x;
             const dy = this.y - ant.y;

@@ -4,15 +4,17 @@ import { CONFIG } from '../config';
 export class PheromoneGrid {
     width: number;
     height: number;
+    scale: number;
     toHome: Float32Array;
     toSugar: Float32Array;
     toProtein: Float32Array;
     toDanger: Float32Array;
 
     constructor(width: number, height: number) {
-        this.width = width;
-        this.height = height;
-        const size = width * height;
+        this.scale = 0.25; // 1/4 resolution
+        this.width = Math.ceil(width * this.scale);
+        this.height = Math.ceil(height * this.scale);
+        const size = this.width * this.height;
         this.toHome = new Float32Array(size);
         this.toSugar = new Float32Array(size);
         this.toProtein = new Float32Array(size);
@@ -36,8 +38,8 @@ export class PheromoneGrid {
     }
 
     deposit(x: number, y: number, type: 'HOME' | 'SUGAR' | 'PROTEIN' | 'DANGER', amount: number) {
-        const ix = Math.floor(x);
-        const iy = Math.floor(y);
+        const ix = Math.floor(x * this.scale);
+        const iy = Math.floor(y * this.scale);
         if (ix >= 0 && ix < this.width && iy >= 0 && iy < this.height) {
             const idx = iy * this.width + ix;
             if (type === 'HOME') this.toHome[idx] = Math.min(1.0, this.toHome[idx] + amount);
@@ -48,17 +50,21 @@ export class PheromoneGrid {
     }
 
     depositCircle(x: number, y: number, type: 'HOME' | 'SUGAR' | 'PROTEIN' | 'DANGER', amount: number, radius: number) {
-        const startX = Math.floor(x - radius);
-        const endX = Math.floor(x + radius);
-        const startY = Math.floor(y - radius);
-        const endY = Math.floor(y + radius);
-        const r2 = radius * radius;
+        const scaledX = x * this.scale;
+        const scaledY = y * this.scale;
+        const scaledRadius = radius * this.scale;
+
+        const startX = Math.floor(scaledX - scaledRadius);
+        const endX = Math.floor(scaledX + scaledRadius);
+        const startY = Math.floor(scaledY - scaledRadius);
+        const endY = Math.floor(scaledY + scaledRadius);
+        const r2 = scaledRadius * scaledRadius;
 
         for (let iy = startY; iy <= endY; iy++) {
             for (let ix = startX; ix <= endX; ix++) {
                 if (ix >= 0 && ix < this.width && iy >= 0 && iy < this.height) {
-                    const dx = ix - x;
-                    const dy = iy - y;
+                    const dx = ix - scaledX;
+                    const dy = iy - scaledY;
                     if (dx * dx + dy * dy <= r2) {
                         const idx = iy * this.width + ix;
                         if (type === 'HOME') this.toHome[idx] = Math.min(1.0, this.toHome[idx] + amount);
@@ -72,8 +78,8 @@ export class PheromoneGrid {
     }
 
     get(x: number, y: number, type: 'HOME' | 'SUGAR' | 'PROTEIN' | 'DANGER'): number {
-        const ix = Math.floor(x);
-        const iy = Math.floor(y);
+        const ix = Math.floor(x * this.scale);
+        const iy = Math.floor(y * this.scale);
         if (ix >= 0 && ix < this.width && iy >= 0 && iy < this.height) {
             const idx = iy * this.width + ix;
             if (type === 'HOME') return this.toHome[idx];

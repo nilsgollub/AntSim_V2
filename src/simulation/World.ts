@@ -6,6 +6,8 @@ import { Food } from './Food';
 import { Terrain } from './Terrain';
 import { PheromoneGrid } from './PheromoneGrid';
 
+import { SpatialGrid } from './SpatialGrid';
+
 export class World {
     ants: Ant[];
     queen: Queen;
@@ -13,6 +15,7 @@ export class World {
     foods: Food[];
     terrain: Terrain;
     grid: PheromoneGrid;
+    spatialGrid: SpatialGrid;
 
     // Resources
     proteinStockpile: number = 0;
@@ -29,6 +32,7 @@ export class World {
     constructor() {
         this.terrain = new Terrain();
         this.grid = new PheromoneGrid(CONFIG.width, CONFIG.height);
+        this.spatialGrid = new SpatialGrid(CONFIG.width, CONFIG.height, 50);
         this.ants = [];
         this.insects = [];
         this.foods = [];
@@ -114,6 +118,12 @@ export class World {
     update() {
         this.grid.update();
         this.queen.update(this);
+
+        // Update Spatial Grid
+        this.spatialGrid.clear();
+        for (const ant of this.ants) {
+            this.spatialGrid.add(ant);
+        }
 
         // Update Particles
         for (let i = this.particles.length - 1; i >= 0; i--) {
