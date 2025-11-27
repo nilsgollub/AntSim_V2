@@ -5,8 +5,8 @@ import { Insect } from './Insect';
 import { Food } from './Food';
 import { Terrain } from './Terrain';
 import { PheromoneGrid } from './PheromoneGrid';
-
 import { SpatialGrid } from './SpatialGrid';
+import { Brood } from './Brood';
 
 export class World {
     ants: Ant[];
@@ -17,14 +17,16 @@ export class World {
     grid: PheromoneGrid;
     spatialGrid: SpatialGrid;
 
+    brood: Brood[];
+
     // Resources
     proteinStockpile: number = 0;
     sugarStockpile: number = 0;
 
-    // Brood
-    eggs: number = 0;
-    larvae: number = 0;
-    pupae: number = 0;
+    // Brood Stats (Getters for compatibility)
+    get eggs(): number { return this.brood.filter(b => b.stage === 'EGG').length; }
+    get larvae(): number { return this.brood.filter(b => b.stage === 'LARVA').length; }
+    get pupae(): number { return this.brood.filter(b => b.stage === 'PUPA').length; }
 
     // Particles
     particles: { x: number, y: number, vx: number, vy: number, life: number, color: string }[] = [];
@@ -36,6 +38,7 @@ export class World {
         this.ants = [];
         this.insects = [];
         this.foods = [];
+        this.brood = [];
         this.queen = new Queen();
 
         this.init();
@@ -50,9 +53,12 @@ export class World {
         this.spawnAnt('SOLDIER');
 
         // Initial Brood
-        this.eggs = 20;
-        this.larvae = 10;
-        this.pupae = 5;
+        for (let i = 0; i < 20; i++) {
+            this.brood.push(new Brood(
+                CONFIG.queenPosition.x + (Math.random() - 0.5) * 40,
+                CONFIG.queenPosition.y + (Math.random() - 0.5) * 40
+            ));
+        }
 
         // Spawn initial food (Sugar near nest)
         this.foods.push(new Food(
@@ -82,10 +88,6 @@ export class World {
             life: 1.0,
             color
         });
-    }
-
-    spawnBrood() {
-        this.eggs++;
     }
 
     spawnFood(type: 'SUGAR' | 'PROTEIN') {
@@ -123,6 +125,29 @@ export class World {
         this.spatialGrid.clear();
         for (const ant of this.ants) {
             this.spatialGrid.add(ant);
+        }
+
+        // Update Brood
+        for (let i = this.brood.length - 1; i >= 0; i--) {
+            const b = this.brood[i];
+            const readyToHatch = b.update();
+            if (readyToHatch) {
+                // Hatch!
+                // Dynamic Caste Production
+                const soldiers = this.ants.filter(a => a.type === 'SOLDIER').length;
+                const workers = this.ants.filter(a => a.type === 'WORKER').length;
+
+                if (soldiers < workers / 5 && workers > CONFIG.soldierUnlockThreshold) {
+                    this.spawnAnt('SOLDIER');
+                } else {
+                    this.spawnAnt('WORKER');
+                }
+
+                this.brood.splice(i, 1);
+            } else if (b.stage === 'LARVA' && b.hunger > 100) {
+                // Starved to death
+                this.brood.splice(i, 1);
+            }
         }
 
         // Update Particles
@@ -180,7 +205,7 @@ export class World {
             }
         }
         // Spawn Aphids (Blattläuse)
-        if (this.insects.filter(i => i.type === 'APHID').length < 8) { // Increased limit slightly
+        if (this.insects.filter(i => i.type === 'APHID').length < 8) {
             if (Math.random() < 0.003) {
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'APHID'));
@@ -205,16 +230,7 @@ export class World {
         }
         // Respawn Sugar
         if (this.foods.filter(f => f.type === 'SUGAR').length < CONFIG.sugarSourceCount) {
-            if (Math.random() < 0.05) this.spawnFood('SUGAR'); // Increased spawn rate
-        }
-
-        // Brood Development
-        if (this.eggs > 0 && Math.random() < 0.01) { this.eggs--; this.larvae++; }
-        if (this.larvae > 0 && Math.random() < 0.005) { this.larvae--; this.pupae++; }
-        if (this.pupae > 0 && Math.random() < 0.005) {
-            this.pupae--;
-            const type = this.ants.length > CONFIG.soldierUnlockThreshold && Math.random() < 0.2 ? 'SOLDIER' : 'WORKER';
-            this.spawnAnt(type);
+            if (Math.random() < 0.05) this.spawnFood('SUGAR');
         }
     }
 }

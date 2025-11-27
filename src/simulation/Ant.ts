@@ -1,39 +1,47 @@
 import { CONFIG } from '../config';
 import { World } from './World';
 
-
-export type AntState = 'IDLE' | 'FORAGING' | 'RETURNING' | 'ATTACKING' | 'FLEEING';
-export type AntType = 'WORKER' | 'SOLDIER';
+export type AntState = 'FORAGING' | 'RETURNING' | 'ATTACKING' | 'FLEEING' | 'IDLE' | 'NURSING' | 'PATROLLING';
 
 export class Ant {
     x: number;
     y: number;
+    type: 'WORKER' | 'SOLDIER';
+    state: AntState = 'FORAGING';
     angle: number;
-    type: AntType;
-    state: AntState;
-
+    energy: number = CONFIG.antMaxEnergy;
+    maxEnergy: number = CONFIG.antMaxEnergy;
     health: number;
-    energy: number;
-    carrying: 'NONE' | 'SUGAR' | 'PROTEIN';
+    maxHealth: number;
+    carrying: 'NONE' | 'SUGAR' | 'PROTEIN' = 'NONE';
+    carryingAmount: number = 0;
+
+    // Timers
     attackCooldown: number = 0;
-
-    targetId: string | null = null; // ID of target (food or enemy)
-
-    prevHealth: number;
-    speedMultiplier: number = 1.0;
     fleeTimer: number = 0;
     obstacleTimer: number = 0;
+    patrolAngle: number = 0; // For patrolling soldiers
+    patrolRadius: number = 100 + Math.random() * 100;
 
-    constructor(x: number, y: number, type: AntType) {
+    // Helper for smoothing
+    prevHealth: number;
+    speedMultiplier: number = 1.0;
+
+    constructor(x: number, y: number, type: 'WORKER' | 'SOLDIER') {
         this.x = x;
         this.y = y;
-        this.angle = Math.random() * Math.PI * 2;
         this.type = type;
-        this.state = 'FORAGING'; // Default to foraging
-        this.health = type === 'SOLDIER' ? CONFIG.soldierHealth : CONFIG.workerHealth;
+        this.angle = Math.random() * Math.PI * 2;
+
+        if (type === 'WORKER') {
+            this.maxHealth = CONFIG.workerHealth;
+            this.state = 'FORAGING';
+        } else {
+            this.maxHealth = CONFIG.soldierHealth;
+            this.state = 'PATROLLING'; // Soldiers patrol by default
+        }
+        this.health = this.maxHealth;
         this.prevHealth = this.health;
-        this.energy = CONFIG.antMaxEnergy;
-        this.carrying = 'NONE';
     }
 
     update(world: World) {
@@ -62,6 +70,8 @@ export class Ant {
                     this.fleeTimer = 60;
                     this.angle += Math.PI;
                 }
+            } else if (this.type === 'SOLDIER') {
+                this.state = 'ATTACKING'; // Soldiers always fight back
             }
         }
 
@@ -80,20 +90,23 @@ export class Ant {
         if (this.attackCooldown > 0) this.attackCooldown--;
         if (this.obstacleTimer > 0) this.obstacleTimer--;
 
-        // Self Defense for Workers
-        if (this.type === 'WORKER' && this.state !== 'ATTACKING' && this.state !== 'FLEEING') {
+        // Self Defense / Aggression
+        if (this.state !== 'ATTACKING' && this.state !== 'FLEEING') {
+            // Check for enemies
             for (const insect of world.insects) {
                 if (insect.type === 'PREDATOR' || insect.type === 'SPIDER' || insect.type === 'BEETLE') {
-                    const dx = this.x - insect.x;
-                    const dy = this.y - insect.y;
-                    if (dx * dx + dy * dy < 900) { // 30px range
-                        const allies = this.countNearbyAllies(world, 100);
-                        if (allies >= 4) { // Need 4 allies to be brave
+                    const distSq = (this.x - insect.x) ** 2 + (this.y - insect.y) ** 2;
+                    if (distSq < 2500) { // 50px
+                        if (this.type === 'SOLDIER') {
                             this.state = 'ATTACKING';
                         } else {
-                            this.state = 'FLEEING';
-                            this.fleeTimer = 40;
-                            this.angle = Math.atan2(dy, dx) + Math.PI;
+                            const allies = this.countNearbyAllies(world, 100);
+                            if (allies >= 4) this.state = 'ATTACKING';
+                            else {
+                                this.state = 'FLEEING';
+                                this.fleeTimer = 40;
+                                this.angle = Math.atan2(this.y - insect.y, this.x - insect.x) + Math.PI;
+                            }
                         }
                         break;
                     }
@@ -101,20 +114,22 @@ export class Ant {
             }
         }
 
+        // Worker Nursing Check
+        if (this.type === 'WORKER' && this.state === 'RETURNING' && this.carrying === 'PROTEIN') {
+            // Check if Queen needs food
+            if (world.queen.energy < 1000 || world.brood.some(b => b.stage === 'LARVA' && b.hunger > 50)) {
+                this.state = 'NURSING';
+            }
+        }
+
         // State Machine
         switch (this.state) {
-            case 'FORAGING':
-                this.handleForaging(world);
-                break;
-            case 'RETURNING':
-                this.handleReturning(world);
-                break;
-            case 'ATTACKING':
-                this.handleCombat(world);
-                break;
-            case 'FLEEING':
-                this.handleFleeing(world);
-                break;
+            case 'FORAGING': this.handleForaging(world); break;
+            case 'RETURNING': this.handleReturning(world); break;
+            case 'ATTACKING': this.handleCombat(world); break;
+            case 'FLEEING': this.handleFleeing(world); break;
+            case 'NURSING': this.handleNursing(world); break;
+            case 'PATROLLING': this.handlePatrolling(world); break;
         }
 
         // Movement
@@ -137,6 +152,78 @@ export class Ant {
             }
         }
         return count;
+    }
+
+    handleNursing(world: World) {
+        // Prioritize Queen
+        let targetX = world.queen.x;
+        let targetY = world.queen.y;
+        let target: any = world.queen;
+
+        // If Queen is full, find hungry Larva
+        if (world.queen.energy > 1500) {
+            const hungryLarva = world.brood.find(b => b.stage === 'LARVA' && b.hunger > 20);
+            if (hungryLarva) {
+                targetX = hungryLarva.x;
+                targetY = hungryLarva.y;
+                target = hungryLarva;
+            } else {
+                // No one hungry, dump in stockpile
+                this.state = 'RETURNING';
+                return;
+            }
+        }
+
+        // Move to target
+        const dx = targetX - this.x;
+        const dy = targetY - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        this.angle = Math.atan2(dy, dx);
+
+        if (dist < 10) {
+            // Feed
+            if (target === world.queen) {
+                world.queen.energy += 500; // Feed queen
+            } else {
+                target.feed(50); // Feed larva
+            }
+
+            this.carryingAmount -= 50; // Assume protein chunk is large
+            // Simplified: One protein item feeds one thing fully for now
+            this.carrying = 'NONE';
+            this.carryingAmount = 0;
+            this.state = 'FORAGING';
+        }
+    }
+
+    handlePatrolling(_world: World) {
+        // Circle around the nest
+        const centerX = CONFIG.queenPosition.x;
+        const centerY = CONFIG.queenPosition.y;
+
+        // Orbit logic
+        this.patrolAngle += 0.01;
+        const targetX = centerX + Math.cos(this.patrolAngle) * this.patrolRadius;
+        const targetY = centerY + Math.sin(this.patrolAngle) * this.patrolRadius;
+
+        const dx = targetX - this.x;
+        const dy = targetY - this.y;
+
+        // Move towards patrol point
+        const desiredAngle = Math.atan2(dy, dx);
+
+        // Smooth turn
+        let diff = desiredAngle - this.angle;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        this.angle += diff * 0.1;
+
+        // Look for trouble (handled in update loop)
+
+        // Occasionally stop to scan
+        if (Math.random() < 0.005) {
+            this.angle += Math.PI; // Turn around to look
+        }
     }
 
     handleFleeing(world: World) {
@@ -183,7 +270,6 @@ export class Ant {
 
         const needsProtein = world.proteinStockpile < CONFIG.eggCost * 3;
         // Workers hunt if they need protein OR if they are in a mob (courage)
-        const canHunt = true; // Once in combat state, everyone hunts
 
         for (const insect of world.insects) {
             // Attack everything except Aphids (unless hungry?)

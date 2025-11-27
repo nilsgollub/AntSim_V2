@@ -113,15 +113,55 @@ export class Renderer {
             this.drawInsect(insect);
         }
 
-        // 6. Ants
+        // 6. Brood (Eggs, Larvae, Pupae)
+        for (const b of world.brood) {
+            this.drawBrood(b);
+        }
+
+        // 7. Ants
         for (const ant of world.ants) {
             this.drawAnt(ant);
         }
 
-        // 7. Particles
+        // 8. Particles
         this.drawParticles(world);
 
         this.drawNestCam(world);
+    }
+
+    drawBrood(b: any) {
+        this.ctx.save();
+        this.ctx.translate(b.x, b.y);
+
+        if (b.stage === 'EGG') {
+            this.ctx.fillStyle = '#FFF';
+            this.ctx.beginPath();
+            this.ctx.ellipse(0, 0, 2, 1.5, Math.random(), 0, Math.PI * 2);
+            this.ctx.fill();
+        } else if (b.stage === 'LARVA') {
+            this.ctx.fillStyle = '#EEE';
+            this.ctx.beginPath();
+            // Simple worm shape
+            this.ctx.ellipse(0, 0, 3 + b.age / 100, 1.5, 0, 0, Math.PI * 2);
+            this.ctx.fill();
+            // Segments
+            this.ctx.strokeStyle = '#CCC';
+            this.ctx.lineWidth = 0.5;
+            this.ctx.beginPath();
+            this.ctx.moveTo(-1, -1); this.ctx.lineTo(-1, 1);
+            this.ctx.moveTo(1, -1); this.ctx.lineTo(1, 1);
+            this.ctx.stroke();
+        } else if (b.stage === 'PUPA') {
+            this.ctx.fillStyle = '#D2B48C'; // Tan
+            this.ctx.beginPath();
+            this.ctx.ellipse(0, 0, 3.5, 2, 0, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.strokeStyle = '#8B4513';
+            this.ctx.lineWidth = 0.5;
+            this.ctx.stroke();
+        }
+
+        this.ctx.restore();
     }
 
     drawParticles(world: World) {
