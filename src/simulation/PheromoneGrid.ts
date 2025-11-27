@@ -1,4 +1,4 @@
-import { CONFIG } from '../config';
+
 
 export class PheromoneGrid {
     width: number;
@@ -19,13 +19,16 @@ export class PheromoneGrid {
     }
 
     update() {
-        const decay = CONFIG.pheromoneDecay;
         // Simple decay for now. Diffusion is expensive in JS without shaders/WASM
+        const homeDecay = 0.999; // Extremely stable (permanent trails)
+        const foodDecay = 0.99; // Stable while food lasts
+        const dangerDecay = 0.95; // Volatile, disappears quickly
+
         for (let i = 0; i < this.toHome.length; i++) {
-            this.toHome[i] *= decay;
-            this.toSugar[i] *= decay;
-            this.toProtein[i] *= decay;
-            this.toDanger[i] *= 0.95; // Danger decays faster
+            this.toHome[i] *= homeDecay;
+            this.toSugar[i] *= foodDecay;
+            this.toProtein[i] *= foodDecay;
+            this.toDanger[i] *= dangerDecay;
 
             if (this.toHome[i] < 0.001) this.toHome[i] = 0;
             if (this.toSugar[i] < 0.001) this.toSugar[i] = 0;

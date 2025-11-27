@@ -2,7 +2,8 @@ import { CONFIG } from '../config';
 import { World } from './World';
 
 
-export type AntState = 'IDLE' | 'FORAGING' | 'RETURNING' | 'ATTACKING' | 'FLEEING';
+export type AntState = 'IDLE' | 'FORAGING' | 'RETURNING' | 'ATTACKING' | 'FLEEING' | 'CARRYING_CORPSE';
+export type AntRole = 'NURSE' | 'FORAGER' | 'PATROLLER' | 'UNDERTAKER';
 export type AntType = 'WORKER' | 'SOLDIER';
 
 export class Ant {
@@ -12,9 +13,11 @@ export class Ant {
     type: AntType;
     state: AntState;
 
+    role: AntRole;
+
     health: number;
     energy: number;
-    carrying: 'NONE' | 'SUGAR' | 'PROTEIN';
+    carrying: 'NONE' | 'SUGAR' | 'PROTEIN' | 'CORPSE';
     attackCooldown: number = 0;
 
     targetId: string | null = null; // ID of target (food or enemy)
@@ -29,6 +32,7 @@ export class Ant {
         this.y = y;
         this.angle = Math.random() * Math.PI * 2;
         this.type = type;
+        this.role = 'FORAGER'; // Default role
         this.state = 'FORAGING'; // Default to foraging
         this.health = type === 'SOLDIER' ? CONFIG.soldierHealth : CONFIG.workerHealth;
         this.prevHealth = this.health;
@@ -38,6 +42,9 @@ export class Ant {
 
     update(world: World) {
         this.speedMultiplier = 1.0; // Reset speed
+
+        this.updateRole(world);
+        this.handleInteractions(world);
 
         if (this.health <= 0) {
             // Death Pheromone - Massive range to alert everyone
@@ -305,6 +312,10 @@ export class Ant {
         for (const food of world.foods) {
             if (food.amount <= 0) continue;
 
+            // Filter based on Role
+            if (this.role === 'UNDERTAKER' && food.type !== 'CORPSE') continue;
+            if (this.role !== 'UNDERTAKER' && food.type === 'CORPSE') continue;
+
             const dx = food.x - this.x;
             const dy = food.y - this.y;
             const distSq = dx * dx + dy * dy;
@@ -343,16 +354,8 @@ export class Ant {
         const center = getPheromoneLevel(0);
         const right = getPheromoneLevel(sensorAngle);
 
-        if (center > 0.05 || left > 0.05 || right > 0.05) {
-            if (center > left && center > right) {
-                this.angle += (Math.random() - 0.5) * 0.1;
-            } else if (center < left && center < right) {
-                this.angle += (Math.random() - 0.5) * 2 * CONFIG.antTurnSpeed;
-            } else if (left > right) {
-                this.angle -= CONFIG.antTurnSpeed;
-            } else if (right > left) {
-                this.angle += CONFIG.antTurnSpeed;
-            }
+        if (center > 0.01 || left > 0.01 || right > 0.01) {
+            this.chooseDirection(left, center, right);
         } else {
             this.wander();
         }
@@ -375,12 +378,32 @@ export class Ant {
                 world.sugarStockpile += CONFIG.sugarValue;
             } else if (this.carrying === 'PROTEIN') {
                 world.proteinStockpile += CONFIG.proteinValue;
+            } else if (this.carrying === 'CORPSE') {
+                // Should not drop corpse at nest!
+                this.angle += Math.PI;
+                return;
             }
             this.carrying = 'NONE';
             this.state = 'FORAGING';
             this.energy = CONFIG.antMaxEnergy; // Refuel at nest
             this.angle += Math.PI;
             return;
+        }
+
+        // Necrophoresis: Drop corpse far away
+        if (this.carrying === 'CORPSE') {
+            if (distSq > 250000) { // > 500px from nest
+                // Drop corpse
+                world.foods.push(new (world.foods[0].constructor as any)(this.x, this.y, 'CORPSE', 1));
+                this.carrying = 'NONE';
+                this.state = 'FORAGING';
+                this.angle += Math.PI;
+                return;
+            } else {
+                // Move away from nest
+                this.angle = Math.atan2(this.y - CONFIG.queenPosition.y, this.x - CONFIG.queenPosition.x) + (Math.random() - 0.5);
+                return;
+            }
         }
 
         // 2. Follow Home Pheromones
@@ -397,14 +420,8 @@ export class Ant {
         const center = getHomeLevel(0);
         const right = getHomeLevel(sensorAngle);
 
-        if (center > 0.05 || left > 0.05 || right > 0.05) {
-            if (center > left && center > right) {
-                this.angle += (Math.random() - 0.5) * 0.1;
-            } else if (left > right) {
-                this.angle -= CONFIG.antTurnSpeed;
-            } else if (right > left) {
-                this.angle += CONFIG.antTurnSpeed;
-            }
+        if (center > 0.01 || left > 0.01 || right > 0.01) {
+            this.chooseDirection(left, center, right);
         } else {
             this.angle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.5;
         }
@@ -438,5 +455,65 @@ export class Ant {
 
     wander() {
         this.angle += (Math.random() - 0.5) * CONFIG.antTurnSpeed;
+    }
+
+    updateRole(world: World) {
+        // Simple dynamic task allocation
+        if (this.type === 'SOLDIER') {
+            this.role = 'PATROLLER';
+            return;
+        }
+
+        // Workers adapt
+        const danger = world.grid.get(this.x, this.y, 'DANGER');
+        if (danger > 0.1) {
+            this.role = 'PATROLLER'; // Defend!
+        } else if (world.sugarStockpile < 100) {
+            this.role = 'FORAGER'; // We need food
+        } else if (world.foods.some(f => f.type === 'CORPSE')) {
+            // If there are corpses and we have enough food, become undertaker
+            // Limit undertakers to avoid everyone doing it
+            if (Math.random() < 0.1) this.role = 'UNDERTAKER';
+        } else {
+            this.role = 'FORAGER';
+        }
+    }
+
+    handleInteractions(world: World) {
+        // Trophallaxis (Food Sharing)
+        if (this.energy > CONFIG.antMaxEnergy * 0.8) {
+            // I have plenty of energy, look for hungry friends
+            for (const other of world.ants) {
+                if (other === this) continue;
+                const dx = this.x - other.x;
+                const dy = this.y - other.y;
+                if (dx * dx + dy * dy < 100) { // Touch range
+                    if (other.energy < CONFIG.antMaxEnergy * 0.4) {
+                        // Share energy
+                        const amount = 10;
+                        this.energy -= amount;
+                        other.energy += amount;
+                        // Stop briefly to share
+                        this.speedMultiplier = 0;
+                        other.speedMultiplier = 0;
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    chooseDirection(left: number, center: number, right: number) {
+        // Probabilistic direction choice based on pheromone strength
+        const total = left + center + right + 0.001; // Avoid divide by zero
+        const r = Math.random() * total;
+
+        if (r < left) {
+            this.angle -= CONFIG.antTurnSpeed;
+        } else if (r < left + center) {
+            this.angle += (Math.random() - 0.5) * 0.1; // Go roughly straight
+        } else {
+            this.angle += CONFIG.antTurnSpeed;
+        }
     }
 }
