@@ -1,176 +1,138 @@
 import { CONFIG } from '../config';
 import { World } from './World';
 
-export type AntState = 'FORAGING' | 'RETURNING' | 'ATTACKING' | 'FLEEING' | 'IDLE' | 'NURSING' | 'PATROLLING';
-
 export class Ant {
     x: number;
     y: number;
-    type: 'WORKER' | 'SOLDIER';
-    state: AntState = 'FORAGING';
     angle: number;
-    energy: number = CONFIG.antMaxEnergy;
-    maxEnergy: number = CONFIG.antMaxEnergy;
-    health: number;
-    maxHealth: number;
-    carrying: 'NONE' | 'SUGAR' | 'PROTEIN' = 'NONE';
+    type: 'WORKER' | 'SOLDIER' | 'QUEEN';
+    state: 'FORAGING' | 'RETURNING' | 'IDLE' | 'NURSING' | 'PATROLLING' | 'FLEEING' | 'ATTACKING' | 'TRANSPORTING';
+    carrying: 'NONE' | 'SUGAR' | 'PROTEIN' | 'BROOD';
     carryingAmount: number = 0;
+    carryingInstance: any = null;
+    energy: number;
+    health: number;
+    location: 'WORLD' | 'NEST';
 
-    // Timers
-    attackCooldown: number = 0;
-    fleeTimer: number = 0;
+    // Pathfinding/Movement
     obstacleTimer: number = 0;
-    patrolAngle: number = 0; // For patrolling soldiers
-    patrolRadius: number = 100 + Math.random() * 100;
-
-    // Helper for smoothing
-    prevHealth: number;
+    fleeTimer: number = 0;
+    attackCooldown: number = 0;
     speedMultiplier: number = 1.0;
 
-    constructor(x: number, y: number, type: 'WORKER' | 'SOLDIER') {
+    // Patrol logic
+    patrolAngle: number = 0;
+    patrolRadius: number = 100;
+    patrolTarget: { x: number, y: number } | null = null;
+
+    constructor(x: number, y: number, type: 'WORKER' | 'SOLDIER' | 'QUEEN') {
         this.x = x;
         this.y = y;
         this.type = type;
         this.angle = Math.random() * Math.PI * 2;
+        this.energy = CONFIG.antMaxEnergy;
+        this.health = type === 'SOLDIER' ? CONFIG.soldierHealth : CONFIG.workerHealth;
+        this.carrying = 'NONE';
+        this.location = 'WORLD'; // Start in world
 
-        if (type === 'WORKER') {
-            this.maxHealth = CONFIG.workerHealth;
-            this.state = 'FORAGING';
+        // Initial State Assignment
+        if (type === 'QUEEN') {
+            this.state = 'IDLE'; // Queen just chills
+            this.location = 'NEST';
+        } else if (type === 'SOLDIER') {
+            this.state = 'PATROLLING';
         } else {
-            this.maxHealth = CONFIG.soldierHealth;
-            this.state = 'PATROLLING'; // Soldiers patrol by default
+            // Workers split between Foraging and Nursing
+            this.state = Math.random() > 0.3 ? 'FORAGING' : 'NURSING';
+            if (this.state === 'NURSING') this.location = 'NEST';
         }
-        this.health = this.maxHealth;
-        this.prevHealth = this.health;
     }
 
     update(world: World) {
-        this.speedMultiplier = 1.0; // Reset speed
-
-        if (this.health <= 0) {
-            // Death Pheromone - Massive range to alert everyone
-            world.grid.depositCircle(this.x, this.y, 'DANGER', 1.0, 30);
-            return;
-        }
-
-        // Check for damage -> Alarm Pheromone & Panic
-        if (this.health < this.prevHealth) {
-            // Stronger alarm with larger range
-            world.grid.depositCircle(this.x, this.y, 'DANGER', 1.0, 20);
-            this.prevHealth = this.health;
-
-            if (this.type === 'WORKER') {
-                // Check if we should fight or flight
-                const allies = this.countNearbyAllies(world, 100);
-                if (allies >= 3) {
-                    this.state = 'ATTACKING';
-                    this.speedMultiplier = 1.3;
-                } else {
-                    this.state = 'FLEEING';
-                    this.fleeTimer = 60;
-                    this.angle += Math.PI;
-                }
-            } else if (this.type === 'SOLDIER') {
-                this.state = 'ATTACKING'; // Soldiers always fight back
-            }
-        }
-
-        // Energy decay
         this.energy -= CONFIG.antEnergyDecay;
         if (this.energy <= 0) {
-            // Try to eat from colony stockpile
-            if (world.sugarStockpile >= 1) {
-                world.sugarStockpile -= 1;
-                this.energy = CONFIG.antMaxEnergy;
-            } else {
-                this.health -= 0.1; // Starving
+            this.health--;
+            if (this.health <= 0) {
+                // Die
+                const index = world.ants.indexOf(this);
+                if (index > -1) world.ants.splice(index, 1);
+                return;
             }
         }
 
         if (this.attackCooldown > 0) this.attackCooldown--;
         if (this.obstacleTimer > 0) this.obstacleTimer--;
 
-        // Self Defense / Aggression
-        if (this.state !== 'ATTACKING' && this.state !== 'FLEEING') {
-            // Check for enemies
-            for (const insect of world.insects) {
-                if (insect.type === 'PREDATOR' || insect.type === 'SPIDER' || insect.type === 'BEETLE') {
-                    const distSq = (this.x - insect.x) ** 2 + (this.y - insect.y) ** 2;
-                    if (distSq < 2500) { // 50px
-                        if (this.type === 'SOLDIER') {
-                            this.state = 'ATTACKING';
-                        } else {
-                            const allies = this.countNearbyAllies(world, 100);
-                            if (allies >= 4) this.state = 'ATTACKING';
-                            else {
-                                this.state = 'FLEEING';
-                                this.fleeTimer = 40;
-                                this.angle = Math.atan2(this.y - insect.y, this.x - insect.x) + Math.PI;
-                            }
-                        }
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Worker Nursing Check
-        if (this.type === 'WORKER' && this.state === 'RETURNING' && this.carrying === 'PROTEIN') {
-            // Check if Queen needs food
-            if (world.queen.energy < 1000 || world.brood.some(b => b.stage === 'LARVA' && b.hunger > 50)) {
-                this.state = 'NURSING';
-            }
-        }
-
         // State Machine
         switch (this.state) {
-            case 'FORAGING': this.handleForaging(world); break;
-            case 'RETURNING': this.handleReturning(world); break;
-            case 'ATTACKING': this.handleCombat(world); break;
-            case 'FLEEING': this.handleFleeing(world); break;
-            case 'NURSING': this.handleNursing(world); break;
-            case 'PATROLLING': this.handlePatrolling(world); break;
+            case 'FORAGING':
+                this.handleForaging(world);
+                break;
+            case 'RETURNING':
+                this.handleReturning(world);
+                break;
+            case 'NURSING':
+                this.handleNursing(world);
+                break;
+            case 'PATROLLING':
+                this.handlePatrolling(world);
+                break;
+            case 'FLEEING':
+                this.handleFleeing(world);
+                break;
+            case 'ATTACKING':
+                this.handleCombat(world);
+                break;
+            case 'TRANSPORTING':
+                this.handleTransporting(world);
+                break;
+            case 'IDLE':
+                if (this.type === 'QUEEN') {
+                    // Queen idle logic
+                } else if (this.type === 'WORKER') {
+                    this.handleNurseIdle(world);
+                }
+                break;
         }
 
-        // Movement
         this.move(world);
     }
 
-    countNearbyAllies(world: World, radius: number): number {
-        let count = 0;
-        const rSq = radius * radius;
-
-        // Use Spatial Grid for O(1) lookup
-        const potentialNeighbors = world.spatialGrid.getNearby(this.x, this.y, radius);
-
-        for (const ant of potentialNeighbors) {
-            if (ant === this) continue;
-            const dx = this.x - ant.x;
-            const dy = this.y - ant.y;
-            if (dx * dx + dy * dy < rSq) {
-                count++;
-            }
-        }
-        return count;
-    }
-
     handleNursing(world: World) {
+        // If not carrying protein, go get some (via IDLE state)
+        if (this.carrying !== 'PROTEIN') {
+            this.state = 'IDLE';
+            return;
+        }
+
         // Prioritize Queen
         let targetX = world.queen.x;
         let targetY = world.queen.y;
         let target: any = world.queen;
 
-        // If Queen is full, find hungry Larva
-        if (world.queen.energy > 1500) {
-            const hungryLarva = world.brood.find(b => b.stage === 'LARVA' && b.hunger > 20);
-            if (hungryLarva) {
-                targetX = hungryLarva.x;
-                targetY = hungryLarva.y;
-                target = hungryLarva;
+        // 1. Critical Larvae (Starving) - Priority #1
+        const criticalLarva = world.brood.find(b => b.stage === 'LARVA' && b.hunger > 50);
+        if (criticalLarva) {
+            targetX = criticalLarva.x;
+            targetY = criticalLarva.y;
+            target = criticalLarva;
+        } else {
+            // 2. Queen (if not full) - Priority #2
+            if (world.queen.energy < 1500) {
+                // Target Queen
+                // (Already set as default target)
             } else {
-                // No one hungry, dump in stockpile
-                this.state = 'RETURNING';
-                return;
+                // 3. Normal Larvae (Hungry) - Priority #3
+                const hungryLarva = world.brood.find(b => b.stage === 'LARVA' && b.hunger > 20);
+                if (hungryLarva) {
+                    targetX = hungryLarva.x;
+                    targetY = hungryLarva.y;
+                    target = hungryLarva;
+                } else {
+                    // No one hungry, dump in stockpile
+                    this.state = 'RETURNING';
+                    return;
+                }
             }
         }
 
@@ -192,38 +154,211 @@ export class Ant {
             // Simplified: One protein item feeds one thing fully for now
             this.carrying = 'NONE';
             this.carryingAmount = 0;
-            this.state = 'FORAGING';
+            this.state = 'IDLE'; // Go back to idle to check for more work
         }
     }
 
-    handlePatrolling(_world: World) {
-        // Circle around the nest
-        const centerX = CONFIG.queenPosition.x;
-        const centerY = CONFIG.queenPosition.y;
+    handleNurseIdle(world: World) {
+        if (this.location === 'WORLD') {
+            // Go to Entrance (Right edge of World)
+            const dx = CONFIG.width - this.x;
+            const dy = (CONFIG.height / 2) - this.y;
+            this.angle = Math.atan2(dy, dx);
+            return;
+        }
 
-        // Orbit logic
-        this.patrolAngle += 0.01;
-        const targetX = centerX + Math.cos(this.patrolAngle) * this.patrolRadius;
-        const targetY = centerY + Math.sin(this.patrolAngle) * this.patrolRadius;
+        // In Nest
+        // 0. Self-Preservation (Eat if hungry)
+        if (this.energy < 1000) {
+            const storage = world.nest.chambers.find(c => c.type === 'STORAGE');
+            if (storage) {
+                const dx = storage.x - this.x;
+                const dy = storage.y - this.y;
+                const distSq = dx * dx + dy * dy;
 
-        const dx = targetX - this.x;
-        const dy = targetY - this.y;
+                if (distSq < 400) {
+                    // Eat Sugar
+                    if (world.sugarStockpile > 0) {
+                        world.sugarStockpile = Math.max(0, world.sugarStockpile - 5);
+                        this.energy = CONFIG.antMaxEnergy;
+                    }
+                } else {
+                    // Move to storage
+                    this.angle = Math.atan2(dy, dx);
+                }
+                return;
+            }
+        }
+
+        // Check if work needed
+        if (this.carrying === 'NONE') {
+            // 1. Check for Misplaced Brood (Priority)
+            const broodChamber = world.nest.chambers.find(c => c.type === 'BROOD');
+            if (broodChamber) {
+                // Find brood that is NOT in the brood chamber and NOT being carried
+                const misplacedBrood = world.brood.find(b => {
+                    if (b.carrier) return false; // Already being moved
+                    const dx = b.x - broodChamber.x;
+                    const dy = b.y - broodChamber.y;
+                    return dx * dx + dy * dy > broodChamber.radius * broodChamber.radius;
+                });
+
+                if (misplacedBrood) {
+                    // Go pick it up
+                    const dx = misplacedBrood.x - this.x;
+                    const dy = misplacedBrood.y - this.y;
+                    const distSq = dx * dx + dy * dy;
+
+                    if (distSq < 400) {
+                        // Pick up
+                        this.carrying = 'BROOD';
+                        this.carryingInstance = misplacedBrood;
+                        misplacedBrood.carrier = this;
+                        this.state = 'TRANSPORTING';
+                    } else {
+                        // Move towards it
+                        this.angle = Math.atan2(dy, dx);
+                    }
+                    return;
+                }
+            }
+
+            // 2. Check if Queen or Larva needs food AND we have stockpile
+            if (world.proteinStockpile >= 10) {
+                const queenHungry = world.queen.energy < 1000;
+                const larvaHungry = world.brood.some(b => b.stage === 'LARVA' && b.hunger > 20);
+
+                if (queenHungry || larvaHungry) {
+                    // Go to Storage (Find it dynamically)
+                    const storage = world.nest.chambers.find(c => c.type === 'STORAGE');
+                    if (!storage) return; // Should not happen
+
+                    const dx = storage.x - this.x;
+                    const dy = storage.y - this.y;
+
+                    if (dx * dx + dy * dy < 400) {
+                        // Grab from stockpile
+                        world.proteinStockpile -= 10;
+                        this.carrying = 'PROTEIN';
+                        this.carryingAmount = 10;
+                        this.state = 'NURSING';
+                    } else {
+                        // Move to storage
+                        this.angle = Math.atan2(dy, dx);
+                    }
+                    return;
+                }
+            }
+        }
+
+        // Wander in nest
+        this.wander();
+    }
+
+    handleTransporting(world: World) {
+        if (!this.carryingInstance) {
+            this.state = 'IDLE';
+            this.carrying = 'NONE';
+            return;
+        }
+
+        // Carry the brood
+        this.carryingInstance.x = this.x;
+        this.carryingInstance.y = this.y;
+
+        // Go to Brood Chamber
+        const broodChamber = world.nest.chambers.find(c => c.type === 'BROOD');
+        if (!broodChamber) return;
+        const dx = broodChamber.x - this.x;
+        const dy = broodChamber.y - this.y;
+        const distSq = dx * dx + dy * dy;
+
+        // If inside chamber (with some random offset to spread them out), drop it
+        if (distSq < (broodChamber.radius * 0.8) * (broodChamber.radius * 0.8)) {
+            // Wander to spread out (Don't force angle to center!)
+            this.wander();
+
+            // Random chance to drop
+            if (Math.random() < 0.05) {
+                // Drop
+                this.carryingInstance.carrier = null;
+                this.carryingInstance = null;
+                this.carrying = 'NONE';
+                this.state = 'IDLE';
+
+                // Move away a bit
+                this.angle += Math.PI;
+            }
+        } else {
+            // Move towards center of brood chamber
+            this.angle = Math.atan2(dy, dx);
+        }
+    }
+
+    handlePatrolling(world: World) {
+        if (this.location === 'NEST') {
+            // If in nest, go to entrance to start patrol
+            const entrance = world.nest.getEntrance();
+            const nextNode = world.nest.getNextNodeTowards(this.x, this.y, entrance.x, entrance.y);
+            if (nextNode) {
+                const angle = Math.atan2(nextNode.y - this.y, nextNode.x - this.x);
+                this.angle = angle + (Math.random() - 0.5) * 0.5;
+            } else {
+            }
+            return;
+        }
+
+        // Patrol near Entrance (World side)
+        let entranceX, entranceY;
+
+        if (CONFIG.width > CONFIG.height) {
+            // Landscape: Entrance at Right Edge
+            entranceX = CONFIG.width - 50;
+            entranceY = CONFIG.height / 2;
+        } else {
+            // Portrait: Entrance at Bottom Edge
+            entranceX = CONFIG.width / 2;
+            entranceY = CONFIG.height - 50;
+        }
+
+        // Initialize or Update Patrol Target
+        let distSq = 0;
+        if (this.patrolTarget) {
+            const dx = this.patrolTarget.x - this.x;
+            const dy = this.patrolTarget.y - this.y;
+            distSq = dx * dx + dy * dy;
+        }
+
+        if (!this.patrolTarget || distSq < 400 || Math.random() < 0.005) {
+            // Pick new point
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 50 + Math.random() * 200;
+
+            let tx = entranceX + Math.cos(angle) * dist;
+            let ty = entranceY + Math.sin(angle) * dist;
+
+            tx = Math.max(10, Math.min(CONFIG.width - 10, tx));
+            ty = Math.max(10, Math.min(CONFIG.height - 10, ty));
+
+            this.patrolTarget = { x: tx, y: ty };
+
+            const dx = tx - this.x;
+            const dy = ty - this.y;
+            distSq = dx * dx + dy * dy;
+        }
 
         // Move towards patrol point
+        const dx = this.patrolTarget.x - this.x;
+        const dy = this.patrolTarget.y - this.y;
         const desiredAngle = Math.atan2(dy, dx);
 
-        // Smooth turn
+        // Turn towards target
         let diff = desiredAngle - this.angle;
         while (diff < -Math.PI) diff += Math.PI * 2;
         while (diff > Math.PI) diff -= Math.PI * 2;
-        this.angle += diff * 0.1;
 
-        // Look for trouble (handled in update loop)
-
-        // Occasionally stop to scan
-        if (Math.random() < 0.005) {
-            this.angle += Math.PI; // Turn around to look
-        }
+        this.angle += diff * 0.2;
+        this.angle += (Math.random() - 0.5) * 0.2;
     }
 
     handleFleeing(world: World) {
@@ -232,17 +367,27 @@ export class Ant {
 
         if (this.obstacleTimer > 0) return; // Sliding along wall
 
-        // Move generally towards home, but with high noise (panic)
-        const dx = CONFIG.queenPosition.x - this.x;
-        const dy = CONFIG.queenPosition.y - this.y;
+        // Move generally towards home (Entrance), but with high noise (panic)
+        let homeX, homeY;
+
+        if (this.location === 'WORLD') {
+            homeX = CONFIG.width;
+            homeY = CONFIG.height / 2;
+        } else {
+            homeX = 0; // Nest Exit
+            homeY = world.nest.height / 2;
+        }
+
+        const dx = homeX - this.x;
+        const dy = homeY - this.y;
         const homeAngle = Math.atan2(dy, dx);
 
-        // Mix home direction with current direction + noise
-        this.angle = this.angle * 0.8 + homeAngle * 0.2 + (Math.random() - 0.5) * 1.0;
+        this.angle = this.angle * 0.5 + homeAngle * 0.5 + (Math.random() - 0.5) * 0.5;
 
         // Drop Danger trail while fleeing to warn others
         if (this.fleeTimer % 5 === 0) {
-            world.grid.depositCircle(this.x, this.y, 'DANGER', 0.5, 10); // Increased trail size
+            const grid = this.location === 'NEST' ? world.nestGrid : world.grid;
+            grid.depositCircle(this.x, this.y, 'DANGER', 0.5, 10); // Increased trail size
         }
 
         if (this.fleeTimer <= 0) {
@@ -253,22 +398,11 @@ export class Ant {
     handleCombat(world: World) {
         this.speedMultiplier = 1.5; // Combat adrenaline
 
-        // Cowardice Check for Workers: If fighting alone, run away!
-        if (this.type === 'WORKER' && this.attackCooldown % 30 === 0) {
-            const allies = this.countNearbyAllies(world, 100);
-            if (allies < 2) { // Need at least 2 friends to keep fighting
-                this.state = 'FLEEING';
-                this.fleeTimer = 60;
-                this.angle += Math.PI;
-                return;
-            }
-        }
-
         // Find nearest enemy
         let nearestEnemy = null;
         let minDist = Infinity;
 
-        const needsProtein = world.proteinStockpile < CONFIG.eggCost * 3;
+        const needsProtein = world.proteinStockpile < CONFIG.eggCost * 10;
         // Workers hunt if they need protein OR if they are in a mob (courage)
 
         for (const insect of world.insects) {
@@ -285,11 +419,28 @@ export class Ant {
         }
 
         if (nearestEnemy && minDist < 10000) { // 100px chase range (increased)
+
+            // Cowardice Check for Workers: Only flee from dangerous enemies!
+            if (this.type === 'WORKER' && this.attackCooldown % 30 === 0) {
+                const isDangerous = nearestEnemy.type === 'PREDATOR' || nearestEnemy.type === 'SPIDER' || nearestEnemy.type === 'BEETLE';
+
+                if (isDangerous) {
+                    const allies = this.countNearbyAllies(world, 100);
+                    if (allies < 2) { // Need at least 2 friends to keep fighting dangerous things
+                        this.state = 'FLEEING';
+                        this.fleeTimer = 60;
+                        this.angle += Math.PI;
+                        return;
+                    }
+                }
+            }
+
             const dx = nearestEnemy.x - this.x;
             const dy = nearestEnemy.y - this.y;
             this.angle = Math.atan2(dy, dx);
 
             if (minDist < 100) { // Attack range
+                this.speedMultiplier = 0; // Stop moving to attack!
                 if (this.attackCooldown <= 0) {
                     const dmg = this.type === 'SOLDIER' ? CONFIG.soldierDamage : CONFIG.workerDamage;
                     nearestEnemy.health -= dmg;
@@ -297,14 +448,66 @@ export class Ant {
                 }
             }
         } else {
-            this.state = 'FORAGING'; // Enemy lost or dead
+            // No enemy found, return to foraging or check for danger
+            let brave = false;
+
+            if (this.type === 'SOLDIER') {
+                brave = true;
+            } else {
+                // Worker Mob Courage
+                const allies = this.countNearbyAllies(world, 150); // Check wider area for support
+                if (allies >= 4) { // Need 4 allies to charge into danger
+                    brave = true;
+                }
+            }
+
+            if (brave) {
+                // Charge towards danger!
+                this.speedMultiplier = this.type === 'SOLDIER' ? 2.0 : 1.3;
+
+                // Follow gradient strongly
+                const sensorDist = CONFIG.antSensorDist;
+                const sensorAngle = CONFIG.antSensorAngle;
+                const getDanger = (a: number) => world.grid.get(this.x + Math.cos(this.angle + a) * sensorDist, this.y + Math.sin(this.angle + a) * sensorDist, 'DANGER');
+
+                const l = getDanger(-sensorAngle);
+                const c = getDanger(0);
+                const r = getDanger(sensorAngle);
+
+                if (c > l && c > r) { /* straight */ }
+                else if (l > r) this.angle -= CONFIG.antTurnSpeed * 2;
+                else this.angle += CONFIG.antTurnSpeed * 2;
+
+                this.move(world);
+                return;
+            } else {
+                this.speedMultiplier = 1.0; // Reset speed
+                this.state = 'FORAGING'; // Enemy lost or dead
+            }
         }
     }
 
     handleForaging(world: World) {
         if (this.obstacleTimer > 0) return; // Sliding along wall
 
-        const needsProtein = world.proteinStockpile < CONFIG.eggCost * 3;
+        if (this.location === 'NEST') {
+            // Go to Exit
+            const entrance = world.nest.getEntrance();
+            const targetX = entrance.x;
+            const targetY = entrance.y;
+
+            const nextNode = world.nest.getNextNodeTowards(this.x, this.y, targetX, targetY);
+            if (nextNode) {
+                const angle = Math.atan2(nextNode.y - this.y, nextNode.x - this.x);
+                this.angle = angle + (Math.random() - 0.5) * 0.5;
+            } else {
+                // Just head towards entrance if no node found (fallback)
+                this.angle = Math.atan2(targetY - this.y, targetX - this.x) + (Math.random() - 0.5) * 1.0;
+            }
+            return;
+        }
+
+        const needsProtein = world.proteinStockpile < CONFIG.eggCost * 25;
 
         // 0. Check for DANGER
         const dangerLevel = world.grid.get(this.x, this.y, 'DANGER');
@@ -349,17 +552,31 @@ export class Ant {
             }
         }
 
-        // 1. Hunt if protein needed
-        if (needsProtein) {
-            for (const insect of world.insects) {
-                if (insect.type === 'PREY') {
-                    const dx = this.x - insect.x;
-                    const dy = this.y - insect.y;
-                    if (dx * dx + dy * dy < 4900) { // 70px range (agressive search)
-                        // Workers need a group to hunt Prey
+
+        // 1. Hunt if protein needed OR opportunistic
+        for (const insect of world.insects) {
+            const isPrey = insect.type === 'PREY' || insect.type === 'BEETLE' || insect.type === 'LADYBUG' || insect.type === 'SPIDER' || insect.type === 'PREDATOR';
+
+            if (isPrey) {
+                const dx = this.x - insect.x;
+                const dy = this.y - insect.y;
+                const distSq = dx * dx + dy * dy;
+
+                if (needsProtein || distSq < 2500) {
+                    if (distSq < 4900) { // 70px range
+                        // Workers need a group to hunt dangerous targets
                         if (this.type === 'WORKER') {
-                            const allies = this.countNearbyAllies(world, 80);
-                            if (allies < 3) continue; // Ignore prey if alone
+                            // Only require allies for Beetles (dangerous)
+                            if (insect.type === 'BEETLE') {
+                                const allies = this.countNearbyAllies(world, 80);
+                                if (allies < 5) continue; // Need mob for beetle
+                            }
+                            // Require mob for Spiders and Predators too
+                            if (insect.type === 'SPIDER' || insect.type === 'PREDATOR') {
+                                const allies = this.countNearbyAllies(world, 100);
+                                if (allies < 4) continue; // Need mob for dangerous enemies
+                            }
+                            // PREY and LADYBUG are now solo targets
                         }
 
                         this.state = 'ATTACKING';
@@ -407,7 +624,7 @@ export class Ant {
                 this.energy = CONFIG.antMaxEnergy; // Eat a bit while harvesting
                 this.angle += Math.PI; // Turn around
                 return;
-            } else if (distSq < 2500) { // Visual range
+            } else if (distSq < 10000) { // Visual range (Increased to 100px)
                 // Move towards it
                 this.angle = Math.atan2(dy, dx);
                 return;
@@ -418,14 +635,16 @@ export class Ant {
         const sensorDist = CONFIG.antSensorDist;
         const sensorAngle = CONFIG.antSensorAngle;
 
+        const grid = world.grid;
+
         const getPheromoneLevel = (angleOffset: number) => {
             const sx = this.x + Math.cos(this.angle + angleOffset) * sensorDist;
             const sy = this.y + Math.sin(this.angle + angleOffset) * sensorDist;
 
             if (needsProtein) {
-                return world.grid.get(sx, sy, 'PROTEIN');
+                return grid.get(sx, sy, 'PROTEIN');
             } else {
-                return world.grid.get(sx, sy, 'SUGAR');
+                return grid.get(sx, sy, 'SUGAR');
             }
         };
 
@@ -435,76 +654,115 @@ export class Ant {
 
         if (center > 0.05 || left > 0.05 || right > 0.05) {
             if (center > left && center > right) {
+                // Go straight with slight jitter
                 this.angle += (Math.random() - 0.5) * 0.1;
-            } else if (center < left && center < right) {
-                this.angle += (Math.random() - 0.5) * 2 * CONFIG.antTurnSpeed;
-            } else if (left > right) {
-                this.angle -= CONFIG.antTurnSpeed;
-            } else if (right > left) {
-                this.angle += CONFIG.antTurnSpeed;
+            } else {
+                // Proportional Steering
+                // Turn towards the stronger side, scaled by how much stronger it is
+                // This prevents overshooting and circling
+                const turnAmount = (right - left) * CONFIG.antTurnSpeed * 5.0;
+                // Clamp turn amount
+                const maxTurn = CONFIG.antTurnSpeed * 2.0;
+                this.angle += Math.max(-maxTurn, Math.min(maxTurn, turnAmount));
             }
         } else {
             this.wander();
         }
 
         // Drop Home Trail (Thicker)
-        world.grid.depositCircle(this.x, this.y, 'HOME', 0.5, 3);
+        grid.depositCircle(this.x, this.y, 'HOME', 0.5, 3);
     }
 
     handleReturning(world: World) {
         if (this.obstacleTimer > 0) return; // Sliding along wall
 
-        // 1. Check proximity to Nest
-        const dx = CONFIG.queenPosition.x - this.x;
-        const dy = CONFIG.queenPosition.y - this.y;
-        const distSq = dx * dx + dy * dy;
-
-        if (distSq < 900) { // Nest range
-            // Drop food
-            if (this.carrying === 'SUGAR') {
-                world.sugarStockpile += CONFIG.sugarValue;
-            } else if (this.carrying === 'PROTEIN') {
-                world.proteinStockpile += CONFIG.proteinValue;
-            }
-            this.carrying = 'NONE';
-            this.state = 'FORAGING';
-            this.energy = CONFIG.antMaxEnergy; // Refuel at nest
-            this.angle += Math.PI;
-            return;
-        }
-
-        // 2. Follow Home Pheromones
-        const sensorDist = CONFIG.antSensorDist;
-        const sensorAngle = CONFIG.antSensorAngle;
-
-        const getHomeLevel = (angleOffset: number) => {
-            const sx = this.x + Math.cos(this.angle + angleOffset) * sensorDist;
-            const sy = this.y + Math.sin(this.angle + angleOffset) * sensorDist;
-            return world.grid.get(sx, sy, 'HOME');
-        };
-
-        const left = getHomeLevel(-sensorAngle);
-        const center = getHomeLevel(0);
-        const right = getHomeLevel(sensorAngle);
-
-        if (center > 0.05 || left > 0.05 || right > 0.05) {
-            if (center > left && center > right) {
-                this.angle += (Math.random() - 0.5) * 0.1;
-            } else if (left > right) {
-                this.angle -= CONFIG.antTurnSpeed;
-            } else if (right > left) {
-                this.angle += CONFIG.antTurnSpeed;
-            }
-        } else {
-            this.angle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.5;
-        }
+        const grid = this.location === 'NEST' ? world.nestGrid : world.grid;
 
         // Drop Food Trail (Specific Type, Thicker)
         if (this.carrying === 'SUGAR') {
-            world.grid.depositCircle(this.x, this.y, 'SUGAR', 1.0, 3);
+            grid.depositCircle(this.x, this.y, 'SUGAR', 1.0, 3);
         } else if (this.carrying === 'PROTEIN') {
-            world.grid.depositCircle(this.x, this.y, 'PROTEIN', 1.0, 3);
+            grid.depositCircle(this.x, this.y, 'PROTEIN', 1.0, 3);
         }
+
+        if (this.location === 'WORLD') {
+            // 1. Follow Home Pheromones to Entrance (0, 100)
+            const sensorDist = CONFIG.antSensorDist;
+            const sensorAngle = CONFIG.antSensorAngle;
+
+            const getHomeLevel = (angleOffset: number) => {
+                const sx = this.x + Math.cos(this.angle + angleOffset) * sensorDist;
+                const sy = this.y + Math.sin(this.angle + angleOffset) * sensorDist;
+                return world.grid.get(sx, sy, 'HOME');
+            };
+
+            const left = getHomeLevel(-sensorAngle);
+            const center = getHomeLevel(0);
+            const right = getHomeLevel(sensorAngle);
+
+            if (center > 0.05 || left > 0.05 || right > 0.05) {
+                if (center > left && center > right) {
+                    this.angle += (Math.random() - 0.5) * 0.1;
+                } else {
+                    // Proportional Steering for Home Trail
+                    const turnAmount = (right - left) * CONFIG.antTurnSpeed * 5.0;
+                    const maxTurn = CONFIG.antTurnSpeed * 2.0;
+                    this.angle += Math.max(-maxTurn, Math.min(maxTurn, turnAmount));
+                }
+            } else {
+                // Head to Entrance
+                // Landscape: Right edge, Center Y
+                // Portrait: Center X, Bottom edge
+                let targetX, targetY;
+
+                if (CONFIG.width > CONFIG.height) {
+                    targetX = CONFIG.width;
+                    targetY = CONFIG.height / 2;
+                } else {
+                    targetX = CONFIG.width / 2;
+                    targetY = CONFIG.height;
+                }
+
+                this.angle = Math.atan2(targetY - this.y, targetX - this.x) + (Math.random() - 0.5) * 0.5;
+            }
+        } else {
+            // NEST: Go to Storage
+            const storage = world.nest.chambers.find(c => c.type === 'STORAGE');
+
+            if (storage) {
+                // Check if we are close enough to deposit
+                const dx = storage.x - this.x;
+                const dy = storage.y - this.y;
+                const distSq = dx * dx + dy * dy;
+
+                if (distSq < 2500) { // Reach storage area (radius 50)
+                    if (this.carrying === 'SUGAR') world.sugarStockpile += CONFIG.sugarValue;
+                    else world.proteinStockpile += CONFIG.proteinValue;
+
+                    this.carrying = 'NONE';
+                    this.state = 'FORAGING';
+                    this.energy = CONFIG.antMaxEnergy;
+                    this.angle += Math.PI; // Turn around
+                    return;
+                } else {
+                    // Move to storage
+                    // Use pathfinding
+                    const nextNode = world.nest.getNextNodeTowards(this.x, this.y, storage.x, storage.y);
+                    if (nextNode) {
+                        const dx = nextNode.x - this.x;
+                        const dy = nextNode.y - this.y;
+                        this.angle = Math.atan2(dy, dx);
+                    } else {
+                        this.angle = Math.atan2(dy, dx);
+                    }
+                }
+            }
+        }
+
+    }
+
+    wander() {
+        this.angle += (Math.random() - 0.5) * 0.5;
     }
 
     move(world: World) {
@@ -512,21 +770,116 @@ export class Ant {
         const nextX = this.x + Math.cos(this.angle) * speed;
         const nextY = this.y + Math.sin(this.angle) * speed;
 
-        if (!world.terrain.isBlocked(nextX, nextY)) {
-            this.x = nextX;
-            this.y = nextY;
-        } else {
-            // Slide along obstacle
-            this.angle = world.terrain.getCollisionAngle(this.x, this.y, this.angle);
-            this.obstacleTimer = 10 + Math.floor(Math.random() * 10); // Stick to wall for a bit
+        if (this.location === 'WORLD') {
+            // Check Entrance
+            // Landscape: Right edge of World -> Left edge of Nest
+            // Portrait: Bottom edge of World -> Top edge of Nest
 
-            // Push out of obstacle slightly to prevent getting stuck
-            this.x += Math.cos(this.angle) * speed;
-            this.y += Math.sin(this.angle) * speed;
+            const isLandscape = CONFIG.width > CONFIG.height;
+
+            if (isLandscape) {
+                if (nextX > CONFIG.width - 10 && Math.abs(nextY - CONFIG.height / 2) < 50) {
+                    this.location = 'NEST';
+                    this.x = 10; // Enter at left side of nest
+                    this.y = world.nest.height / 2;
+                    this.angle = 0; // Face into nest
+                    return;
+                }
+            } else {
+                // Portrait
+                if (nextY > CONFIG.height - 10 && Math.abs(nextX - CONFIG.width / 2) < 50) {
+                    this.location = 'NEST';
+                    this.x = world.nest.width / 2; // Enter at center x of nest
+                    this.y = 10; // Top of nest
+                    this.angle = Math.PI / 2; // Face down into nest
+                    return;
+                }
+            }
+
+            if (!world.terrain.isBlocked(nextX, nextY) && nextX > 0 && nextX < CONFIG.width && nextY > 0 && nextY < CONFIG.height) {
+                this.x = nextX;
+                this.y = nextY;
+            } else {
+                // Slide along obstacle
+                this.angle = world.terrain.getCollisionAngle(this.x, this.y, this.angle);
+                this.obstacleTimer = 10 + Math.floor(Math.random() * 10); // Stick to wall for a bit
+
+                // Push out of obstacle slightly to prevent getting stuck
+                this.x += Math.cos(this.angle) * speed;
+                this.y += Math.sin(this.angle) * speed;
+            }
+        } else {
+            // NEST
+            // Check Exit
+            // Landscape: Left edge of Nest -> Right edge of World
+            // Portrait: Top edge of Nest -> Bottom edge of World
+
+            const isLandscape = CONFIG.width > CONFIG.height;
+
+            if (isLandscape) {
+                if (nextX < 5 && Math.abs(nextY - world.nest.height / 2) < 50) {
+                    this.location = 'WORLD';
+                    this.x = CONFIG.width - 10; // Enter at right side of world
+                    this.y = CONFIG.height / 2;
+                    this.angle = Math.PI; // Face into world
+                    return;
+                }
+            } else {
+                // Portrait
+                if (nextY < 5 && Math.abs(nextX - world.nest.width / 2) < 50) {
+                    this.location = 'WORLD';
+                    this.x = CONFIG.width / 2; // Enter at center x of world
+                    this.y = CONFIG.height - 10; // Bottom of world
+                    this.angle = -Math.PI / 2; // Face up into world
+                    return;
+                }
+            }
+            // Use a buffer to keep ants away from walls
+            const NEST_BUFFER = 5;
+
+            if (world.nest.isInside(nextX, nextY, NEST_BUFFER)) {
+                this.x = nextX;
+                this.y = nextY;
+            } else {
+                // Wall collision in nest - Robust recovery
+                // Push towards the nearest node center (guaranteed to be inside)
+                const nearest = world.nest.getNearestNode(this.x, this.y);
+                if (nearest) {
+                    const dx = nearest.x - this.x;
+                    const dy = nearest.y - this.y;
+                    const angleToCenter = Math.atan2(dy, dx);
+
+                    // Push gently back inside
+                    this.x += Math.cos(angleToCenter) * 2;
+                    this.y += Math.sin(angleToCenter) * 2;
+
+                    // Align angle with tunnel direction (tangent)
+                    // Tangent is perpendicular to normal (radius vector)
+                    // But we don't know which way is "forward".
+                    // Just randomize slightly to unstuck, but keep generally inside.
+                    this.angle = angleToCenter + (Math.random() - 0.5) * 2.0;
+                } else {
+                    // Fallback
+                    this.angle += Math.PI;
+                    this.x += Math.cos(this.angle) * 2;
+                    this.y += Math.sin(this.angle) * 2;
+                }
+            }
         }
     }
 
-    wander() {
-        this.angle += (Math.random() - 0.5) * CONFIG.antTurnSpeed;
+    countNearbyAllies(world: World, radius: number): number {
+        let count = 0;
+        for (const ant of world.ants) {
+            if (ant !== this && ant.type !== 'QUEEN' && ant.location === this.location) {
+                const dx = ant.x - this.x;
+                const dy = ant.y - this.y;
+                if (dx * dx + dy * dy < radius * radius) {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 }
+

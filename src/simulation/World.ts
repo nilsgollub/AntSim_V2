@@ -8,6 +8,8 @@ import { PheromoneGrid } from './PheromoneGrid';
 import { SpatialGrid } from './SpatialGrid';
 import { Brood } from './Brood';
 
+import { Nest } from './Nest';
+
 export class World {
     ants: Ant[];
     queen: Queen;
@@ -15,13 +17,18 @@ export class World {
     foods: Food[];
     terrain: Terrain;
     grid: PheromoneGrid;
+    nestGrid: PheromoneGrid;
     spatialGrid: SpatialGrid;
+    nest: Nest;
 
     brood: Brood[];
 
     // Resources
     proteinStockpile: number = 0;
     sugarStockpile: number = 0;
+
+    // Simulation Age
+    age: number = 0;
 
     // Brood Stats (Getters for compatibility)
     get eggs(): number { return this.brood.filter(b => b.stage === 'EGG').length; }
@@ -33,40 +40,59 @@ export class World {
 
     constructor() {
         this.terrain = new Terrain();
+        this.nest = new Nest();
         this.grid = new PheromoneGrid(CONFIG.width, CONFIG.height);
+        this.nestGrid = new PheromoneGrid(CONFIG.nestWidth, CONFIG.nestHeight);
         this.spatialGrid = new SpatialGrid(CONFIG.width, CONFIG.height, 50);
         this.ants = [];
         this.insects = [];
         this.foods = [];
         this.brood = [];
         this.queen = new Queen();
+        const queenChamber = this.nest.chambers.find(c => c.type === 'QUEEN') || this.nest.chambers[0];
+        this.queen.x = queenChamber.x;
+        this.queen.y = queenChamber.y;
 
         this.init();
     }
 
     init() {
-        // Spawn initial workers
+        // Spawn initial workers with randomized energy (to prevent mass die-off)
         for (let i = 0; i < CONFIG.initialWorkers; i++) {
             this.spawnAnt('WORKER');
+            const ant = this.ants[this.ants.length - 1];
+            // Randomize energy between 50% and 100%
+            ant.energy = CONFIG.antMaxEnergy * (0.5 + Math.random() * 0.5);
         }
         // Spawn one initial soldier
         this.spawnAnt('SOLDIER');
 
-        // Initial Brood
-        for (let i = 0; i < 20; i++) {
-            this.brood.push(new Brood(
-                CONFIG.queenPosition.x + (Math.random() - 0.5) * 40,
-                CONFIG.queenPosition.y + (Math.random() - 0.5) * 40
-            ));
-        }
+        // Initial Brood (Staggered Stages)
+        const broodChamber = this.nest.chambers.find(c => c.type === 'BROOD') || this.nest.chambers[0];
 
-        // Spawn initial food (Sugar near nest)
-        this.foods.push(new Food(
-            CONFIG.queenPosition.x + 100,
-            CONFIG.queenPosition.y + 100,
-            'SUGAR',
-            5000
-        ));
+        // Helper to spawn brood
+        const spawnBrood = (stage: 'EGG' | 'LARVA' | 'PUPA', count: number) => {
+            for (let i = 0; i < count; i++) {
+                const b = new Brood(
+                    broodChamber.x + (Math.random() - 0.5) * 40,
+                    broodChamber.y + (Math.random() - 0.5) * 40
+                );
+                b.stage = stage;
+                // Randomize age to stagger hatching/pupation
+                if (stage === 'EGG') b.age = Math.random() * Brood.EGG_DURATION;
+                if (stage === 'LARVA') b.age = Math.random() * Brood.LARVA_DURATION;
+                if (stage === 'PUPA') b.age = Math.random() * Brood.PUPA_DURATION;
+                this.brood.push(b);
+            }
+        };
+
+        spawnBrood('PUPA', 5);   // 5 Pupae (Will hatch soon)
+        spawnBrood('LARVA', 8);  // 8 Larvae (Need feeding)
+        spawnBrood('EGG', 10);   // 10 Eggs (Future generation)
+
+
+
+
 
         // Spawn other food
         for (let i = 0; i < CONFIG.sugarSourceCount; i++) {
@@ -75,7 +101,9 @@ export class World {
     }
 
     spawnAnt(type: 'WORKER' | 'SOLDIER') {
-        this.ants.push(new Ant(CONFIG.queenPosition.x, CONFIG.queenPosition.y, type));
+        const ant = new Ant(this.queen.x, this.queen.y, type);
+        ant.location = 'NEST';
+        this.ants.push(ant);
     }
 
     addParticle(x: number, y: number, color: string) {
@@ -118,7 +146,9 @@ export class World {
     }
 
     update() {
+        this.age++;
         this.grid.update();
+        this.nestGrid.update();
         this.queen.update(this);
 
         // Update Spatial Grid
@@ -177,29 +207,29 @@ export class World {
             }
         }
         // Spawn Predators (Generic)
-        if (this.insects.filter(i => i.type === 'PREDATOR').length < 1) {
+        if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'PREDATOR').length < CONFIG.maxPredators) {
             if (Math.random() < CONFIG.predatorSpawnRate) {
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'PREDATOR'));
             }
         }
         // Spawn Spiders (Fast, Dangerous)
-        if (this.insects.filter(i => i.type === 'SPIDER').length < 1) {
-            if (Math.random() < 0.0003) {
+        if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'SPIDER').length < 1) {
+            if (Math.random() < CONFIG.spiderSpawnRate) {
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'SPIDER'));
             }
         }
         // Spawn Beetles (Tanky)
-        if (this.insects.filter(i => i.type === 'BEETLE').length < 2) {
-            if (Math.random() < 0.0005) {
+        if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'BEETLE').length < 1) { // Reduced max beetles to 1
+            if (Math.random() < CONFIG.beetleSpawnRate * 0.5) { // Reduced spawn rate
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'BEETLE'));
             }
         }
         // Spawn Ladybugs (Aphid Hunters)
-        if (this.insects.filter(i => i.type === 'LADYBUG').length < 2) {
-            if (Math.random() < 0.001) {
+        if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'LADYBUG').length < 2) {
+            if (Math.random() < CONFIG.ladybugSpawnRate) {
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'LADYBUG'));
             }
@@ -224,6 +254,7 @@ export class World {
 
         // Update Food
         for (let i = this.foods.length - 1; i >= 0; i--) {
+            this.foods[i].update();
             if (this.foods[i].amount <= 0) {
                 this.foods.splice(i, 1);
             }

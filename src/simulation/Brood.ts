@@ -6,6 +6,7 @@ export class Brood {
     stage: BroodStage;
     age: number = 0;
     hunger: number = 0; // Only for Larvae
+    carrier: any = null;
 
     // Configurable lifecycle durations
     static EGG_DURATION = 1000;
@@ -25,13 +26,13 @@ export class Brood {
             if (this.age > Brood.EGG_DURATION) {
                 this.stage = 'LARVA';
                 this.age = 0;
-                this.hunger = 50; // Starts hungry
+                this.hunger = 0; // Starts full
             }
         } else if (this.stage === 'LARVA') {
-            this.hunger += 0.05; // Gets hungrier over time
+            this.hunger += 0.005; // Gets hungrier VERY slowly (was 0.05)
 
-            // Die if starving
-            if (this.hunger > 100) return false; // Dead
+            // Die if starving (Hardy)
+            if (this.hunger > 200) return false; // Dead
 
             // Metamorphosis if well fed and old enough
             if (this.age > Brood.LARVA_DURATION && this.hunger < 20) {

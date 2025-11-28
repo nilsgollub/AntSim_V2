@@ -10,10 +10,12 @@ export class Terrain {
 
     generate() {
         // Generate random circular obstacles
-        // Avoid the nest area
-        const nestSafeRadius = 200;
+        // Avoid the nest area (Entrance at 0, 100)
 
-        for (let i = 0; i < CONFIG.obstacleCount; i++) {
+        // Reduced obstacle count and size
+        const count = 8; // Reduced from CONFIG.obstacleCount (usually 15)
+
+        for (let i = 0; i < count; i++) {
             let x = 0, y = 0, r = 0;
             let valid = false;
             let attempts = 0;
@@ -21,12 +23,18 @@ export class Terrain {
             while (!valid && attempts < 100) {
                 x = Math.random() * CONFIG.width;
                 y = Math.random() * CONFIG.height;
-                r = 30 + Math.random() * 70; // Radius 30-100
+                r = 20 + Math.random() * 30; // Reduced Radius: 20-50 (was 30-100)
 
-                // Check distance to nest
-                const dx = x - CONFIG.queenPosition.x;
-                const dy = y - CONFIG.queenPosition.y;
-                if (dx * dx + dy * dy > nestSafeRadius * nestSafeRadius) {
+                // Check distance to Nest Entrance (Right edge, Centered)
+                // Entrance at x = CONFIG.width, y = CONFIG.height / 2
+                const entranceX = CONFIG.width;
+                const entranceY = CONFIG.height / 2;
+
+                const dx = x - entranceX;
+                const dy = y - entranceY;
+
+                // Keep large area clear around entrance (200px radius)
+                if (dx * dx + dy * dy > 40000) {
                     valid = true;
                 }
                 attempts++;
@@ -53,7 +61,6 @@ export class Terrain {
         return false;
     }
 
-    // Helper to bounce off obstacles
     // Helper to slide along obstacles
     getCollisionAngle(x: number, y: number, currentAngle: number): number {
         for (const obs of this.obstacles) {
@@ -79,7 +86,6 @@ export class Terrain {
         }
 
         // Wall collision (if no obstacle matched)
-        // Ideally we'd detect which wall, but simple bounce is okay for edges
         return currentAngle + Math.PI;
     }
 

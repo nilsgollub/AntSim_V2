@@ -6,6 +6,10 @@ const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
 canvas.width = CONFIG.width;
 canvas.height = CONFIG.height;
 
+const nestCanvas = document.getElementById('nestCanvas') as HTMLCanvasElement;
+nestCanvas.width = CONFIG.nestWidth;
+nestCanvas.height = CONFIG.nestHeight;
+
 let world = new World();
 const renderer = new Renderer(canvas);
 

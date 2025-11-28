@@ -26,15 +26,15 @@ export class Insect {
                 this.speed = 1.0;
                 break;
             case 'PREDATOR': // Generic Bug
-                this.health = 50;
+                this.health = 30; // Was 50
                 this.speed = 1.3;
                 break;
             case 'SPIDER':
-                this.health = 40;
+                this.health = 25; // Was 40
                 this.speed = 1.8; // Fast!
                 break;
             case 'BEETLE':
-                this.health = 150; // Tank
+                this.health = 80; // Was 150
                 this.speed = 0.6; // Slow
                 break;
             case 'LADYBUG':
@@ -106,17 +106,17 @@ export class Insect {
 
     updatePredator(world: World) {
         // Hunt nearby ants
-        this.huntAnts(world, 10000, 5);
+        this.huntAnts(world, 10000, 4); // Was 5 damage
     }
 
     updateSpider(world: World) {
         // Aggressive, fast hunter
-        this.huntAnts(world, 15000, 8); // Larger range, more damage
+        this.huntAnts(world, 15000, 6); // Was 8 damage
     }
 
     updateBeetle(world: World) {
         // Slow, wanders, but bites if close
-        this.huntAnts(world, 2500, 15); // Short range, high damage
+        this.huntAnts(world, 2500, 10); // Was 15 damage
         // Mostly wanders
         if (Math.random() < 0.05) this.angle += (Math.random() - 0.5);
     }

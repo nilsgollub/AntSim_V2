@@ -20,4 +20,10 @@ export class Food {
         this.amount -= taken;
         return taken;
     }
+
+    update() {
+        if (this.type === 'PROTEIN') {
+            this.amount -= 0.02; // Decay over time (Rotting)
+        }
+    }
 }

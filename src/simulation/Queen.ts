@@ -16,8 +16,8 @@ export class Queen {
     layTimer: number = 0;
 
     constructor() {
-        this.x = CONFIG.queenPosition.x;
-        this.y = CONFIG.queenPosition.y;
+        this.x = 0;
+        this.y = 0;
     }
 
     update(world: World) {

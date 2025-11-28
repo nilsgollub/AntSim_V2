@@ -12,10 +12,21 @@
       background: #111;
       color: #eee;
       font-family: sans-serif;
+      display: flex;
     }
 
     #gameCanvas {
       display: block;
+      width: 75vw;
+      height: 100vh;
+    }
+
+    #nestCanvas {
+      display: block;
+      width: 25vw;
+      height: 100vh;
+      background: #1a1a1a;
+      border-left: 4px solid #333;
     }
 
     #ui {
@@ -28,7 +39,8 @@
     #controls {
       position: absolute;
       top: 10px;
-      right: 10px;
+      right: 26vw;
+      /* Moved left of nest view */
       background: rgba(0, 0, 0, 0.8);
       padding: 10px;
       border-radius: 8px;
@@ -60,14 +72,6 @@
       border-radius: 50%;
     }
 
-    #nestCanvas {
-      position: absolute;
-      bottom: 10px;
-      right: 10px;
-      border: 2px solid #444;
-      background: #222;
-    }
-
     .stat {
       margin-bottom: 5px;
     }
@@ -88,11 +92,44 @@
     input[type=range] {
       width: 100px;
     }
+
+    /* Responsive Layout */
+    @media (orientation: portrait) {
+      body {
+        flex-direction: column;
+      }
+
+      #gameCanvas {
+        width: 100vw;
+        height: 75vh;
+      }
+
+      #nestCanvas {
+        width: 100vw;
+        height: 25vh;
+        border-left: none;
+        border-top: 4px solid #333;
+      }
+
+      #controls {
+        top: auto;
+        bottom: 26vh;
+        /* Just above nest view */
+        right: 10px;
+        left: auto;
+      }
+
+      #legend {
+        bottom: 26vh;
+        /* Just above nest view */
+      }
+    }
   </style>
 </head>
 
 <body>
   <canvas id="gameCanvas"></canvas>
+  <canvas id="nestCanvas"></canvas>
 
   <div id="ui">
     <h1>AntSim V3</h1>
@@ -128,7 +165,7 @@
     <button id="restartBtn">Restart Simulation</button>
   </div>
 
-  <canvas id="nestCanvas" width="200" height="200"></canvas>
+
 
   <script type="module" src="/src/main.ts"></script>
 </body>
