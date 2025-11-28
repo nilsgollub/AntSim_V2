@@ -42,9 +42,9 @@ export const CONFIG = {
 
     // Ecosystem
     sugarSourceCount: 5, // More sugar to help early game
-    maxPrey: 15, // More food
+    maxPrey: 8, // Reduced from 15 to reduce clutter
     maxPredators: 2, // Fewer enemies initially
-    preySpawnRate: 0.01, // Faster prey spawn
+    preySpawnRate: 0.005, // Slower prey spawn (was 0.01)
 
     // Enemy Spawning
     gracePeriod: 3000, // No enemies for first ~50 seconds (at 60fps)

@@ -221,8 +221,8 @@ export class World {
             }
         }
         // Spawn Beetles (Tanky)
-        if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'BEETLE').length < 1) { // Reduced max beetles to 1
-            if (Math.random() < CONFIG.beetleSpawnRate * 0.5) { // Reduced spawn rate
+        if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'BEETLE').length < 2) {
+            if (Math.random() < CONFIG.beetleSpawnRate) {
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'BEETLE'));
             }

@@ -402,12 +402,12 @@ export class Ant {
         let nearestEnemy = null;
         let minDist = Infinity;
 
-        const needsProtein = world.proteinStockpile < CONFIG.eggCost * 10;
+        const starvingForProtein = world.proteinStockpile < CONFIG.eggCost; // Only attack aphids if desperate
         // Workers hunt if they need protein OR if they are in a mob (courage)
 
         for (const insect of world.insects) {
-            // Attack everything except Aphids (unless hungry?)
-            if (insect.type !== 'APHID' || needsProtein) {
+            // Attack everything except Aphids (unless starving)
+            if (insect.type !== 'APHID' || starvingForProtein) {
                 const dx = this.x - insect.x;
                 const dy = this.y - insect.y;
                 const d2 = dx * dx + dy * dy;
@@ -600,7 +600,7 @@ export class Ant {
                     this.angle += Math.PI;
                     world.addParticle(this.x, this.y, '#00FF00'); // Farming particle
                     return;
-                } else if (distSq < 2500) { // Visual range
+                } else if (distSq < 10000) { // Visual range (increased to 100px)
                     // Move towards aphid
                     this.angle = Math.atan2(dy, dx);
                     return;
