@@ -3,7 +3,10 @@ const isLandscape = window.innerWidth > window.innerHeight;
 // Define a target "playable area" in logical pixels.
 // 1600x900 = 1,440,000 pixels.
 // This ensures the world is always roughly this "size" to the ants, regardless of screen resolution.
-const TARGET_AREA = 1600 * 900;
+// Define a target "playable area" in logical pixels.
+// 1000x600 = 600,000 pixels. (Was 1600x900)
+// This ensures the world is always roughly this "size" to the ants, regardless of screen resolution.
+const TARGET_AREA = 1000 * 600;
 const aspect = window.innerWidth / window.innerHeight;
 
 // Calculate logical dimensions that preserve the aspect ratio but approximate the target area
@@ -16,10 +19,10 @@ export const CONFIG = {
     height: Math.floor(logicalHeight),
 
     // Nest Dimensions (Relative to Logical World)
-    // Landscape: Nest is 25% of width
-    // Portrait: Nest is 25% of height
-    nestWidth: isLandscape ? Math.floor(logicalWidth * 0.25) : Math.floor(logicalWidth),
-    nestHeight: isLandscape ? Math.floor(logicalHeight) : Math.floor(logicalHeight * 0.25),
+    // Landscape: Nest is 20% of width (Was 25%)
+    // Portrait: Nest is 20% of height (Was 25%)
+    nestWidth: isLandscape ? Math.floor(logicalWidth * 0.20) : Math.floor(logicalWidth),
+    nestHeight: isLandscape ? Math.floor(logicalHeight) : Math.floor(logicalHeight * 0.20),
 
     // Simulation Settings
     initialWorkers: 15,
@@ -46,8 +49,9 @@ export const CONFIG = {
     eggCost: 20,
 
     // Pheromones
-    pheromoneDecay: 0.998,
-    evaporationRate: 0.015,
+    // Pheromones
+    pheromoneDecay: 0.995, // Faster decay (was 0.998)
+    evaporationRate: 0.02, // Faster evaporation (was 0.015)
 
     // World Generation
     obstacleCount: 12,

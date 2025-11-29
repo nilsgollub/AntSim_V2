@@ -1,5 +1,4 @@
 
-
 import { World } from '../simulation/World';
 import { CONFIG } from '../config';
 
@@ -25,14 +24,17 @@ export class Renderer {
     nestCtx: CanvasRenderingContext2D;
     showPheromones: boolean = false;
 
+    // Background Texture
+    bgCanvas: HTMLCanvasElement;
+
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d', { alpha: false })!;
         this.width = canvas.width;
         this.height = canvas.height;
 
-        // Setup Pheromone Offscreen Canvas (1/4 resolution)
-        const scale = 0.25;
+        // Setup Pheromone Offscreen Canvas (1/2 resolution)
+        const scale = 0.5;
         this.pheromoneCanvas = document.createElement('canvas');
         this.pheromoneCanvas.width = Math.ceil(this.width * scale);
         this.pheromoneCanvas.height = Math.ceil(this.height * scale);
@@ -50,6 +52,40 @@ export class Renderer {
         this.nestPheromoneCtx = this.nestPheromoneCanvas.getContext('2d', { alpha: false })!;
         this.nestPheroImageData = this.nestPheromoneCtx.createImageData(this.nestPheromoneCanvas.width, this.nestPheromoneCanvas.height);
         this.nestPheroBuf32 = new Uint32Array(this.nestPheroImageData.data.buffer);
+
+        // Generate Background Texture
+        this.bgCanvas = document.createElement('canvas');
+        this.bgCanvas.width = this.width;
+        this.bgCanvas.height = this.height;
+        this.generateBackground();
+    }
+
+    generateBackground() {
+        const ctx = this.bgCanvas.getContext('2d')!;
+        // Base Dirt Color
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        // Noise / Texture
+        for (let i = 0; i < 5000; i++) {
+            const x = Math.random() * this.width;
+            const y = Math.random() * this.height;
+            const size = Math.random() * 2 + 1;
+            const opacity = Math.random() * 0.1;
+            ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+            ctx.fillRect(x, y, size, size);
+        }
+
+        // Darker patches
+        for (let i = 0; i < 200; i++) {
+            const x = Math.random() * this.width;
+            const y = Math.random() * this.height;
+            const r = Math.random() * 50 + 20;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.fill();
+        }
     }
 
     render(world: World) {
@@ -58,7 +94,10 @@ export class Renderer {
     }
 
     renderWorld(world: World) {
-        // 1. Pheromones (Background)
+        // 0. Background (Texture)
+        this.ctx.drawImage(this.bgCanvas, 0, 0);
+
+        // 1. Pheromones (Overlay)
         if (this.showPheromones) {
             const toHome = world.grid.toHome;
             const toSugar = world.grid.toSugar;
@@ -87,7 +126,7 @@ export class Renderer {
 
                     this.pheroBuf32[i] = (255 << 24) | (bVal << 16) | (gVal << 8) | rVal;
                 } else {
-                    this.pheroBuf32[i] = 0xFF000000;
+                    this.pheroBuf32[i] = 0; // Transparent
                 }
             }
 
@@ -96,45 +135,72 @@ export class Renderer {
 
             // Draw scaled up to main canvas
             this.ctx.imageSmoothingEnabled = true; // Smooth scaling
-            this.ctx.drawImage(this.pheromoneCanvas, 0, 0, this.width, this.height);
-            this.ctx.imageSmoothingEnabled = false; // Reset for sprites if needed
+            this.ctx.globalAlpha = 0.6; // Slight transparency for pheromones
 
-        } else {
-            // Clear background
-            this.ctx.fillStyle = '#000';
-            this.ctx.fillRect(0, 0, this.width, this.height);
+            // Apply blur to simulate smoke/diffusion
+            this.ctx.filter = 'blur(4px)';
+            this.ctx.drawImage(this.pheromoneCanvas, 0, 0, this.width, this.height);
+            this.ctx.filter = 'none'; // Reset filter
+
+            this.ctx.globalAlpha = 1.0;
+            this.ctx.imageSmoothingEnabled = false;
         }
 
-        // 2. Obstacles (Rocks)
-        this.ctx.fillStyle = '#555';
+        // 2. Obstacles (Rocks) with Shadows
         for (const obs of world.terrain.obstacles) {
             this.drawRock(obs.x, obs.y, obs.radius);
         }
 
-        // 3. Food
+        // 3. Food with Shadows
         for (const food of world.foods) {
             this.drawFood(food);
         }
 
         // 4. Nest Entrance (Visual Marker)
-        this.ctx.fillStyle = '#222';
-        this.ctx.strokeStyle = '#444';
-
         const isLandscape = CONFIG.width > CONFIG.height;
 
         if (isLandscape) {
             // Right edge
             const entranceY = this.height / 2;
-            this.ctx.fillRect(CONFIG.width - 20, entranceY - 25, 20, 50);
-            this.ctx.strokeRect(CONFIG.width - 20, entranceY - 25, 20, 50);
+            const entranceX = CONFIG.width - 15;
+
+            // Dirt Mound (Gradient)
+            const moundGrad = this.ctx.createRadialGradient(entranceX, entranceY, 10, entranceX, entranceY, 40);
+            moundGrad.addColorStop(0, '#3a2a1a'); // Dark Earth
+            moundGrad.addColorStop(1, 'rgba(58, 42, 26, 0)'); // Fade out
+            this.ctx.fillStyle = moundGrad;
+            this.ctx.beginPath();
+            this.ctx.arc(entranceX, entranceY, 40, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // The Hole (Dark Tunnel)
+            this.ctx.fillStyle = '#050505'; // Almost black
+            this.ctx.beginPath();
+            this.ctx.ellipse(entranceX + 5, entranceY, 15, 25, 0, 0, Math.PI * 2);
+            this.ctx.fill();
+
         } else {
-            // Bottom edge
+            // Bottom edge (Portrait)
             const entranceX = this.width / 2;
-            this.ctx.fillRect(entranceX - 25, CONFIG.height - 20, 50, 20);
-            this.ctx.strokeRect(entranceX - 25, CONFIG.height - 20, 50, 20);
+            const entranceY = CONFIG.height - 15;
+
+            // Dirt Mound
+            const moundGrad = this.ctx.createRadialGradient(entranceX, entranceY, 10, entranceX, entranceY, 40);
+            moundGrad.addColorStop(0, '#3a2a1a');
+            moundGrad.addColorStop(1, 'rgba(58, 42, 26, 0)');
+            this.ctx.fillStyle = moundGrad;
+            this.ctx.beginPath();
+            this.ctx.arc(entranceX, entranceY, 40, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // The Hole
+            this.ctx.fillStyle = '#050505';
+            this.ctx.beginPath();
+            this.ctx.ellipse(entranceX, entranceY + 5, 25, 15, 0, 0, Math.PI * 2);
+            this.ctx.fill();
         }
 
-        // 5. Insects
+        // 5. Insects (Shadows handled inside)
         for (const insect of world.insects) {
             this.drawInsect(insect);
         }
@@ -211,35 +277,33 @@ export class Renderer {
         ctx.strokeStyle = '#5a4a3a';
         ctx.lineWidth = 2;
 
-        // Draw all nodes as a merged shape (simple approach: draw all circles)
-        // To make it look merged, we can draw them all filled first, then maybe outline?
-        // Outlining merged circles is hard without path logic.
-        // Let's just draw them filled for now, maybe with a slight border on each for texture.
-
         for (const node of world.nest.nodes) {
             ctx.beginPath();
             ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
             ctx.fill();
         }
 
-        // Optional: Draw "floor" texture or detail
-        // ...
-
         // Draw Queen (Detailed)
         ctx.save();
         ctx.translate(world.queen.x, world.queen.y);
-        // Queen is large, maybe facing down or idle
+
+        // Shadow
+        this.drawShadow(0, 0, 10, ctx);
 
         // Legs
         this.drawLegs(6, 8, '#AAA', 0.2, ctx);
 
         // Abdomen (Large, swollen)
-        ctx.fillStyle = '#444'; // Dark grey/black
+        const gradAbd = ctx.createRadialGradient(-2, 2, 0, 0, 5, 12);
+        gradAbd.addColorStop(0, '#666');
+        gradAbd.addColorStop(1, '#333');
+        ctx.fillStyle = gradAbd;
+
         ctx.beginPath();
         ctx.ellipse(0, 5, 12, 8, Math.PI / 2, 0, Math.PI * 2);
         ctx.fill();
         // Stripes
-        ctx.strokeStyle = '#666';
+        ctx.strokeStyle = '#555';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(-6, 0); ctx.lineTo(6, 0);
@@ -293,14 +357,12 @@ export class Renderer {
             // Visualize Sugar
             const sugarCount = Math.min(50, Math.ceil(world.sugarStockpile / 10));
             for (let i = 0; i < sugarCount; i++) {
-                // Deterministic random position
                 const r = Math.sqrt(hash(i * 13.37)) * (storage.radius * 0.7);
                 const angle = hash(i * 7.91 + 2.4) * Math.PI * 2;
-
                 const x = storage.x + Math.cos(angle) * r;
                 const y = storage.y + Math.sin(angle) * r;
 
-                ctx.fillStyle = '#4F4'; // Bright Green for Sugar
+                ctx.fillStyle = '#4F4';
                 ctx.beginPath();
                 ctx.arc(x, y, 2, 0, Math.PI * 2);
                 ctx.fill();
@@ -309,16 +371,15 @@ export class Renderer {
             // Visualize Protein
             const proteinCount = Math.min(50, Math.ceil(world.proteinStockpile / 10));
             for (let i = 0; i < proteinCount; i++) {
-                // Deterministic random position (different seeds)
                 const r = Math.sqrt(hash(i * 23.17 + 5)) * (storage.radius * 0.7);
                 const angle = hash(i * 11.33 + 4.1) * Math.PI * 2;
 
                 const x = storage.x + Math.cos(angle) * r;
                 const y = storage.y + Math.sin(angle) * r;
 
-                ctx.fillStyle = '#F44'; // Red for Protein
+                ctx.fillStyle = '#F44';
                 ctx.beginPath();
-                ctx.rect(x - 2, y - 2, 4, 4); // Square for protein
+                ctx.rect(x - 2, y - 2, 4, 4);
                 ctx.fill();
             }
         }
@@ -336,7 +397,6 @@ export class Renderer {
         } else if (b.stage === 'LARVA') {
             ctx.fillStyle = '#EEE';
             ctx.beginPath();
-            // Simple worm shape
             const growth = Math.min(b.age, 2000) / 500;
             ctx.ellipse(0, 0, 3 + growth, 1.5, 0, 0, Math.PI * 2);
             ctx.fill();
@@ -377,9 +437,8 @@ export class Renderer {
         for (let i = 0; i < count; i++) {
             const side = i % 2 === 0 ? 1 : -1;
             const legIndex = Math.floor(i / 2);
-            const legOffset = (legIndex - 1) * 2; // -2, 0, 2
+            const legOffset = (legIndex - 1) * 2;
 
-            // Procedural animation
             const move = Math.sin(time + i * Math.PI) * 0.5;
 
             ctx.beginPath();
@@ -398,68 +457,108 @@ export class Renderer {
         }
     }
 
+    drawShadow(x: number, y: number, radius: number, ctx: CanvasRenderingContext2D = this.ctx) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.beginPath();
+        ctx.ellipse(x + 2, y + 2, radius, radius * 0.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
     drawAnt(ant: any, ctx: CanvasRenderingContext2D = this.ctx) {
         ctx.save();
         ctx.translate(ant.x, ant.y);
         ctx.rotate(ant.angle);
+
+        // Shadow
+        this.drawShadow(0, 0, 3, ctx);
 
         // Legs
         const animSpeed = (ant.speedMultiplier !== undefined) ? ant.speedMultiplier : 1.0;
         this.drawLegs(6, 5, '#AAA', animSpeed, ctx);
 
         if (ant.type === 'SOLDIER') {
-            // Thorax & Abdomen (White)
-            ctx.fillStyle = '#FFF';
+            // Pheidole Soldier (Big-headed Ant)
 
-            // Thorax
+            // Thorax (Small, compressed)
+            const gradThorax = ctx.createRadialGradient(0, 0, 0, 0, 0, 3);
+            gradThorax.addColorStop(0, '#FFF');
+            gradThorax.addColorStop(1, '#CCC');
+            ctx.fillStyle = gradThorax;
             ctx.beginPath();
-            ctx.ellipse(0, 0, 2.2, 1.2, 0, 0, Math.PI * 2);
-            ctx.fill();
-            // Abdomen
-            ctx.beginPath();
-            ctx.ellipse(-3.5, 0, 2.8, 1.8, 0, 0, Math.PI * 2); // Much smaller than before
-            ctx.fill();
-
-            // Head (Reddish-Brown, Very Large)
-            ctx.fillStyle = '#A52A2A'; // Reddish Brown
-            ctx.beginPath();
-            ctx.arc(3.5, 0, 3.0, 0, Math.PI * 2); // Big head
+            ctx.ellipse(-1, 0, 2.0, 1.5, 0, 0, Math.PI * 2);
             ctx.fill();
 
-            // Mandibles (Large)
-            ctx.strokeStyle = '#A52A2A';
-            ctx.lineWidth = 1.5;
+            // Abdomen (Standard size, smaller than head)
             ctx.beginPath();
-            ctx.moveTo(4, 1.5);
-            ctx.lineTo(8, 3);
-            ctx.moveTo(4, -1.5);
-            ctx.lineTo(8, -3);
+            ctx.ellipse(-5, 0, 2.5, 1.8, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Head (Massive, Heart-shaped/Square)
+            const gradHead = ctx.createRadialGradient(3, 0, 0, 3, 0, 6);
+            gradHead.addColorStop(0, '#A52A2A'); // Reddish Brown
+            gradHead.addColorStop(1, '#500');
+            ctx.fillStyle = gradHead;
+
+            ctx.beginPath();
+            // Draw a rounded square/heart shape for the head
+            // Wider: +/- 5.0
+            ctx.moveTo(1, -5.0);
+            ctx.lineTo(6, -5.0); // Top edge
+            ctx.quadraticCurveTo(8, -5.0, 8, 0); // Front curve
+            ctx.quadraticCurveTo(8, 5.0, 6, 5.0); // Bottom edge
+            ctx.lineTo(1, 5.0);
+            ctx.quadraticCurveTo(0, 0, 1, -5.0); // Back curve
+            ctx.fill();
+
+            // Mandibles (Thick, short)
+            ctx.strokeStyle = '#300'; // Very Dark
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(7.5, 3.5); ctx.lineTo(10, 1.0);
+            ctx.moveTo(7.5, -3.5); ctx.lineTo(10, -1.0);
             ctx.stroke();
-        } else {
-            ctx.fillStyle = '#FFF';
 
+        } else {
+            // WORKER
             // Head
+            const gradHead = ctx.createRadialGradient(2, 0, 0, 2, 0, 2);
+            gradHead.addColorStop(0, '#FFF');
+            gradHead.addColorStop(1, '#AAA');
+            ctx.fillStyle = gradHead;
             ctx.beginPath();
             ctx.arc(2, 0, 1.5, 0, Math.PI * 2);
             ctx.fill();
+
             // Thorax
             ctx.beginPath();
             ctx.ellipse(0, 0, 2, 1, 0, 0, Math.PI * 2);
             ctx.fill();
+
             // Abdomen
             ctx.beginPath();
             ctx.ellipse(-3, 0, 2.5, 1.5, 0, 0, Math.PI * 2);
             ctx.fill();
         }
 
-        // Attack Animation (Bite effect)
-        if (ant.attackCooldown > 15) { // Just bit
+        // Carrying Food
+        if (ant.carrying === 'SUGAR') {
+            ctx.fillStyle = '#0F0';
+            ctx.beginPath();
+            ctx.arc(5, 0, 2, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (ant.carrying === 'PROTEIN') {
+            ctx.fillStyle = '#F00';
+            ctx.beginPath();
+            ctx.rect(4, -1.5, 3, 3);
+            ctx.fill();
+        }
+
+        // Attack Animation
+        if (ant.attackCooldown > 15) {
             ctx.strokeStyle = '#FFF';
             ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.moveTo(4, -2);
-            ctx.lineTo(8, 0);
-            ctx.lineTo(4, 2);
+            ctx.moveTo(4, -2); ctx.lineTo(8, 0); ctx.lineTo(4, 2);
             ctx.stroke();
         }
 
@@ -470,13 +569,18 @@ export class Renderer {
         this.ctx.save();
         this.ctx.translate(insect.x, insect.y);
 
+        // Shadow
+        this.drawShadow(0, 0, 6, this.ctx);
+
         if (insect.type === 'PREY') {
-            // Prey: Green Beetle/Bug
-            this.ctx.rotate(Math.sin(Date.now() * 0.01) * 0.1); // Slight wiggle
+            this.ctx.rotate(Math.sin(Date.now() * 0.01) * 0.1);
             this.drawLegs(6, 6, '#008888', 0.5);
 
             // Body
-            this.ctx.fillStyle = '#00FFFF';
+            const grad = this.ctx.createRadialGradient(0, 0, 0, 0, 0, 6);
+            grad.addColorStop(0, '#00FFFF');
+            grad.addColorStop(1, '#008888');
+            this.ctx.fillStyle = grad;
             this.ctx.beginPath();
             this.ctx.ellipse(0, 0, 6, 4, 0, 0, Math.PI * 2);
             this.ctx.fill();
@@ -488,28 +592,24 @@ export class Renderer {
             this.ctx.fill();
 
         } else if (insect.type === 'PREDATOR') {
-            // Generic Predator: Red Spider/Beetle
             this.drawLegs(8, 12, '#AA0000', 1.5);
-
-            // Body
-            this.ctx.fillStyle = '#FF0000';
+            const grad = this.ctx.createRadialGradient(0, 0, 0, 0, 0, 7);
+            grad.addColorStop(0, '#FF0000');
+            grad.addColorStop(1, '#550000');
+            this.ctx.fillStyle = grad;
             this.ctx.beginPath();
             this.ctx.arc(0, 0, 7, 0, Math.PI * 2);
             this.ctx.fill();
 
-            // Mandibles
-            this.ctx.fillStyle = '#550000';
-            this.ctx.beginPath();
         } else if (insect.type === 'LADYBUG') {
-            // Ladybug: Red with spots
             this.drawLegs(6, 4, '#000', 1.0);
-
-            // Body
-            this.ctx.fillStyle = '#FF2200';
+            const grad = this.ctx.createRadialGradient(0, 0, 0, 0, 0, 5);
+            grad.addColorStop(0, '#FF2200');
+            grad.addColorStop(1, '#AA1100');
+            this.ctx.fillStyle = grad;
             this.ctx.beginPath();
             this.ctx.ellipse(0, 0, 5, 4, 0, 0, Math.PI * 2);
             this.ctx.fill();
-
             // Spots
             this.ctx.fillStyle = '#000';
             this.ctx.beginPath();
@@ -518,7 +618,6 @@ export class Renderer {
             this.ctx.arc(2, -2, 1, 0, Math.PI * 2);
             this.ctx.arc(2, 2, 1, 0, Math.PI * 2);
             this.ctx.fill();
-
             // Head
             this.ctx.fillStyle = '#000';
             this.ctx.beginPath();
@@ -526,22 +625,16 @@ export class Renderer {
             this.ctx.fill();
 
         } else {
-            // APHID (Green, small, cute)
+            // APHID
             this.ctx.rotate(Math.sin(Date.now() * 0.005) * 0.1);
             this.drawLegs(6, 3, '#00AA00', 0.2);
-
-            // Body
             this.ctx.fillStyle = '#55FF55';
             this.ctx.beginPath();
             this.ctx.ellipse(0, 0, 3, 2, 0, 0, Math.PI * 2);
             this.ctx.fill();
-
-            // Eyes
             this.ctx.fillStyle = '#000';
             this.ctx.fillRect(2, -1, 1, 1);
             this.ctx.fillRect(2, 1, 1, 1);
-
-
         }
 
         this.ctx.restore();
@@ -552,14 +645,15 @@ export class Renderer {
         ctx.save();
         ctx.translate(x, y);
 
-        // Use position as seed for consistent shape
+        // Shadow
+        this.drawShadow(0, 0, radius, ctx);
+
         const seed = Math.floor(x * y);
         const vertices = 12;
 
         ctx.beginPath();
         for (let i = 0; i < vertices; i++) {
             const angle = (i / vertices) * Math.PI * 2;
-            // Pseudo-random radius variation based on angle and seed
             const r = radius * (0.8 + 0.4 * Math.abs(Math.sin(seed + i * 132.1)));
             const vx = Math.cos(angle) * r;
             const vy = Math.sin(angle) * r;
@@ -568,7 +662,6 @@ export class Renderer {
         }
         ctx.closePath();
 
-        // Gradient for 3D look
         const grad = ctx.createRadialGradient(-radius * 0.3, -radius * 0.3, radius * 0.1, 0, 0, radius);
         grad.addColorStop(0, '#777');
         grad.addColorStop(1, '#333');
@@ -585,18 +678,21 @@ export class Renderer {
         const ctx = this.ctx;
         const radius = Math.sqrt(food.amount) * 0.5;
 
+        // Shadow
+        ctx.save();
+        ctx.translate(food.x, food.y);
+        this.drawShadow(0, 0, radius, ctx);
+        ctx.restore();
+
         if (food.type === 'SUGAR') {
-            // Nectar/Sugar: Cluster of translucent droplets
             ctx.save();
             ctx.translate(food.x, food.y);
             const count = Math.min(10, Math.ceil(food.amount / 100));
-
             for (let i = 0; i < count; i++) {
-                const angle = i * 137.5; // Golden angle
+                const angle = i * 137.5;
                 const r = (i / count) * radius;
                 const dx = Math.cos(angle) * r;
                 const dy = Math.sin(angle) * r;
-
                 ctx.beginPath();
                 ctx.arc(dx, dy, 3 + (i % 3), 0, Math.PI * 2);
                 ctx.fillStyle = `rgba(100, 255, 100, 0.6)`;
@@ -604,12 +700,9 @@ export class Renderer {
             }
             ctx.restore();
         } else {
-            // Protein: Meat chunk
             ctx.save();
             ctx.translate(food.x, food.y);
-
             ctx.beginPath();
-            // Irregular shape
             const seed = Math.floor(food.x + food.y);
             for (let i = 0; i < 8; i++) {
                 const angle = (i / 8) * Math.PI * 2;
@@ -624,13 +717,10 @@ export class Renderer {
             ctx.fill();
             ctx.strokeStyle = '#611';
             ctx.stroke();
-
-            // "Bone" or detail
             ctx.fillStyle = '#EAA';
             ctx.beginPath();
             ctx.arc(-2, -2, radius * 0.2, 0, Math.PI * 2);
             ctx.fill();
-
             ctx.restore();
         }
     }

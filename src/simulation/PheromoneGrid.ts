@@ -11,7 +11,7 @@ export class PheromoneGrid {
     toDanger: Float32Array;
 
     constructor(width: number, height: number) {
-        this.scale = 0.25; // 1/4 resolution
+        this.scale = 0.5; // 1/2 resolution (was 0.25)
         this.width = Math.ceil(width * this.scale);
         this.height = Math.ceil(height * this.scale);
         const size = this.width * this.height;

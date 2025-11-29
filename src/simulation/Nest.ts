@@ -23,8 +23,9 @@ export class Nest {
     init() {
         // Scale factor based on smallest dimension to ensure fit
         // Base reference: 800px height/width.
+        // Scale factor based on smallest dimension to ensure fit
         const minDim = Math.min(this.width, this.height);
-        const rScale = minDim / 500;
+        const rScale = minDim / 300; // Safer scaling (was 250)
 
         if (this.width > this.height) {
             this.initHorizontal(rScale);
@@ -38,18 +39,18 @@ export class Nest {
 
         // 1. Define Main Chambers (Massive & Organic)
 
-        // Queen Chamber (Bottom - 85% down)
-        const queenY = this.height * 0.85;
+        // Queen Chamber (Bottom - 80% down) - Moved up from 85%
+        const queenY = this.height * 0.80;
         const queenR = 100 * rScale;
         this.addChamber(cx, queenY, queenR, 'QUEEN');
 
-        // Storage Chamber (Middle - 50% down) - Was Brood, now Storage (Closest to Entrance)
+        // Storage Chamber (Middle - 50% down)
         const storageY = this.height * 0.5;
         const storageR = 90 * rScale;
         this.addChamber(cx, storageY, storageR, 'STORAGE');
 
-        // Brood Chamber (Top - 15% down) - Was Storage, now Brood
-        const broodY = this.height * 0.15;
+        // Brood Chamber (Top - 20% down) - Moved down from 15%
+        const broodY = this.height * 0.20;
         const broodR = 80 * rScale;
         this.addChamber(cx, broodY, broodR, 'BROOD');
 
@@ -77,18 +78,18 @@ export class Nest {
 
         // 1. Define Main Chambers (Left to Right)
 
-        // Brood Chamber (Left - 15% across) - Was Storage, now Brood
-        const broodX = this.width * 0.15;
+        // Brood Chamber (Left - 20% across) - Moved right from 15%
+        const broodX = this.width * 0.20;
         const broodR = 80 * rScale;
         this.addChamber(broodX, cy, broodR, 'BROOD');
 
-        // Storage Chamber (Middle - 50% across) - Was Brood, now Storage (Closest to Entrance)
+        // Storage Chamber (Middle - 50% across)
         const storageX = this.width * 0.5;
         const storageR = 90 * rScale;
         this.addChamber(storageX, cy, storageR, 'STORAGE');
 
-        // Queen Chamber (Right - 85% across)
-        const queenX = this.width * 0.85;
+        // Queen Chamber (Right - 80% across) - Moved left from 85%
+        const queenX = this.width * 0.80;
         const queenR = 100 * rScale;
         this.addChamber(queenX, cy, queenR, 'QUEEN');
 
