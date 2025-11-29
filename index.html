@@ -41,7 +41,7 @@
       top: 10px;
       right: 26vw;
       /* Moved left of nest view */
-      background: rgba(0, 0, 0, 0.8);
+      background: rgba(0, 0, 0, 0.5);
       padding: 10px;
       border-radius: 8px;
       pointer-events: auto;
@@ -132,23 +132,9 @@
   <canvas id="nestCanvas"></canvas>
 
   <div id="ui">
-    <h1>AntSim V3</h1>
     <div class="stat" id="fps">FPS: 0</div>
     <div class="stat" id="popStat">Population: 0</div>
     <div class="stat" id="foodStat">Protein: 0</div>
-  </div>
-
-  <div id="legend">
-    <h3>Legend</h3>
-    <div class="item"><span class="color" style="background: #FFF"></span> Worker</div>
-    <div class="item"><span class="color" style="background: #FFD700"></span> Soldier</div>
-    <div class="item"><span class="color" style="background: #333; border: 1px solid #555"></span> Queen</div>
-    <div class="item"><span class="color" style="background: #00FF00"></span> Sugar</div>
-    <div class="item"><span class="color" style="background: #FF4444"></span> Protein</div>
-    <div class="item"><span class="color" style="background: #00FFFF"></span> Prey</div>
-    <div class="item"><span class="color" style="background: #FF0000"></span> Predator</div>
-    <div class="item"><span class="color" style="background: rgba(0,0,255,0.5)"></span> Home Trail</div>
-    <div class="item"><span class="color" style="background: rgba(255,0,0,0.5)"></span> Food Trail</div>
   </div>
 
   <div id="controls">
@@ -158,7 +144,7 @@
       <input type="range" id="speedRange" min="0" max="10" value="1" step="0.1">
     </div>
     <div style="margin-top: 10px;">
-      <input type="checkbox" id="pheromoneToggle" checked>
+      <input type="checkbox" id="pheromoneToggle">
       <label for="pheromoneToggle" style="cursor: pointer;">Show Pheromones</label>
     </div>
     <br>

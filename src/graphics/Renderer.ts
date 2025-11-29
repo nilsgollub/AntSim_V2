@@ -23,7 +23,7 @@ export class Renderer {
 
     nestCanvas: HTMLCanvasElement;
     nestCtx: CanvasRenderingContext2D;
-    showPheromones: boolean = true;
+    showPheromones: boolean = false;
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
@@ -404,7 +404,8 @@ export class Renderer {
         ctx.rotate(ant.angle);
 
         // Legs
-        this.drawLegs(6, 5, '#AAA', 1.0, ctx);
+        const animSpeed = (ant.speedMultiplier !== undefined) ? ant.speedMultiplier : 1.0;
+        this.drawLegs(6, 5, '#AAA', animSpeed, ctx);
 
         if (ant.type === 'SOLDIER') {
             // Thorax & Abdomen (White)

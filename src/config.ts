@@ -1,55 +1,67 @@
 const isLandscape = window.innerWidth > window.innerHeight;
 
-export const CONFIG = {
-    // Landscape: World 75% width, Nest 25% width (Side by Side)
-    // Portrait: World 100% width, Nest 25% height (Top/Bottom)
-    width: isLandscape ? Math.floor(window.innerWidth * 0.75) : window.innerWidth,
-    height: isLandscape ? window.innerHeight : Math.floor(window.innerHeight * 0.75),
+// Define a target "playable area" in logical pixels.
+// 1600x900 = 1,440,000 pixels.
+// This ensures the world is always roughly this "size" to the ants, regardless of screen resolution.
+const TARGET_AREA = 1600 * 900;
+const aspect = window.innerWidth / window.innerHeight;
 
-    nestWidth: isLandscape ? Math.floor(window.innerWidth * 0.25) : window.innerWidth,
-    nestHeight: isLandscape ? window.innerHeight : Math.floor(window.innerHeight * 0.25),
+// Calculate logical dimensions that preserve the aspect ratio but approximate the target area
+const logicalHeight = Math.sqrt(TARGET_AREA / aspect);
+const logicalWidth = logicalHeight * aspect;
+
+export const CONFIG = {
+    // Logical World Dimensions
+    width: Math.floor(logicalWidth),
+    height: Math.floor(logicalHeight),
+
+    // Nest Dimensions (Relative to Logical World)
+    // Landscape: Nest is 25% of width
+    // Portrait: Nest is 25% of height
+    nestWidth: isLandscape ? Math.floor(logicalWidth * 0.25) : Math.floor(logicalWidth),
+    nestHeight: isLandscape ? Math.floor(logicalHeight) : Math.floor(logicalHeight * 0.25),
 
     // Simulation Settings
-    initialWorkers: 15, // Increased slightly
-    soldierUnlockThreshold: 30, // Earlier soldiers
+    initialWorkers: 15,
+    soldierUnlockThreshold: 30,
 
     // Resources
-    sugarValue: 20, // More energy from sugar
-    proteinValue: 5, // More protein per unit (faster growth)
+    sugarValue: 20,
+    proteinValue: 5,
 
     // Ant Stats
-    antSpeed: 2.5, // Slightly faster
-    antSensorAngle: Math.PI / 2.5, // Wider field of view (was PI/3)
-    antSensorDist: 80, // Further vision (was 60)
-    antTurnSpeed: 0.2, // Smoother turning to prevent circling
-    workerHealth: 20, // Was 15
+    antSpeed: 2.5,
+    antSensorAngle: Math.PI / 4, // 45 degrees
+    antSensorDist: 40, // Increased from 30 to 40 to look further ahead
+    antTurnSpeed: 0.15,
+    workerHealth: 20,
     soldierHealth: 60,
     soldierDamage: 8,
-    workerDamage: 3, // Was 2
-    antMaxEnergy: 3000, // More stamina
-    antEnergyDecay: 0.15, // Much slower hunger (was 0.8)
+    workerDamage: 3,
+    antMaxEnergy: 3000,
+    antEnergyDecay: 0.15,
 
     // Queen
-    queenPosition: { x: window.innerWidth / 2, y: window.innerHeight / 2 },
-    eggCost: 20, // Cheaper eggs (faster growth)
+    queenPosition: { x: logicalWidth / 2, y: logicalHeight / 2 }, // Will be overridden by Nest logic but good default
+    eggCost: 20,
 
     // Pheromones
-    pheromoneDecay: 0.998, // Slower decay (trails last longer, was 0.996)
+    pheromoneDecay: 0.998,
     evaporationRate: 0.015,
 
     // World Generation
-    obstacleCount: 12, // Fewer obstacles
+    obstacleCount: 12,
 
     // Ecosystem
-    sugarSourceCount: 5, // More sugar to help early game
-    maxPrey: 8, // Reduced from 15 to reduce clutter
-    maxPredators: 2, // Fewer enemies initially
-    preySpawnRate: 0.005, // Slower prey spawn (was 0.01)
+    sugarSourceCount: 5,
+    maxPrey: 8,
+    maxPredators: 2,
+    preySpawnRate: 0.005,
 
     // Enemy Spawning
-    gracePeriod: 3000, // No enemies for first ~50 seconds (at 60fps)
-    predatorSpawnRate: 0.0002, // Slower predator spawn
-    spiderSpawnRate: 0.0001, // Very rare
-    beetleSpawnRate: 0.0002, // Rare
-    ladybugSpawnRate: 0.0005, // Occasional
+    gracePeriod: 3000,
+    predatorSpawnRate: 0.0002,
+    spiderSpawnRate: 0.0001,
+    beetleSpawnRate: 0.0002,
+    ladybugSpawnRate: 0.0005,
 };

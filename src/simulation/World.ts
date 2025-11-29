@@ -247,7 +247,31 @@ export class World {
             insect.update(this);
             if (insect.health <= 0) {
                 // Drop protein
-                this.foods.push(new Food(insect.x, insect.y, 'PROTEIN', 50));
+                // Ensure valid position (don't spawn inside walls)
+                let dropX = insect.x;
+                let dropY = insect.y;
+
+                if (this.terrain.isBlocked(dropX, dropY)) {
+                    // Try to find a nearby valid spot
+                    for (let r = 10; r <= 50; r += 10) {
+                        let found = false;
+                        for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+                            const tx = dropX + Math.cos(a) * r;
+                            const ty = dropY + Math.sin(a) * r;
+                            if (!this.terrain.isBlocked(tx, ty)) {
+                                dropX = tx;
+                                dropY = ty;
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (found) break;
+                    }
+                }
+
+                if (!this.terrain.isBlocked(dropX, dropY)) {
+                    this.foods.push(new Food(dropX, dropY, 'PROTEIN', 50));
+                }
                 this.insects.splice(i, 1);
             }
         }
