@@ -58,8 +58,10 @@ export class Queen {
                         world.proteinStockpile -= 5; // Eggs need protein too
 
                         // Spawn Egg
-                        const eggX = this.x + (Math.random() - 0.5) * 40;
-                        const eggY = this.y + (Math.random() - 0.5) * 40;
+                        // Spawn Egg at the tip of the abdomen (Queen is vertical, head up)
+                        // Abdomen tip is approx +45px down
+                        const eggX = this.x + (Math.random() - 0.5) * 10;
+                        const eggY = this.y + 45 + (Math.random() * 5);
                         world.brood.push(new Brood(eggX, eggY));
 
                         this.state = 'IDLE';

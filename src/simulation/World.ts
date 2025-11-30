@@ -38,6 +38,9 @@ export class World {
     // Particles
     particles: { x: number, y: number, vx: number, vy: number, life: number, color: string }[] = [];
 
+    // Vegetation
+    grass: { x: number, y: number, size: number, angle: number }[] = [];
+
     constructor() {
         this.terrain = new Terrain();
         this.nest = new Nest();
@@ -57,6 +60,16 @@ export class World {
     }
 
     init() {
+        // Generate Grass
+        for (let i = 0; i < 200; i++) {
+            this.grass.push({
+                x: Math.random() * CONFIG.width,
+                y: Math.random() * CONFIG.height,
+                size: 2 + Math.random() * 3,
+                angle: Math.random() * Math.PI * 2
+            });
+        }
+
         // Spawn initial workers with randomized energy (to prevent mass die-off)
         for (let i = 0; i < CONFIG.initialWorkers; i++) {
             this.spawnAnt('WORKER');

@@ -14,11 +14,19 @@ export class Insect {
 
     attackCooldown: number = 0;
 
+    // New AI properties
+    state: 'IDLE' | 'WANDER' | 'FLEE' | 'HUNT' = 'WANDER';
+    stateTimer: number = 0;
+    targetX: number = 0;
+    targetY: number = 0;
+
     constructor(x: number, y: number, type: InsectType) {
         this.x = x;
         this.y = y;
         this.type = type;
         this.angle = Math.random() * Math.PI * 2;
+        this.targetX = x;
+        this.targetY = y;
 
         switch (type) {
             case 'PREY':
@@ -26,16 +34,16 @@ export class Insect {
                 this.speed = 1.0;
                 break;
             case 'PREDATOR': // Generic Bug
-                this.health = 30; // Was 50
+                this.health = 30;
                 this.speed = 1.3;
                 break;
             case 'SPIDER':
-                this.health = 25; // Was 40
-                this.speed = 1.8; // Fast!
+                this.health = 25;
+                this.speed = 1.8;
                 break;
             case 'BEETLE':
-                this.health = 80; // Was 150
-                this.speed = 0.6; // Slow
+                this.health = 80;
+                this.speed = 0.6;
                 break;
             case 'LADYBUG':
                 this.health = 80;
@@ -52,19 +60,55 @@ export class Insect {
         if (this.health <= 0) return;
         if (this.attackCooldown > 0) this.attackCooldown--;
 
-        // Behavior
+        // Default behavior: Wander
+        // Specific behaviors override this by setting state/target
+        // We don't reset state to WANDER here blindly, we let the logic decide
+
         switch (this.type) {
             case 'PREY': this.updatePrey(world); break;
             case 'PREDATOR': this.updatePredator(world); break;
             case 'SPIDER': this.updateSpider(world); break;
             case 'BEETLE': this.updateBeetle(world); break;
             case 'LADYBUG': this.updateLadybug(world); break;
-            case 'APHID':
-                this.angle += (Math.random() - 0.5) * 0.5;
-                break;
+            case 'APHID': this.updateAphid(world); break;
         }
 
-        // Movement
+        this.executeMovement(world);
+    }
+
+    executeMovement(world: World) {
+        if (this.state === 'IDLE') {
+            this.stateTimer--;
+            if (this.stateTimer <= 0) {
+                this.state = 'WANDER';
+                this.pickRandomTarget();
+            }
+            return;
+        }
+
+        // Move towards target
+        const dx = this.targetX - this.x;
+        const dy = this.targetY - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < 5) {
+            if (this.state === 'WANDER') {
+                this.state = 'IDLE';
+                this.stateTimer = 30 + Math.random() * 60; // Pause for 0.5-1.5s
+            }
+            return;
+        }
+
+        // Smooth turn
+        const targetAngle = Math.atan2(dy, dx);
+        let diff = targetAngle - this.angle;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+
+        const turnSpeed = 0.15;
+        this.angle += Math.max(-turnSpeed, Math.min(turnSpeed, diff));
+
+        // Move
         const nextX = this.x + Math.cos(this.angle) * this.speed;
         const nextY = this.y + Math.sin(this.angle) * this.speed;
 
@@ -72,11 +116,16 @@ export class Insect {
             this.x = nextX;
             this.y = nextY;
         } else {
-            this.angle += Math.PI;
-            // Push out of obstacle slightly to prevent getting stuck
-            this.x += Math.cos(this.angle) * this.speed;
-            this.y += Math.sin(this.angle) * this.speed;
+            // Hit wall, pick new target
+            this.angle += Math.PI; // Bounce
+            this.pickRandomTarget();
         }
+    }
+
+    pickRandomTarget() {
+        const range = 100;
+        this.targetX = this.x + (Math.random() - 0.5) * range * 2;
+        this.targetY = this.y + (Math.random() - 0.5) * range * 2;
     }
 
     updatePrey(world: World) {
@@ -94,35 +143,40 @@ export class Insect {
             }
         }
 
-        if (nearestAnt && minDst < 2500) { // 50px flee range
+        if (nearestAnt && minDst < 3600) { // 60px flee range
+            this.state = 'FLEE';
+            // Run away from ant
             const dx = this.x - nearestAnt.x;
             const dy = this.y - nearestAnt.y;
-            this.angle = Math.atan2(dy, dx); // Run away
+            // Set target far away in opposite direction
+            this.targetX = this.x + dx * 5;
+            this.targetY = this.y + dy * 5;
+            this.speed = 2.0; // Sprint
         } else {
-            // Wander
-            this.angle += (Math.random() - 0.5) * 0.2;
+            this.speed = 1.0;
+            // If we were fleeing and are now safe, go back to wander
+            if (this.state === 'FLEE') {
+                this.state = 'WANDER';
+                this.pickRandomTarget();
+            }
         }
     }
 
     updatePredator(world: World) {
-        // Hunt nearby ants
-        this.huntAnts(world, 10000, 4); // Was 5 damage
+        this.huntAnts(world, 15000, 4);
     }
 
     updateSpider(world: World) {
-        // Aggressive, fast hunter
-        this.huntAnts(world, 15000, 6); // Was 8 damage
+        this.huntAnts(world, 20000, 6);
     }
 
     updateBeetle(world: World) {
-        // Slow, wanders, but bites if close
-        this.huntAnts(world, 2500, 10); // Was 15 damage
-        // Mostly wanders
-        if (Math.random() < 0.05) this.angle += (Math.random() - 0.5);
+        this.huntAnts(world, 3000, 10); // Only bites if very close
+        this.speed = 0.6;
     }
 
     updateLadybug(world: World) {
-        // Hunt Aphids!
+        // Hunt Aphids
         let nearestAphid: Insect | null = null;
         let minDst = Infinity;
 
@@ -139,19 +193,27 @@ export class Insect {
         }
 
         if (nearestAphid && minDst < 20000) {
-            const dx = nearestAphid.x - this.x;
-            const dy = nearestAphid.y - this.y;
-            this.angle = Math.atan2(dy, dx);
+            this.state = 'HUNT';
+            this.targetX = nearestAphid.x;
+            this.targetY = nearestAphid.y;
 
             if (minDst < 100) {
                 if (this.attackCooldown <= 0) {
-                    nearestAphid.health -= 10; // Eat aphid
+                    nearestAphid.health -= 10;
                     this.attackCooldown = 60;
                 }
             }
-        } else {
-            this.angle += (Math.random() - 0.5) * 0.1;
         }
+    }
+
+    updateAphid(_world: World) {
+        // Aphids mostly stay still or move very slowly
+        if (Math.random() < 0.01 && this.state !== 'WANDER') {
+            this.state = 'WANDER';
+            this.pickRandomTarget();
+        }
+        // Override speed for aphid
+        this.speed = 0.2;
     }
 
     huntAnts(world: World, rangeSq: number, damage: number) {
@@ -169,18 +231,22 @@ export class Insect {
         }
 
         if (nearestAnt && minDst < rangeSq) {
-            const dx = nearestAnt.x - this.x;
-            const dy = nearestAnt.y - this.y;
-            this.angle = Math.atan2(dy, dx);
+            this.state = 'HUNT';
+            this.targetX = nearestAnt.x;
+            this.targetY = nearestAnt.y;
 
-            if (minDst < 100) { // Attack
+            if (minDst < 100) { // Attack range
                 if (this.attackCooldown <= 0) {
                     nearestAnt.health -= damage;
                     this.attackCooldown = 30;
                 }
             }
         } else {
-            this.angle += (Math.random() - 0.5) * 0.2;
+            // If we were hunting and lost target, go back to wander
+            if (this.state === 'HUNT') {
+                this.state = 'WANDER';
+                this.pickRandomTarget();
+            }
         }
     }
 }

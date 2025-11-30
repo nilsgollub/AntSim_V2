@@ -747,6 +747,7 @@ export class Ant {
     }
 
     move(world: World) {
+        this.applySeparation(world);
         const speed = CONFIG.antSpeed * this.speedMultiplier;
         const nextX = this.x + Math.cos(this.angle) * speed;
         const nextY = this.y + Math.sin(this.angle) * speed;
@@ -849,9 +850,40 @@ export class Ant {
         }
     }
 
-    countNearbyAllies(world: World, radius: number): number {
+    applySeparation(world: World) {
+        const separationRadius = 15;
+        const nearby = world.spatialGrid.getNearby(this.x, this.y, separationRadius);
+
+        let dx = 0;
+        let dy = 0;
         let count = 0;
-        for (const ant of world.ants) {
+
+        for (const other of nearby) {
+            if (other !== this && other.location === this.location) {
+                const distSq = (this.x - other.x) ** 2 + (this.y - other.y) ** 2;
+                if (distSq < separationRadius * separationRadius && distSq > 0) {
+                    const dist = Math.sqrt(distSq);
+                    // Push away stronger if closer
+                    const force = (separationRadius - dist) / separationRadius;
+                    dx += (this.x - other.x) / dist * force;
+                    dy += (this.y - other.y) / dist * force;
+                    count++;
+                }
+            }
+        }
+
+        if (count > 0) {
+            // Apply separation force to position directly (soft collision)
+            // or modify angle? Modifying position is more stable for "sliding" past each other
+            this.x += dx * 0.5;
+            this.y += dy * 0.5;
+        }
+    }
+
+    countNearbyAllies(world: World, radius: number): number {
+        const nearby = world.spatialGrid.getNearby(this.x, this.y, radius);
+        let count = 0;
+        for (const ant of nearby) {
             if (ant !== this && ant.type !== 'QUEEN' && ant.location === this.location) {
                 const dx = ant.x - this.x;
                 const dy = ant.y - this.y;
