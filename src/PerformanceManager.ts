@@ -15,6 +15,7 @@ export interface PerformanceProfile {
     simpleInsects: boolean;
     pheromoneUpdateSkip: number; // Update every N frames
     renderSkip: number; // Render every N frames (not implemented yet, but good to have)
+    grassAnimation: boolean;
 }
 
 export class PerformanceManager {
@@ -31,7 +32,8 @@ export class PerformanceManager {
                     gradients: false,
                     simpleInsects: true,
                     pheromoneUpdateSkip: 3,
-                    renderSkip: 1
+                    renderSkip: 1,
+                    grassAnimation: false
                 };
             case QualityLevel.MEDIUM:
                 return {
@@ -41,7 +43,8 @@ export class PerformanceManager {
                     gradients: false, // Flat colors
                     simpleInsects: false,
                     pheromoneUpdateSkip: 2,
-                    renderSkip: 1
+                    renderSkip: 1,
+                    grassAnimation: false
                 };
             case QualityLevel.HIGH:
                 return {
@@ -51,7 +54,8 @@ export class PerformanceManager {
                     gradients: true,
                     simpleInsects: false,
                     pheromoneUpdateSkip: 1,
-                    renderSkip: 1
+                    renderSkip: 1,
+                    grassAnimation: false
                 };
             case QualityLevel.ULTRA:
                 return {
@@ -61,7 +65,8 @@ export class PerformanceManager {
                     gradients: true,
                     simpleInsects: false,
                     pheromoneUpdateSkip: 1,
-                    renderSkip: 1
+                    renderSkip: 1,
+                    grassAnimation: true
                 };
         }
     }

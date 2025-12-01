@@ -1067,7 +1067,9 @@ export class Renderer {
         ctx.translate(g.x, g.y);
 
         // Sway animation (shared for the tuft)
-        const baseSway = Math.sin(Date.now() * 0.002 + g.x * 0.01) * 0.3;
+        // Only animate if enabled in settings (ULTRA)
+        const animate = PerformanceManager.settings.grassAnimation;
+        const baseSway = animate ? Math.sin(Date.now() * 0.002 + g.x * 0.01) * 0.3 : 0;
 
         // Shadow for the tuft
         if (PerformanceManager.settings.shadows) {

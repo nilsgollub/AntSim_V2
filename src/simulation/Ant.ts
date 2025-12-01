@@ -18,6 +18,8 @@ export class Ant {
     obstacleTimer: number = 0;
     fleeTimer: number = 0;
     attackCooldown: number = 0;
+    sprintTimer: number = 0;
+    sprintCooldown: number = 0;
     speedMultiplier: number = 1.0;
 
     // Patrol logic
@@ -463,6 +465,18 @@ export class Ant {
             // Move towards enemy with jitter to prevent stacking
             this.angle = Math.atan2(dy, dx);
             this.angle += (Math.random() - 0.5) * 0.1;
+
+            // Sprint Logic
+            if (this.sprintTimer > 0) {
+                this.speedMultiplier = 2.5; // Sprint!
+                this.sprintTimer--;
+            } else if (this.sprintCooldown > 0) {
+                this.sprintCooldown--;
+            } else if (minDist > 900) { // If > 30px away
+                // Trigger Sprint to catch up
+                this.sprintTimer = 30; // 0.5s sprint
+                this.sprintCooldown = 180; // 3s cooldown
+            }
 
             if (minDist < 400) { // Close range
                 this.speedMultiplier = 0.5; // Slow down for precision
