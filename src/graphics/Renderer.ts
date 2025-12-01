@@ -1,6 +1,6 @@
-
-import { World } from '../simulation/World';
 import { CONFIG } from '../config';
+import { World } from '../simulation/World';
+import { PerformanceManager, QualityLevel } from '../PerformanceManager';
 
 export class Renderer {
     canvas: HTMLCanvasElement;
@@ -62,14 +62,19 @@ export class Renderer {
 
     generateBackground() {
         const ctx = this.bgCanvas.getContext('2d')!;
+        const w = this.bgCanvas.width;
+        const h = this.bgCanvas.height;
+
         // Base Dirt Color
         ctx.fillStyle = '#1a1a1a';
-        ctx.fillRect(0, 0, this.width, this.height);
+        ctx.fillRect(0, 0, w, h);
 
         // Noise / Texture
-        for (let i = 0; i < 5000; i++) {
-            const x = Math.random() * this.width;
-            const y = Math.random() * this.height;
+        const count = (w * h) / 200;
+
+        for (let i = 0; i < count; i++) {
+            const x = Math.random() * w;
+            const y = Math.random() * h;
             const size = Math.random() * 2 + 1;
             const opacity = Math.random() * 0.1;
             ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
@@ -77,9 +82,10 @@ export class Renderer {
         }
 
         // Darker patches
-        for (let i = 0; i < 200; i++) {
-            const x = Math.random() * this.width;
-            const y = Math.random() * this.height;
+        const patchCount = (w * h) / 5000;
+        for (let i = 0; i < patchCount; i++) {
+            const x = Math.random() * w;
+            const y = Math.random() * h;
             const r = Math.random() * 50 + 20;
             ctx.beginPath();
             ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -89,13 +95,18 @@ export class Renderer {
     }
 
     render(world: World) {
+        const skip = PerformanceManager.settings.renderSkip;
+        // Use a static counter or world age? World age is good.
+        if (world.age % skip !== 0) return;
+
         this.renderWorld(world);
         this.renderNest(world);
     }
 
     renderWorld(world: World) {
         // 0. Background (Texture)
-        this.ctx.drawImage(this.bgCanvas, 0, 0);
+        // Draw to fill the simulation bounds
+        this.ctx.drawImage(this.bgCanvas, 0, 0, this.width, this.height);
 
         // 1. Pheromones (Overlay)
         if (this.showPheromones) {
@@ -112,7 +123,7 @@ export class Renderer {
                 const danger = toDanger[i];
 
                 if (home > 0.01 || sugar > 0.01 || protein > 0.01 || danger > 0.01) {
-                    let r = protein;
+                    let r = protein + sugar; // Sugar adds Red (Yellow = R+G)
                     let g = sugar;
                     let b = home;
 
@@ -138,7 +149,9 @@ export class Renderer {
             this.ctx.globalAlpha = 0.6; // Slight transparency for pheromones
 
             // Apply blur to simulate smoke/diffusion
-            this.ctx.filter = 'blur(4px)';
+            if (PerformanceManager.level !== QualityLevel.LOW) {
+                this.ctx.filter = 'blur(4px)';
+            }
             this.ctx.drawImage(this.pheromoneCanvas, 0, 0, this.width, this.height);
             this.ctx.filter = 'none'; // Reset filter
 
@@ -146,10 +159,7 @@ export class Renderer {
             this.ctx.imageSmoothingEnabled = false;
         }
 
-        // 1.5. Grass (Vegetation)
-        for (const g of world.grass) {
-            this.drawGrass(g);
-        }
+
 
         // 2. Obstacles (Rocks) with Shadows
         for (const obs of world.terrain.obstacles) {
@@ -203,6 +213,15 @@ export class Renderer {
             this.ctx.beginPath();
             this.ctx.ellipse(entranceX, entranceY + 5, 25, 15, 0, 0, Math.PI * 2);
             this.ctx.fill();
+            this.ctx.fill();
+        }
+
+        // 4.5 Vegetation (Grass)
+        // Only draw grass if not in LOW mode (or check specific setting)
+        if (PerformanceManager.level !== QualityLevel.LOW) {
+            for (const g of world.grass) {
+                this.drawGrass(g);
+            }
         }
 
         // 5. Insects (Shadows handled inside)
@@ -216,15 +235,20 @@ export class Renderer {
                 this.drawAnt(ant, this.ctx);
             }
         }
-
         // 7. Particles
         this.drawParticles(world);
+
+        // ULTRA EFFECTS
+        if (PerformanceManager.level === QualityLevel.ULTRA) {
+            this.drawGodRays();
+            this.drawVignette();
+        }
     }
 
     renderNest(world: World) {
         const ctx = this.nestCtx;
-        const w = this.nestCanvas.width;
-        const h = this.nestCanvas.height;
+        const w = CONFIG.nestWidth;
+        const h = CONFIG.nestHeight;
 
         // Clear
         ctx.fillStyle = '#222';
@@ -245,7 +269,7 @@ export class Renderer {
                 const danger = toDanger[i];
 
                 if (home > 0.01 || sugar > 0.01 || protein > 0.01 || danger > 0.01) {
-                    let r = protein;
+                    let r = protein + sugar; // Sugar adds Red (Yellow = R+G)
                     let g = sugar;
                     let b = home;
 
@@ -490,8 +514,8 @@ export class Renderer {
             if (dist > radius) continue;
 
             if (type === 'SUGAR') {
-                // Crystals
-                ctx.fillStyle = `rgba(200, 255, 200, ${0.6 + (i % 5) * 0.1})`;
+                // Crystals - YELLOW
+                ctx.fillStyle = `rgba(255, 255, 100, ${0.6 + (i % 5) * 0.1})`;
                 ctx.beginPath();
                 ctx.rect(px - 1.5, py - 1.5, 3, 3);
                 ctx.fill();
@@ -598,6 +622,7 @@ export class Renderer {
     }
 
     drawShadow(x: number, y: number, radius: number, ctx: CanvasRenderingContext2D = this.ctx) {
+        if (!PerformanceManager.settings.shadows) return;
         ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
         ctx.beginPath();
         ctx.ellipse(x + 2, y + 2, radius, radius * 0.6, 0, 0, Math.PI * 2);
@@ -608,6 +633,30 @@ export class Renderer {
         ctx.save();
         ctx.translate(ant.x, ant.y);
         ctx.rotate(ant.angle);
+
+        if (PerformanceManager.settings.simpleInsects) {
+            // Simplified Ant (No legs, simple shapes)
+            ctx.fillStyle = ant.type === 'SOLDIER' ? '#8B4513' : '#AAA';
+            ctx.beginPath();
+            // Body
+            ctx.ellipse(0, 0, 3, 1.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Head
+            ctx.fillStyle = '#555';
+            ctx.beginPath();
+            ctx.arc(3, 0, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (ant.carrying !== 'NONE') {
+                ctx.fillStyle = ant.carrying === 'SUGAR' ? '#0F0' : '#F00';
+                ctx.beginPath();
+                ctx.arc(5, 0, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+            return;
+        }
 
         // Shadow
         this.drawShadow(0, 0, 3, ctx);
@@ -682,7 +731,7 @@ export class Renderer {
 
         // Carrying Food
         if (ant.carrying === 'SUGAR') {
-            ctx.fillStyle = '#0F0';
+            ctx.fillStyle = '#FF0'; // Yellow
             ctx.beginPath();
             ctx.arc(5, 0, 2, 0, Math.PI * 2);
             ctx.fill();
@@ -708,6 +757,16 @@ export class Renderer {
     drawInsect(insect: any) {
         this.ctx.save();
         this.ctx.translate(insect.x, insect.y);
+
+        if (PerformanceManager.settings.simpleInsects) {
+            this.ctx.rotate(insect.angle + Math.PI / 2);
+            this.ctx.fillStyle = '#555';
+            this.ctx.beginPath();
+            this.ctx.ellipse(0, 0, 4, 2, 0, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.restore();
+            return;
+        }
 
         // Shadow
         this.drawShadow(0, 0, 6, this.ctx);
@@ -869,26 +928,7 @@ export class Renderer {
         this.ctx.restore();
     }
 
-    drawGrass(g: any) {
-        const ctx = this.ctx;
-        ctx.save();
-        ctx.translate(g.x, g.y);
-        ctx.rotate(g.angle);
 
-        ctx.strokeStyle = '#3e6b3e'; // Green blade
-        ctx.lineWidth = 1;
-
-        // Draw a few blades
-        for (let i = -1; i <= 1; i++) {
-            ctx.beginPath();
-            ctx.moveTo(i * 2, 0);
-            // Simple curve for blade
-            ctx.quadraticCurveTo(i * 3, -g.size * 2, i * 4, -g.size * 3);
-            ctx.stroke();
-        }
-
-        ctx.restore();
-    }
 
     drawRock(x: number, y: number, radius: number) {
         const ctx = this.ctx;
@@ -968,6 +1008,20 @@ export class Renderer {
         ctx.restore();
 
         if (food.type === 'SUGAR') {
+            // Bloom Effect (ULTRA)
+            if (PerformanceManager.level === QualityLevel.ULTRA) {
+                ctx.save();
+                ctx.translate(food.x, food.y);
+                ctx.globalCompositeOperation = 'lighter'; // Additive blending
+                ctx.shadowColor = '#FF5'; // Yellowish glow
+                ctx.shadowBlur = 15;
+                ctx.fillStyle = 'rgba(255, 255, 100, 0.1)'; // Yellow tint
+                ctx.beginPath();
+                ctx.arc(0, 0, radius * 1.2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
             ctx.save();
             ctx.translate(food.x, food.y);
             const count = Math.min(10, Math.ceil(food.amount / 100));
@@ -978,7 +1032,7 @@ export class Renderer {
                 const dy = Math.sin(angle) * r;
                 ctx.beginPath();
                 ctx.arc(dx, dy, 3 + (i % 3), 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(100, 255, 100, 0.6)`;
+                ctx.fillStyle = `rgba(255, 255, 100, 0.6)`; // Yellow crystals
                 ctx.fill();
             }
             ctx.restore();
@@ -1006,5 +1060,118 @@ export class Renderer {
             ctx.fill();
             ctx.restore();
         }
+    }
+    drawGrass(g: any) {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(g.x, g.y);
+
+        // Sway animation (shared for the tuft)
+        const baseSway = Math.sin(Date.now() * 0.002 + g.x * 0.01) * 0.3;
+
+        // Shadow for the tuft
+        if (PerformanceManager.settings.shadows) {
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 4, 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Draw a Tuft (Cluster of blades)
+        const bladeCount = 5;
+        for (let i = 0; i < bladeCount; i++) {
+            // Randomize each blade slightly based on index
+            const offsetAngle = (i - bladeCount / 2) * 0.3; // Spread out
+            const lengthVar = 0.8 + Math.abs(Math.sin(i * 123.45)) * 0.4; // Random length
+
+            ctx.save();
+            ctx.rotate(g.angle + offsetAngle + baseSway * (1 + i * 0.1));
+
+            // Blade Gradient
+            const gradient = ctx.createLinearGradient(0, 0, baseSway * 5, -g.size * 5 * lengthVar);
+            gradient.addColorStop(0, '#1a331a'); // Dark base
+            gradient.addColorStop(1, '#4d804d'); // Light tip
+            ctx.fillStyle = gradient;
+
+            ctx.beginPath();
+            ctx.moveTo(-1.5, 0);
+            ctx.quadraticCurveTo(0, -g.size * 2 * lengthVar, baseSway * 5, -g.size * 5 * lengthVar);
+            ctx.quadraticCurveTo(0, -g.size * 2 * lengthVar, 1.5, 0);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        ctx.restore();
+    }
+    drawGodRays() {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = 0.15;
+
+        const gradient = ctx.createLinearGradient(0, 0, this.width, this.height);
+        gradient.addColorStop(0, 'rgba(255, 255, 200, 0)');
+        gradient.addColorStop(0.5, 'rgba(255, 255, 200, 0.3)');
+        gradient.addColorStop(1, 'rgba(255, 255, 200, 0)');
+
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.moveTo(this.width * 0.2, 0);
+        ctx.lineTo(this.width * 0.8, 0);
+        ctx.lineTo(this.width * 0.6, this.height);
+        ctx.lineTo(this.width * 0.4, this.height);
+        ctx.fill();
+
+        // Moving rays
+        const time = Date.now() * 0.0005;
+        for (let i = 0; i < 3; i++) {
+            const offset = Math.sin(time + i) * 100;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.beginPath();
+            ctx.moveTo(this.width * 0.5 + offset, 0);
+            ctx.lineTo(this.width * 0.6 + offset, 0);
+            ctx.lineTo(this.width * 0.4 + offset - 200, this.height);
+            ctx.lineTo(this.width * 0.3 + offset - 200, this.height);
+            ctx.fill();
+        }
+
+        ctx.restore();
+    }
+
+    drawVignette() {
+        const ctx = this.ctx;
+        const grad = ctx.createRadialGradient(this.width / 2, this.height / 2, this.width * 0.3, this.width / 2, this.height / 2, this.width * 0.8);
+        grad.addColorStop(0, 'rgba(0,0,0,0)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.2)'); // Much lighter vignette
+
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, this.width, this.height);
+    }
+
+    drawTiltShift() {
+        const ctx = this.ctx;
+        const w = this.width;
+        const h = this.height;
+        // Reduced blur amount significantly
+        const blurAmount = '1px';
+
+        ctx.save();
+        ctx.filter = `blur(${blurAmount})`;
+
+        // Reduced coverage to 10% top/bottom
+        // Top Blur
+        ctx.drawImage(this.canvas,
+            0, 0, w, h * 0.10, // Source
+            0, 0, w, h * 0.10  // Dest
+        );
+
+        // Bottom Blur
+        ctx.drawImage(this.canvas,
+            0, h * 0.90, w, h * 0.10,
+            0, h * 0.90, w, h * 0.10
+        );
+
+        ctx.restore();
     }
 }

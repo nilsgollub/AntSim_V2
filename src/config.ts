@@ -58,14 +58,19 @@ export const CONFIG = {
 
     // Ecosystem
     sugarSourceCount: 5,
-    maxPrey: 8,
-    maxPredators: 2,
-    preySpawnRate: 0.005,
+    maxPrey: 10,
+    maxPredators: 5,
+    preySpawnRate: 0.01,
 
     // Enemy Spawning
-    gracePeriod: 3000,
-    predatorSpawnRate: 0.0002,
-    spiderSpawnRate: 0.0001,
-    beetleSpawnRate: 0.0002,
-    ladybugSpawnRate: 0.0005,
+    gracePeriod: 1500, // Reduced grace period (was 3000)
+
+    predatorSpawnRate: 0.002, // 10x
+    spiderSpawnRate: 0.001,   // 10x
+    beetleSpawnRate: 0.001,   // 5x
+    ladybugSpawnRate: 0.002,  // 4x
+
+    maxSpiders: 3,
+    maxBeetles: 3,
+    maxLadybugs: 3,
 };

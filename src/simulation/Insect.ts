@@ -151,7 +151,7 @@ export class Insect {
             // Set target far away in opposite direction
             this.targetX = this.x + dx * 5;
             this.targetY = this.y + dy * 5;
-            this.speed = 2.0; // Sprint
+            this.speed = 3.5; // Sprint (Slightly slower than hunting ant at 3.75)
         } else {
             this.speed = 1.0;
             // If we were fleeing and are now safe, go back to wander

@@ -46,15 +46,15 @@ export class Terrain {
         }
     }
 
-    isBlocked(x: number, y: number): boolean {
+    isBlocked(x: number, y: number, buffer: number = 0): boolean {
         // Check boundaries
-        if (x < 0 || x >= CONFIG.width || y < 0 || y >= CONFIG.height) return true;
+        if (x < buffer || x >= CONFIG.width - buffer || y < buffer || y >= CONFIG.height - buffer) return true;
 
         // Check obstacles
         for (const obs of this.obstacles) {
             const dx = x - obs.x;
             const dy = y - obs.y;
-            if (dx * dx + dy * dy < obs.radius * obs.radius) {
+            if (dx * dx + dy * dy < (obs.radius + buffer) * (obs.radius + buffer)) {
                 return true;
             }
         }
@@ -67,7 +67,7 @@ export class Terrain {
             const dx = x - obs.x;
             const dy = y - obs.y;
             const distSq = dx * dx + dy * dy;
-            const checkRad = obs.radius + 10; // Check slightly larger radius
+            const checkRad = obs.radius + 2; // Check slightly larger radius
 
             if (distSq < checkRad * checkRad) {
                 // Normal vector from obstacle center to point

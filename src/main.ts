@@ -1,6 +1,7 @@
 import { CONFIG } from './config';
 import { World } from './simulation/World';
 import { Renderer } from './graphics/Renderer';
+import { PerformanceManager, QualityLevel } from './PerformanceManager';
 
 const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
 canvas.width = CONFIG.width;
@@ -30,6 +31,12 @@ speedRange.addEventListener('input', () => {
 const pheromoneToggle = document.getElementById('pheromoneToggle') as HTMLInputElement;
 pheromoneToggle.addEventListener('change', () => {
   renderer.showPheromones = pheromoneToggle.checked;
+});
+
+const qualitySelect = document.getElementById('qualitySelect') as HTMLSelectElement;
+qualitySelect.addEventListener('change', () => {
+  const val = qualitySelect.value as keyof typeof QualityLevel;
+  PerformanceManager.setQuality(QualityLevel[val]);
 });
 
 restartBtn.addEventListener('click', () => {

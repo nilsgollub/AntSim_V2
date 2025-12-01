@@ -7,6 +7,7 @@ import { Terrain } from './Terrain';
 import { PheromoneGrid } from './PheromoneGrid';
 import { SpatialGrid } from './SpatialGrid';
 import { Brood } from './Brood';
+import { PerformanceManager } from '../PerformanceManager';
 
 import { Nest } from './Nest';
 
@@ -137,7 +138,7 @@ export class World {
         while (!valid) {
             x = Math.random() * CONFIG.width;
             y = Math.random() * CONFIG.height;
-            if (!this.terrain.isBlocked(x, y)) valid = true;
+            if (!this.terrain.isBlocked(x, y, 20)) valid = true;
         }
         this.foods.push(new Food(x, y, type, 1000));
     }
@@ -177,13 +178,16 @@ export class World {
             if (readyToHatch) {
                 // Hatch!
                 // Dynamic Caste Production
-                const soldiers = this.ants.filter(a => a.type === 'SOLDIER').length;
-                const workers = this.ants.filter(a => a.type === 'WORKER').length;
+                // Check Population Limit
+                if (this.ants.length < PerformanceManager.settings.maxAnts) {
+                    const soldiers = this.ants.filter(a => a.type === 'SOLDIER').length;
+                    const workers = this.ants.filter(a => a.type === 'WORKER').length;
 
-                if (soldiers < workers / 5 && workers > CONFIG.soldierUnlockThreshold) {
-                    this.spawnAnt('SOLDIER');
-                } else {
-                    this.spawnAnt('WORKER');
+                    if (soldiers < workers / 5 && workers > CONFIG.soldierUnlockThreshold) {
+                        this.spawnAnt('SOLDIER');
+                    } else {
+                        this.spawnAnt('WORKER');
+                    }
                 }
 
                 this.brood.splice(i, 1);
@@ -227,21 +231,21 @@ export class World {
             }
         }
         // Spawn Spiders (Fast, Dangerous)
-        if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'SPIDER').length < 1) {
+        if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'SPIDER').length < CONFIG.maxSpiders) {
             if (Math.random() < CONFIG.spiderSpawnRate) {
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'SPIDER'));
             }
         }
         // Spawn Beetles (Tanky)
-        if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'BEETLE').length < 2) {
+        if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'BEETLE').length < CONFIG.maxBeetles) {
             if (Math.random() < CONFIG.beetleSpawnRate) {
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'BEETLE'));
             }
         }
         // Spawn Ladybugs (Aphid Hunters)
-        if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'LADYBUG').length < 2) {
+        if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'LADYBUG').length < CONFIG.maxLadybugs) {
             if (Math.random() < CONFIG.ladybugSpawnRate) {
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'LADYBUG'));
