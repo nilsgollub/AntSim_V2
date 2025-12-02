@@ -76,4 +76,45 @@ export class PerformanceManager {
         this.settings = this.getProfile(level);
         console.log(`Performance Quality set to ${level}`, this.settings);
     }
+
+    // Auto-Performance Tuning
+    static lowFpsFrames: number = 0;
+    static lastDowngrade: number = 0;
+    static readonly CRITICAL_FPS = 20;
+    static readonly FPS_CHECK_FRAMES = 60; // ~1 second of sustained low FPS
+    static readonly DOWNGRADE_COOLDOWN = 10000; // 10 seconds cooldown
+
+    static monitorFPS(fps: number) {
+        if (fps < this.CRITICAL_FPS) {
+            this.lowFpsFrames++;
+            if (this.lowFpsFrames > this.FPS_CHECK_FRAMES) {
+                const now = Date.now();
+                if (now - this.lastDowngrade > this.DOWNGRADE_COOLDOWN) {
+                    this.downgrade();
+                    this.lastDowngrade = now;
+                    this.lowFpsFrames = 0;
+                }
+            }
+        } else {
+            this.lowFpsFrames = 0;
+        }
+    }
+
+    static downgrade() {
+        let newLevel: QualityLevel | null = null;
+        switch (this.level) {
+            case QualityLevel.ULTRA: newLevel = QualityLevel.HIGH; break;
+            case QualityLevel.HIGH: newLevel = QualityLevel.MEDIUM; break;
+            case QualityLevel.MEDIUM: newLevel = QualityLevel.LOW; break;
+            case QualityLevel.LOW: return; // Already lowest
+        }
+
+        if (newLevel) {
+            console.warn(`FPS Critical! Downgrading quality to ${newLevel}`);
+            this.setQuality(newLevel);
+
+            // Notify user via UI if possible (optional, but good for UX)
+            // For now, we just log it.
+        }
+    }
 }

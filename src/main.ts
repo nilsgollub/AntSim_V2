@@ -51,12 +51,21 @@ let lastFpsTime = lastTime;
 function loop(now: number) {
   requestAnimationFrame(loop);
 
+  const delta = now - lastTime;
   lastTime = now;
+  const instantFps = 1000 / (delta || 16); // Avoid infinity on first frame
+  PerformanceManager.monitorFPS(instantFps);
 
   // FPS
   frames++;
   if (now - lastFpsTime >= 1000) {
     fpsDisplay.innerText = `FPS: ${frames}`;
+
+    // Sync Quality UI (in case of auto-downgrade)
+    if (qualitySelect.value !== PerformanceManager.level) {
+      qualitySelect.value = PerformanceManager.level;
+    }
+
     frames = 0;
     lastFpsTime = now;
   }
