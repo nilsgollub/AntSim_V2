@@ -16,11 +16,13 @@ export class Ant {
 
     // Pathfinding/Movement
     obstacleTimer: number = 0;
+    exitTimer: number = 0;
     fleeTimer: number = 0;
     attackCooldown: number = 0;
     sprintTimer: number = 0;
     sprintCooldown: number = 0;
     speedMultiplier: number = 1.0;
+    thinkTimer: number = 0;
 
     // Patrol logic
     patrolAngle: number = 0;
@@ -478,14 +480,15 @@ export class Ant {
                 this.sprintCooldown = 180; // 3s cooldown
             }
 
-            if (minDist < 400) { // Close range
+            if (minDist < 2500) { // Close range (50px)
                 this.speedMultiplier = 0.5; // Slow down for precision
 
-                if (minDist < 100) { // Attack range
+                if (minDist < 900) { // Attack range (30px)
                     this.speedMultiplier = 0; // Stop moving to attack!
                     if (this.attackCooldown <= 0) {
                         const dmg = this.type === 'SOLDIER' ? CONFIG.soldierDamage : CONFIG.workerDamage;
                         nearestEnemy.health -= dmg;
+                        world.addParticle(nearestEnemy.x, nearestEnemy.y, 'red', 'BLOOD');
                         this.attackCooldown = 20;
                     }
                 }
@@ -637,143 +640,126 @@ export class Ant {
             return;
         }
 
-        // 0.5 Push away from Nest Entrance (World)
-        // This prevents ants from immediately following food trails back into the nest
-        const isLandscape = CONFIG.width > CONFIG.height;
-        let entranceX, entranceY;
-
-        if (isLandscape) {
-            entranceX = CONFIG.width;
-            entranceY = CONFIG.height / 2;
-        } else {
-            entranceX = CONFIG.width / 2;
-            entranceY = CONFIG.height;
-        }
-
-        const dx = this.x - entranceX;
-        const dy = this.y - entranceY;
-        const distSq = dx * dx + dy * dy;
-
-        if (distSq < 5000) { // ~70px radius
-            // Force move away
-            this.angle = Math.atan2(dy, dx);
-            // Add some noise to disperse them fan-like
-            this.angle += (Math.random() - 0.5) * 1.5;
+        // 0.5 Exit Momentum
+        // If just exited nest, keep moving forward to clear the entrance area
+        if (this.exitTimer > 0) {
+            this.exitTimer--;
+            // Move generally away from nest center (towards world center)
+            const isLandscape = CONFIG.width > CONFIG.height;
+            if (isLandscape) {
+                this.angle = Math.PI; // Move Left (away from right wall)
+            } else {
+                this.angle = -Math.PI / 2; // Move Up (away from bottom wall)
+            }
+            this.angle += (Math.random() - 0.5) * 1.0; // Spread out
             return;
         }
 
         const needsProtein = world.proteinStockpile < CONFIG.eggCost * 25;
 
-        // 0. Check for DANGER
-        const dangerLevel = world.grid.get(this.x, this.y, 'DANGER');
-        if (dangerLevel > 0.05) {
-            this.state = 'FLEEING';
-            this.fleeTimer = 30;
-            this.angle += Math.PI;
-            return;
-        }
+        // Throttled Perception
+        if (this.thinkTimer > 0) {
+            this.thinkTimer--;
+        } else {
+            this.thinkTimer = 3 + Math.floor(Math.random() * 3);
 
-        // 1. Hunt if protein needed OR opportunistic
-        for (const insect of world.insects) {
-            const isPrey = insect.type === 'PREY' || insect.type === 'BEETLE' || insect.type === 'LADYBUG' || insect.type === 'SPIDER' || insect.type === 'PREDATOR';
-
-            if (isPrey) {
-                const dx = this.x - insect.x;
-                const dy = this.y - insect.y;
-                const distSq = dx * dx + dy * dy;
-
-                if (needsProtein || distSq < 2500) {
-                    if (distSq < 4900) { // 70px range
-                        if (this.type === 'WORKER') {
-                            if (insect.type === 'BEETLE') {
-                                const allies = this.countNearbyAllies(world, 80);
-                                if (allies < 5) continue;
-                            }
-                            if (insect.type === 'SPIDER' || insect.type === 'PREDATOR') {
-                                const allies = this.countNearbyAllies(world, 100);
-                                if (allies < 4) continue;
-                            }
-                        }
-                        this.state = 'ATTACKING';
-                        return;
-                    }
-                }
+            // 0. Check for DANGER
+            const dangerLevel = world.grid.get(this.x, this.y, 'DANGER');
+            if (dangerLevel > 0.05) {
+                this.state = 'FLEEING';
+                this.fleeTimer = 30;
+                this.angle += Math.PI;
+                return;
             }
-        }
 
-        // 1.5 Check for Aphids (Farming)
-        // 1.5 Check for Aphids (Farming) - WORKERS ONLY
-        if (this.type === 'WORKER') {
+            // 1. Hunt
             for (const insect of world.insects) {
-                if (insect.type === 'APHID') {
+                const isPrey = insect.type === 'PREY' || insect.type === 'BEETLE' || insect.type === 'LADYBUG' || insect.type === 'SPIDER' || insect.type === 'PREDATOR';
+
+                if (isPrey) {
                     const dx = this.x - insect.x;
                     const dy = this.y - insect.y;
                     const distSq = dx * dx + dy * dy;
 
-                    if (distSq < 144) { // Get closer to Aphids (12px)
-                        this.carrying = 'SUGAR';
-                        this.state = 'RETURNING';
-                        this.energy = CONFIG.antMaxEnergy;
-                        this.angle += Math.PI;
-                        world.addParticle(this.x, this.y, '#FFFF00');
-                        return;
-                    } else if (distSq < 10000) {
-                        this.angle = Math.atan2(dy, dx);
-                        return;
+                    // Soldiers always hunt. Workers hunt if protein needed or self-defense (close)
+                    if (this.type === 'SOLDIER' || needsProtein || distSq < 2500) {
+                        if (distSq < 4900) {
+                            if (this.type === 'WORKER') {
+                                if (insect.type === 'BEETLE') {
+                                    const allies = this.countNearbyAllies(world, 80);
+                                    if (allies < 5) continue;
+                                }
+                                if (insect.type === 'SPIDER' || insect.type === 'PREDATOR') {
+                                    const allies = this.countNearbyAllies(world, 100);
+                                    if (allies < 4) continue;
+                                }
+                            }
+                            this.state = 'ATTACKING';
+                            return;
+                        }
                     }
+                }
+            }
+
+            // 1.5 Aphids
+            if (this.type === 'WORKER') {
+                for (const insect of world.insects) {
+                    if (insect.type === 'APHID') {
+                        const dx = this.x - insect.x;
+                        const dy = this.y - insect.y;
+                        const distSq = dx * dx + dy * dy;
+
+                        if (distSq < 144) {
+                            this.carrying = 'SUGAR';
+                            this.state = 'RETURNING';
+                            this.energy = CONFIG.antMaxEnergy;
+                            this.angle += Math.PI;
+                            world.addParticle(this.x, this.y, '#FFFF00');
+                            return;
+                        } else if (distSq < 10000) {
+                            this.angle = Math.atan2(dy, dx);
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // 2. Food
+            for (const food of world.foods) {
+                if (food.amount <= 0) continue;
+                if (this.type === 'SOLDIER' && food.type === 'SUGAR') continue;
+
+                const dx = food.x - this.x;
+                const dy = food.y - this.y;
+                const distSq = dx * dx + dy * dy;
+
+                const foodRadius = Math.sqrt(food.amount) * 0.5;
+                const harvestRange = foodRadius + 25;
+                const harvestRangeSq = harvestRange * harvestRange;
+
+                if (distSq < harvestRangeSq) {
+                    food.harvest(1);
+                    this.carrying = food.type;
+                    this.state = 'RETURNING';
+                    this.energy = CONFIG.antMaxEnergy;
+                    this.angle += Math.PI;
+                    return;
+                } else if (distSq < 10000) {
+                    this.angle = Math.atan2(dy, dx);
+                    this.angle += (Math.random() - 0.5) * 0.1;
+                    return;
                 }
             }
         }
 
-        // 2. Check for nearby food (Visual/Smell)
-        // 2. Check for nearby food (Visual/Smell)
-        for (const food of world.foods) {
-            if (food.amount <= 0) continue;
-
-            // Soldiers ignore sugar
-            if (this.type === 'SOLDIER' && food.type === 'SUGAR') continue;
-
-            const dx = food.x - this.x;
-            const dy = food.y - this.y;
-            const distSq = dx * dx + dy * dy;
-
-            // Dynamic harvest radius based on food size (Visual radius is sqrt(amount) * 0.5)
-            const foodRadius = Math.sqrt(food.amount) * 0.5;
-            const harvestRange = foodRadius + 15; // Increased buffer to prevent "invisible wall" feeling
-            const harvestRangeSq = harvestRange * harvestRange;
-
-            if (distSq < harvestRangeSq) {
-                food.harvest(1);
-                this.carrying = food.type;
-                this.state = 'RETURNING';
-                this.energy = CONFIG.antMaxEnergy;
-                this.angle += Math.PI;
-                return;
-            } else if (distSq < 10000) {
-                // Move directly to food
-                this.angle = Math.atan2(dy, dx);
-
-                // Add slight jitter to prevent perfect stacking
-                this.angle += (Math.random() - 0.5) * 0.1;
-
-                return;
-            }
-        }
-
-        // 3. Follow Pheromones using Standard Algorithm
-        // 3. Follow Pheromones using Standard Algorithm
-        // Soldiers ONLY follow PROTEIN
+        // 3. Pheromones
         const targetPheromone = (this.type === 'SOLDIER' || needsProtein) ? 'PROTEIN' : 'SUGAR';
         const foundFood = this.senseAndSteer(world, targetPheromone);
 
         if (!foundFood) {
-            // If no food trail found, avoid HOME pheromone to explore new areas
             this.senseAndAvoid(world, 'HOME');
-        } else {
-            // If food found, we already steered towards it in senseAndSteer
         }
 
-        // Drop Home Trail
         world.grid.depositCircle(this.x, this.y, 'HOME', 0.5, 3);
     }
 
@@ -782,7 +768,6 @@ export class Ant {
 
         const grid = this.location === 'NEST' ? world.nestGrid : world.grid;
 
-        // Drop Food Trail
         if (this.carrying === 'SUGAR') {
             grid.depositCircle(this.x, this.y, 'SUGAR', 1.0, 3);
         } else if (this.carrying === 'PROTEIN') {
@@ -790,7 +775,6 @@ export class Ant {
         }
 
         if (this.location === 'WORLD') {
-            // Calculate Angle to Home (Entrance)
             let targetX, targetY;
             if (CONFIG.width > CONFIG.height) {
                 targetX = CONFIG.width;
@@ -800,13 +784,7 @@ export class Ant {
                 targetY = CONFIG.height;
             }
             const angleToHome = Math.atan2(targetY - this.y, targetX - this.x);
-
-            // Follow Home Pheromones
             const foundTrail = this.senseAndSteer(world, 'HOME');
-
-            // Apply Bias towards Home
-            // If trail found: Weak bias to keep them moving in the right general direction along the trail
-            // If no trail: Stronger bias to guide them back
             const biasStrength = foundTrail ? 0.15 : 0.3;
 
             let diff = angleToHome - this.angle;
@@ -816,7 +794,6 @@ export class Ant {
             this.angle += diff * biasStrength;
 
         } else {
-            // NEST: Go to Storage
             const storage = world.nest.chambers.find(c => c.type === 'STORAGE');
 
             if (storage) {
@@ -858,27 +835,22 @@ export class Ant {
         const nextY = this.y + Math.sin(this.angle) * speed;
 
         if (this.location === 'WORLD') {
-            // Check Entrance
-            // Landscape: Right edge of World -> Left edge of Nest
-            // Portrait: Bottom edge of World -> Top edge of Nest
-
             const isLandscape = CONFIG.width > CONFIG.height;
 
             if (isLandscape) {
                 if (nextX > CONFIG.width - 10 && Math.abs(nextY - CONFIG.height / 2) < 50) {
                     this.location = 'NEST';
-                    this.x = 25; // Enter deeper (was 10)
+                    this.x = 25;
                     this.y = world.nest.height / 2;
-                    this.angle = 0; // Face into nest
+                    this.angle = 0;
                     return;
                 }
             } else {
-                // Portrait
                 if (nextY > CONFIG.height - 10 && Math.abs(nextX - CONFIG.width / 2) < 50) {
                     this.location = 'NEST';
-                    this.x = world.nest.width / 2; // Enter at center x of nest
-                    this.y = 25; // Enter deeper (was 10)
-                    this.angle = Math.PI / 2; // Face down into nest
+                    this.x = world.nest.width / 2;
+                    this.y = 25;
+                    this.angle = Math.PI / 2;
                     return;
                 }
             }
@@ -887,66 +859,50 @@ export class Ant {
                 this.x = nextX;
                 this.y = nextY;
             } else {
-                // Slide along obstacle
                 this.angle = world.terrain.getCollisionAngle(this.x, this.y, this.angle);
-                this.obstacleTimer = 10 + Math.floor(Math.random() * 10); // Stick to wall for a bit
-
-                // Push out of obstacle slightly to prevent getting stuck
+                this.obstacleTimer = 10 + Math.floor(Math.random() * 10);
                 this.x += Math.cos(this.angle) * speed;
                 this.y += Math.sin(this.angle) * speed;
             }
         } else {
             // NEST
-            // Check Exit
-            // Landscape: Left edge of Nest -> Right edge of World
-            // Portrait: Top edge of Nest -> Bottom edge of World
-
             const isLandscape = CONFIG.width > CONFIG.height;
 
             if (isLandscape) {
                 if (nextX < 5 && Math.abs(nextY - world.nest.height / 2) < 50) {
                     this.location = 'WORLD';
-                    this.x = CONFIG.width - 25; // Enter deeper (was 10)
+                    this.x = CONFIG.width - 25;
                     this.y = CONFIG.height / 2;
-                    this.angle = Math.PI; // Face into world
+                    this.angle = Math.PI;
+                    this.exitTimer = 45; // Force move away
                     return;
                 }
             } else {
-                // Portrait
                 if (nextY < 5 && Math.abs(nextX - world.nest.width / 2) < 50) {
                     this.location = 'WORLD';
-                    this.x = CONFIG.width / 2; // Enter at center x of world
-                    this.y = CONFIG.height - 25; // Enter deeper (was 10)
-                    this.angle = -Math.PI / 2; // Face up into world
+                    this.x = CONFIG.width / 2;
+                    this.y = CONFIG.height - 25;
+                    this.angle = -Math.PI / 2;
+                    this.exitTimer = 45; // Force move away
                     return;
                 }
             }
-            // Use a buffer to keep ants away from walls
+
             const NEST_BUFFER = 5;
 
             if (world.nest.isInside(nextX, nextY, NEST_BUFFER)) {
                 this.x = nextX;
                 this.y = nextY;
             } else {
-                // Wall collision in nest - Robust recovery
-                // Push towards the nearest node center (guaranteed to be inside)
                 const nearest = world.nest.getNearestNode(this.x, this.y);
                 if (nearest) {
                     const dx = nearest.x - this.x;
                     const dy = nearest.y - this.y;
                     const angleToCenter = Math.atan2(dy, dx);
-
-                    // Push gently back inside
                     this.x += Math.cos(angleToCenter) * 2;
                     this.y += Math.sin(angleToCenter) * 2;
-
-                    // Align angle with tunnel direction (tangent)
-                    // Tangent is perpendicular to normal (radius vector)
-                    // But we don't know which way is "forward".
-                    // Just randomize slightly to unstuck, but keep generally inside.
                     this.angle = angleToCenter + (Math.random() - 0.5) * 2.0;
                 } else {
-                    // Fallback
                     this.angle += Math.PI;
                     this.x += Math.cos(this.angle) * 2;
                     this.y += Math.sin(this.angle) * 2;
@@ -968,7 +924,6 @@ export class Ant {
                 const distSq = (this.x - other.x) ** 2 + (this.y - other.y) ** 2;
                 if (distSq < separationRadius * separationRadius && distSq > 0) {
                     const dist = Math.sqrt(distSq);
-                    // Push away stronger if closer
                     const force = (separationRadius - dist) / separationRadius;
                     dx += (this.x - other.x) / dist * force;
                     dy += (this.y - other.y) / dist * force;
@@ -978,8 +933,6 @@ export class Ant {
         }
 
         if (count > 0) {
-            // Apply separation force to position directly (soft collision)
-            // or modify angle? Modifying position is more stable for "sliding" past each other
             this.x += dx * 0.5;
             this.y += dy * 0.5;
         }

@@ -30,6 +30,8 @@ export class World {
 
     // Simulation Age
     age: number = 0;
+    timeOfDay: number = 0; // 0-1 cycle
+    dayLength: number = 6000; // ~1.5 minutes per day
 
     // Brood Stats (Getters for compatibility)
     get eggs(): number { return this.brood.filter(b => b.stage === 'EGG').length; }
@@ -37,7 +39,7 @@ export class World {
     get pupae(): number { return this.brood.filter(b => b.stage === 'PUPA').length; }
 
     // Particles
-    particles: { x: number, y: number, vx: number, vy: number, life: number, color: string }[] = [];
+    particles: { x: number, y: number, vx: number, vy: number, life: number, color: string, type: 'DEFAULT' | 'BLOOD' | 'DUST' }[] = [];
 
     // Vegetation
     grass: { x: number, y: number, size: number, angle: number }[] = [];
@@ -120,15 +122,16 @@ export class World {
         this.ants.push(ant);
     }
 
-    addParticle(x: number, y: number, color: string) {
+    addParticle(x: number, y: number, color: string, type: 'DEFAULT' | 'BLOOD' | 'DUST' = 'DEFAULT') {
         const angle = Math.random() * Math.PI * 2;
-        const speed = Math.random() * 2;
+        const speed = type === 'BLOOD' ? Math.random() * 0.5 : Math.random() * 2;
         this.particles.push({
             x, y,
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed,
-            life: 1.0,
-            color
+            life: type === 'BLOOD' ? 5.0 : 1.0,
+            color,
+            type
         });
     }
 
@@ -138,7 +141,17 @@ export class World {
         while (!valid) {
             x = Math.random() * CONFIG.width;
             y = Math.random() * CONFIG.height;
-            if (!this.terrain.isBlocked(x, y, 20)) valid = true;
+
+            // Check Entrance Proximity (Don't spawn too close to entrance)
+            const isLandscape = CONFIG.width > CONFIG.height;
+            let nearEntrance = false;
+            if (isLandscape) {
+                if (x > CONFIG.width - 150 && Math.abs(y - CONFIG.height / 2) < 150) nearEntrance = true;
+            } else {
+                if (y > CONFIG.height - 150 && Math.abs(x - CONFIG.width / 2) < 150) nearEntrance = true;
+            }
+
+            if (!nearEntrance && !this.terrain.isBlocked(x, y, 45)) valid = true;
         }
         this.foods.push(new Food(x, y, type, 1000));
     }
@@ -161,6 +174,7 @@ export class World {
 
     update() {
         this.age++;
+        this.timeOfDay = (this.age % this.dayLength) / this.dayLength;
         this.grid.update();
         this.nestGrid.update();
         this.queen.update(this);
@@ -200,9 +214,17 @@ export class World {
         // Update Particles
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const p = this.particles[i];
-            p.x += p.vx;
-            p.y += p.vy;
-            p.life -= 0.05;
+            if (p.type === 'BLOOD') {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vx *= 0.9;
+                p.vy *= 0.9;
+                p.life -= 0.005;
+            } else {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.05;
+            }
             if (p.life <= 0) this.particles.splice(i, 1);
         }
 
@@ -216,6 +238,13 @@ export class World {
         }
 
         // Update Insects
+        // Dynamic Difficulty Scaling
+        const antCount = this.ants.length;
+        const currentMaxPredators = CONFIG.maxPredators + Math.floor(antCount / 50);
+        const currentMaxSpiders = CONFIG.maxSpiders + Math.floor(antCount / 100);
+        const currentMaxBeetles = CONFIG.maxBeetles + Math.floor(antCount / 75);
+        const currentMaxLadybugs = CONFIG.maxLadybugs + Math.floor(antCount / 40);
+
         // Spawn Prey
         if (this.insects.filter(i => i.type === 'PREY').length < CONFIG.maxPrey) {
             if (Math.random() < CONFIG.preySpawnRate) {
@@ -224,28 +253,28 @@ export class World {
             }
         }
         // Spawn Predators (Generic)
-        if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'PREDATOR').length < CONFIG.maxPredators) {
+        if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'PREDATOR').length < currentMaxPredators) {
             if (Math.random() < CONFIG.predatorSpawnRate) {
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'PREDATOR'));
             }
         }
         // Spawn Spiders (Fast, Dangerous)
-        if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'SPIDER').length < CONFIG.maxSpiders) {
+        if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'SPIDER').length < currentMaxSpiders) {
             if (Math.random() < CONFIG.spiderSpawnRate) {
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'SPIDER'));
             }
         }
         // Spawn Beetles (Tanky)
-        if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'BEETLE').length < CONFIG.maxBeetles) {
+        if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'BEETLE').length < currentMaxBeetles) {
             if (Math.random() < CONFIG.beetleSpawnRate) {
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'BEETLE'));
             }
         }
         // Spawn Ladybugs (Aphid Hunters)
-        if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'LADYBUG').length < CONFIG.maxLadybugs) {
+        if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'LADYBUG').length < currentMaxLadybugs) {
             if (Math.random() < CONFIG.ladybugSpawnRate) {
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'LADYBUG'));
@@ -287,7 +316,18 @@ export class World {
                 }
 
                 if (!this.terrain.isBlocked(dropX, dropY)) {
-                    this.foods.push(new Food(dropX, dropY, 'PROTEIN', 50));
+                    // Check Entrance Proximity before dropping
+                    const isLandscape = CONFIG.width > CONFIG.height;
+                    let nearEntrance = false;
+                    if (isLandscape) {
+                        if (dropX > CONFIG.width - 100 && Math.abs(dropY - CONFIG.height / 2) < 100) nearEntrance = true;
+                    } else {
+                        if (dropY > CONFIG.height - 100 && Math.abs(dropX - CONFIG.width / 2) < 100) nearEntrance = true;
+                    }
+
+                    if (!nearEntrance) {
+                        this.foods.push(new Food(dropX, dropY, 'PROTEIN', 50));
+                    }
                 }
                 this.insects.splice(i, 1);
             }

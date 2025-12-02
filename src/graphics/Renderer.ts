@@ -66,7 +66,7 @@ export class Renderer {
         const h = this.bgCanvas.height;
 
         // Base Dirt Color
-        ctx.fillStyle = '#1a1a1a';
+        ctx.fillStyle = '#2a2a2a';
         ctx.fillRect(0, 0, w, h);
 
         // Noise / Texture
@@ -166,6 +166,11 @@ export class Renderer {
             this.drawRock(obs.x, obs.y, obs.radius);
         }
 
+        // 2.5 Dynamic Shadows (Ants & Insects) - ULTRA
+        if (PerformanceManager.settings.shadows) {
+            this.drawShadows(world);
+        }
+
         // 3. Food with Shadows
         for (const food of world.foods) {
             this.drawFood(food);
@@ -251,7 +256,7 @@ export class Renderer {
         const h = CONFIG.nestHeight;
 
         // Clear
-        ctx.fillStyle = '#222';
+        ctx.fillStyle = '#2a2a2a';
         ctx.fillRect(0, 0, w, h);
 
         // 0. Nest Pheromones (Background)
@@ -768,8 +773,8 @@ export class Renderer {
             return;
         }
 
-        // Shadow
-        this.drawShadow(0, 0, 6, this.ctx);
+        // Shadow - Handled by drawShadows
+        // this.drawShadow(0, 0, 6, this.ctx);
 
         if (insect.type === 'PREY') {
             // Silverfish / Springtail look
@@ -909,20 +914,80 @@ export class Renderer {
             this.ctx.arc(1.5, -6, 0.8, 0, Math.PI * 2);
             this.ctx.fill();
 
-        } else {
-            // APHID
+        } else if (insect.type === 'PREDATOR') {
+            // Tiger Beetle / Aggressive Bug
             this.ctx.rotate(insect.angle + Math.PI / 2);
-            this.drawLegs(6, 3, '#00AA00', 0.2);
+            this.drawLegs(6, 8, '#800000', 1.5); // Long, dark red legs
 
-            this.ctx.fillStyle = '#76FF03'; // Bright Green
+            // Body (Elongated, metallic)
+            const grad = this.ctx.createLinearGradient(0, -8, 0, 8);
+            grad.addColorStop(0, '#FF0000'); // Red
+            grad.addColorStop(0.5, '#B71C1C'); // Dark Red
+            grad.addColorStop(1, '#800000'); // Maroon
+            this.ctx.fillStyle = grad;
+
             this.ctx.beginPath();
-            this.ctx.ellipse(0, 0, 3, 4, 0, 0, Math.PI * 2);
+            this.ctx.ellipse(0, 0, 5, 9, 0, 0, Math.PI * 2); // Slightly larger
             this.ctx.fill();
 
-            // Cornicles (Tail pipes)
+            // Head (Large mandibles)
+            this.ctx.fillStyle = '#B71C1C';
+            this.ctx.beginPath();
+            this.ctx.arc(0, -8, 4, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // Mandibles (Huge)
+            this.ctx.strokeStyle = '#FFF';
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            this.ctx.moveTo(-2, -8); this.ctx.lineTo(-2, -14); this.ctx.lineTo(2, -11);
+            this.ctx.moveTo(2, -8); this.ctx.lineTo(2, -14); this.ctx.lineTo(-2, -11);
+            this.ctx.stroke();
+
+            // Eyes (Big, bulging)
             this.ctx.fillStyle = '#000';
-            this.ctx.fillRect(-1.5, 2, 0.5, 1.5);
-            this.ctx.fillRect(1.0, 2, 0.5, 1.5);
+            this.ctx.beginPath();
+            this.ctx.arc(-3.5, -8, 1.8, 0, Math.PI * 2);
+            this.ctx.arc(3.5, -8, 1.8, 0, Math.PI * 2);
+            this.ctx.fill();
+
+        } else if (insect.type === 'APHID') {
+            // APHID
+            this.ctx.rotate(insect.angle + Math.PI / 2);
+
+            // Legs (Small, translucent)
+            this.drawLegs(6, 3, 'rgba(100, 200, 100, 0.5)', 0.5);
+
+            // Body (Plump, pear-shaped)
+            // Head
+            this.ctx.fillStyle = '#AEEA00'; // Lime Green
+            this.ctx.beginPath();
+            this.ctx.arc(0, -3, 2, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // Abdomen
+            this.ctx.beginPath();
+            this.ctx.ellipse(0, 1, 3.5, 4.5, 0, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // Eyes
+            this.ctx.fillStyle = '#000';
+            this.ctx.beginPath();
+            this.ctx.arc(-1.5, -3.5, 0.5, 0, Math.PI * 2);
+            this.ctx.arc(1.5, -3.5, 0.5, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // Cornicles (Tail pipes - characteristic of aphids)
+            this.ctx.strokeStyle = '#33691E'; // Dark Green
+            this.ctx.lineWidth = 1;
+            this.ctx.beginPath();
+            this.ctx.moveTo(-2, 3); this.ctx.lineTo(-2.5, 5);
+            this.ctx.moveTo(2, 3); this.ctx.lineTo(2.5, 5);
+            this.ctx.stroke();
+        } else {
+            // Fallback for unknown types (Debug: Pink Square)
+            this.ctx.fillStyle = '#FF00FF';
+            this.ctx.fillRect(-5, -5, 10, 10);
         }
 
         this.ctx.restore();
@@ -1112,18 +1177,7 @@ export class Renderer {
         ctx.globalCompositeOperation = 'screen';
         ctx.globalAlpha = 0.15;
 
-        const gradient = ctx.createLinearGradient(0, 0, this.width, this.height);
-        gradient.addColorStop(0, 'rgba(255, 255, 200, 0)');
-        gradient.addColorStop(0.5, 'rgba(255, 255, 200, 0.3)');
-        gradient.addColorStop(1, 'rgba(255, 255, 200, 0)');
-
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.moveTo(this.width * 0.2, 0);
-        ctx.lineTo(this.width * 0.8, 0);
-        ctx.lineTo(this.width * 0.6, this.height);
-        ctx.lineTo(this.width * 0.4, this.height);
-        ctx.fill();
+        // Moving rays
 
         // Moving rays
         const time = Date.now() * 0.0005;
@@ -1151,28 +1205,108 @@ export class Renderer {
         ctx.fillRect(0, 0, this.width, this.height);
     }
 
-    drawTiltShift() {
+    drawLighting(world: World) {
         const ctx = this.ctx;
-        const w = this.width;
-        const h = this.height;
-        // Reduced blur amount significantly
-        const blurAmount = '1px';
+        const time = world.timeOfDay; // 0-1
+
+        let ambientColor = 'rgba(0,0,0,0)';
+
+        // Day/Night Cycle
+        // 0.0 - 0.2: Dawn (Dark -> Orange)
+        // 0.2 - 0.7: Day (Clear)
+        // 0.7 - 0.8: Dusk (Orange -> Dark)
+        // 0.8 - 1.0: Night (Dark Blue)
+
+        if (time < 0.2) {
+            // Dawn
+            const t = time / 0.2;
+            // Fade from Night (0.7) to Day (0.0)
+            const alpha = 0.7 * (1 - t);
+            ambientColor = `rgba(0, 10, 30, ${alpha})`;
+        } else if (time < 0.7) {
+            // Day
+            ambientColor = 'rgba(0,0,0,0)';
+        } else if (time < 0.8) {
+            // Dusk
+            const t = (time - 0.7) / 0.1;
+            // Fade from Day (0.0) to Night (0.7)
+            const alpha = 0.7 * t;
+            ambientColor = `rgba(0, 10, 30, ${alpha})`;
+        } else {
+            // Night
+            ambientColor = 'rgba(0, 10, 30, 0.7)';
+        }
+
+        // Apply Ambient Light
+        ctx.save();
+        ctx.fillStyle = ambientColor;
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        // Sun/Moon Glow
+        if (time > 0.8 || time < 0.2) {
+            // Moon Glow
+            ctx.globalCompositeOperation = 'screen';
+            ctx.fillStyle = 'rgba(100, 150, 255, 0.1)';
+            ctx.fillRect(0, 0, this.width, this.height);
+        } else if (time > 0.2 && time < 0.3) {
+            // Morning Glow
+            ctx.globalCompositeOperation = 'overlay';
+            ctx.fillStyle = 'rgba(255, 200, 100, 0.2)';
+            ctx.fillRect(0, 0, this.width, this.height);
+        } else if (time > 0.6 && time < 0.7) {
+            // Evening Glow
+            ctx.globalCompositeOperation = 'overlay';
+            ctx.fillStyle = 'rgba(255, 100, 50, 0.2)';
+            ctx.fillRect(0, 0, this.width, this.height);
+        }
+
+        ctx.restore();
+    }
+
+    drawShadows(world: World) {
+        const ctx = this.ctx;
+        const time = world.timeOfDay;
+
+        // No shadows at night
+        if (time > 0.8 || time < 0.1) return;
+
+        // Calculate Sun Position (Moves from Left to Right)
+        // 0.1 (Dawn) -> Left
+        // 0.45 (Noon) -> Center
+        // 0.8 (Dusk) -> Right
+
+        // Shadow Offset (Opposite to sun)
+        // Dawn: Sun Left -> Shadow Right (+x)
+        // Dusk: Sun Right -> Shadow Left (-x)
+
+        let sunX = ((time - 0.1) / 0.7) * this.width; // 0 to Width
+        let shadowLen = 1.0;
+
+        // Shadow Length depends on time (Long at dawn/dusk, short at noon)
+        const noonDist = Math.abs(time - 0.45);
+        shadowLen = 0.5 + noonDist * 2; // Reduced max length
+
+        const shadowOffsetX = (this.width / 2 - sunX) / (this.width / 2) * 2 * shadowLen; // Much closer
+        const shadowOffsetY = 1 * shadowLen; // Very close
 
         ctx.save();
-        ctx.filter = `blur(${blurAmount})`;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
 
-        // Reduced coverage to 10% top/bottom
-        // Top Blur
-        ctx.drawImage(this.canvas,
-            0, 0, w, h * 0.10, // Source
-            0, 0, w, h * 0.10  // Dest
-        );
+        // Draw Shadows for Ants
+        for (const ant of world.ants) {
+            if (ant.location === 'WORLD') {
+                ctx.beginPath();
+                ctx.ellipse(ant.x + shadowOffsetX, ant.y + shadowOffsetY, 3, 3, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
 
-        // Bottom Blur
-        ctx.drawImage(this.canvas,
-            0, h * 0.90, w, h * 0.10,
-            0, h * 0.90, w, h * 0.10
-        );
+        // Draw Shadows for Insects
+        for (const insect of world.insects) {
+            ctx.beginPath();
+            ctx.ellipse(insect.x + shadowOffsetX, insect.y + shadowOffsetY, 5, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
 
         ctx.restore();
     }

@@ -1,10 +1,7 @@
 const isLandscape = window.innerWidth > window.innerHeight;
 
 // Define a target "playable area" in logical pixels.
-// 1600x900 = 1,440,000 pixels.
-// This ensures the world is always roughly this "size" to the ants, regardless of screen resolution.
-// Define a target "playable area" in logical pixels.
-// 1000x600 = 600,000 pixels. (Was 1600x900)
+// 1000x600 = 600,000 pixels.
 // This ensures the world is always roughly this "size" to the ants, regardless of screen resolution.
 const TARGET_AREA = 1000 * 600;
 const aspect = window.innerWidth / window.innerHeight;
@@ -19,8 +16,6 @@ export const CONFIG = {
     height: Math.floor(logicalHeight),
 
     // Nest Dimensions (Relative to Logical World)
-    // Landscape: Nest is 20% of width (Was 25%)
-    // Portrait: Nest is 20% of height (Was 25%)
     nestWidth: isLandscape ? Math.floor(logicalWidth * 0.20) : Math.floor(logicalWidth),
     nestHeight: isLandscape ? Math.floor(logicalHeight) : Math.floor(logicalHeight * 0.20),
 
@@ -35,7 +30,7 @@ export const CONFIG = {
     // Ant Stats
     antSpeed: 2.5,
     antSensorAngle: Math.PI / 4, // 45 degrees
-    antSensorDist: 40, // Increased from 30 to 40 to look further ahead
+    antSensorDist: 40,
     antTurnSpeed: 0.15,
     workerHealth: 20,
     soldierHealth: 60,
@@ -45,13 +40,12 @@ export const CONFIG = {
     antEnergyDecay: 0.15,
 
     // Queen
-    queenPosition: { x: logicalWidth / 2, y: logicalHeight / 2 }, // Will be overridden by Nest logic but good default
+    queenPosition: { x: logicalWidth / 2, y: logicalHeight / 2 },
     eggCost: 20,
 
     // Pheromones
-    // Pheromones
-    pheromoneDecay: 0.995, // Faster decay (was 0.998)
-    evaporationRate: 0.02, // Faster evaporation (was 0.015)
+    pheromoneDecay: 0.995,
+    evaporationRate: 0.02,
 
     // World Generation
     obstacleCount: 12,
@@ -59,18 +53,18 @@ export const CONFIG = {
     // Ecosystem
     sugarSourceCount: 5,
     maxPrey: 10,
-    maxPredators: 5,
     preySpawnRate: 0.01,
 
     // Enemy Spawning
-    gracePeriod: 1500, // Reduced grace period (was 3000)
+    gracePeriod: 4000, // Increased grace period (~60-70s)
 
-    predatorSpawnRate: 0.002, // 10x
-    spiderSpawnRate: 0.001,   // 10x
-    beetleSpawnRate: 0.001,   // 5x
-    ladybugSpawnRate: 0.002,  // 4x
+    predatorSpawnRate: 0.0005, // Slower spawn
+    spiderSpawnRate: 0.0003,   // Slower spawn
+    beetleSpawnRate: 0.0003,   // Slower spawn
+    ladybugSpawnRate: 0.0005,  // Slower spawn
 
-    maxSpiders: 3,
-    maxBeetles: 3,
-    maxLadybugs: 3,
+    maxSpiders: 1, // Start with fewer
+    maxBeetles: 1,
+    maxLadybugs: 2,
+    maxPredators: 2, // Was 5
 };

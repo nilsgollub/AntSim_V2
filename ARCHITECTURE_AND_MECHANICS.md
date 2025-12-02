@@ -77,19 +77,6 @@ Ants use a sensory-based steering algorithm:
 -   **Chambers:** Special nodes for `QUEEN`, `BROOD`, `STORAGE`.
 -   **Navigation:** Ants move between nodes using a pathfinding heuristic (or simple node-to-node steering).
 
-### 3.5. Brood Cycle (`Brood.ts`)
-1.  **EGG:** Laid by Queen. Needs time to hatch.
-2.  **LARVA:** Needs food (Protein). Workers deliver food. Grows when fed.
-3.  **PUPA:** Metamorphosis phase.
-4.  **ADULT:** Hatches into a new Ant (Worker or Soldier).
-
-### 3.6. Advanced Movement & Interaction Protocols
-To ensure fluid and natural agent behavior, the following movement rules are required:
-
-1.  **Target Approach Dynamics:**
-    -   Agents must **linearly decelerate** when approaching a target (Food/Enemy) within a 30px radius.
-    -   At close range (< 30px), steering should switch from "Turn-based" to "Direct Orientation" (`atan2`) to ensure precise interaction without overshooting.
-    -   A small random jitter should be applied to the angle during interaction to prevent agents from stacking perfectly on top of each other.
 
 2.  **State Transition Protocols:**
     -   **Target Loss:** If an agent's target (e.g., an enemy) is removed from the world, the agent must **immediately** transition to a default state (e.g., `FORAGING`) in the same frame. It must not continue executing the previous steering command.

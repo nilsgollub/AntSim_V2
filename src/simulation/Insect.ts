@@ -15,8 +15,10 @@ export class Insect {
     attackCooldown: number = 0;
 
     // New AI properties
+    // New AI properties
     state: 'IDLE' | 'WANDER' | 'FLEE' | 'HUNT' = 'WANDER';
     stateTimer: number = 0;
+    thinkTimer: number = 0;
     targetX: number = 0;
     targetY: number = 0;
 
@@ -60,17 +62,24 @@ export class Insect {
         if (this.health <= 0) return;
         if (this.attackCooldown > 0) this.attackCooldown--;
 
-        // Default behavior: Wander
-        // Specific behaviors override this by setting state/target
-        // We don't reset state to WANDER here blindly, we let the logic decide
+        // Throttled AI
+        if (this.thinkTimer > 0) {
+            this.thinkTimer--;
+        } else {
+            this.thinkTimer = 3 + Math.floor(Math.random() * 3); // Think every 3-6 frames
 
-        switch (this.type) {
-            case 'PREY': this.updatePrey(world); break;
-            case 'PREDATOR': this.updatePredator(world); break;
-            case 'SPIDER': this.updateSpider(world); break;
-            case 'BEETLE': this.updateBeetle(world); break;
-            case 'LADYBUG': this.updateLadybug(world); break;
-            case 'APHID': this.updateAphid(world); break;
+            // Default behavior: Wander
+            // Specific behaviors override this by setting state/target
+            // We don't reset state to WANDER here blindly, we let the logic decide
+
+            switch (this.type) {
+                case 'PREY': this.updatePrey(world); break;
+                case 'PREDATOR': this.updatePredator(world); break;
+                case 'SPIDER': this.updateSpider(world); break;
+                case 'BEETLE': this.updateBeetle(world); break;
+                case 'LADYBUG': this.updateLadybug(world); break;
+                case 'APHID': this.updateAphid(world); break;
+            }
         }
 
         this.executeMovement(world);
@@ -200,6 +209,7 @@ export class Insect {
             if (minDst < 100) {
                 if (this.attackCooldown <= 0) {
                     nearestAphid.health -= 10;
+                    world.addParticle(nearestAphid.x, nearestAphid.y, 'red', 'BLOOD');
                     this.attackCooldown = 60;
                 }
             }
@@ -238,6 +248,7 @@ export class Insect {
             if (minDst < 100) { // Attack range
                 if (this.attackCooldown <= 0) {
                     nearestAnt.health -= damage;
+                    world.addParticle(nearestAnt.x, nearestAnt.y, 'red', 'BLOOD');
                     this.attackCooldown = 30;
                 }
             }
