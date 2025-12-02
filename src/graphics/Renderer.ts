@@ -504,25 +504,31 @@ export class Renderer {
 
         for (let i = 0; i < count; i++) {
             // Deterministic random positions based on index i
-            // This ensures they look random but don't move every frame
             const cluster = clusters[i % clusters.length];
 
-            // Pseudo-random offsets
-            const offsetX = Math.sin(i * 12.9898) * (radius * 0.35);
-            const offsetY = Math.cos(i * 78.233) * (radius * 0.35);
+            // Organic Polar Coordinates for circular distribution
+            // Use prime numbers for pseudo-randomness to avoid patterns
+            const angle = (i * 137.508) % (Math.PI * 2); // Golden angle approximation
+            // Sqrt for uniform distribution, but we want center-bias for a pile, so linear or squared is fine.
+            // Let's use a mix to keep it dense in center but spreading out.
+            const distFactor = Math.abs(Math.sin(i * 12.9898));
+            const dist = distFactor * (radius * 0.4); // Keep within 40% of radius per cluster
+
+            const offsetX = Math.cos(angle) * dist;
+            const offsetY = Math.sin(angle) * dist;
 
             const px = cluster.x + offsetX;
             const py = cluster.y + offsetY;
 
-            // Keep within bounds roughly
-            const dist = Math.sqrt(px * px + py * py);
-            if (dist > radius) continue;
+            // Keep within bounds strictly
+            const d = Math.sqrt(px * px + py * py);
+            if (d > radius * 0.9) continue;
 
             if (type === 'SUGAR') {
-                // Crystals - YELLOW
-                ctx.fillStyle = `rgba(255, 255, 100, ${0.6 + (i % 5) * 0.1})`;
+                // Honey Drops - Golden/Amber
+                ctx.fillStyle = `rgba(255, 180, 40, ${0.6 + (i % 5) * 0.1})`;
                 ctx.beginPath();
-                ctx.rect(px - 1.5, py - 1.5, 3, 3);
+                ctx.arc(px, py, 1.5 + (i % 3) * 0.5, 0, Math.PI * 2);
                 ctx.fill();
             } else {
                 // Meat chunks
@@ -654,7 +660,9 @@ export class Renderer {
             ctx.fill();
 
             if (ant.carrying !== 'NONE') {
-                ctx.fillStyle = ant.carrying === 'SUGAR' ? '#0F0' : '#F00';
+                if (ant.carrying === 'SUGAR') ctx.fillStyle = '#FF0';
+                else if (ant.carrying === 'BROOD') ctx.fillStyle = '#FFF';
+                else ctx.fillStyle = '#F00';
                 ctx.beginPath();
                 ctx.arc(5, 0, 2, 0, Math.PI * 2);
                 ctx.fill();
@@ -1064,7 +1072,7 @@ export class Renderer {
 
     drawFood(food: any) {
         const ctx = this.ctx;
-        const radius = Math.sqrt(food.amount) * 0.5;
+        const radius = Math.sqrt(food.amount) * 0.35;
 
         // Shadow
         ctx.save();
@@ -1073,57 +1081,119 @@ export class Renderer {
         ctx.restore();
 
         if (food.type === 'SUGAR') {
-            // Bloom Effect (ULTRA)
-            if (PerformanceManager.level === QualityLevel.ULTRA) {
+            // Honey Drop Look
+            ctx.save();
+            ctx.translate(food.x, food.y);
+
+            // 1. Body (Golden/Amber Gradient)
+            const grad = ctx.createRadialGradient(-radius * 0.2, -radius * 0.2, radius * 0.1, 0, 0, radius);
+            grad.addColorStop(0, 'rgba(255, 220, 100, 0.9)'); // Bright center
+            grad.addColorStop(0.6, 'rgba(255, 180, 20, 0.8)'); // Golden body
+            grad.addColorStop(1, 'rgba(200, 120, 0, 0.6)'); // Darker edge
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            // Slightly flattened circle for a "drop" look
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 2. Specular Highlight (Glossy reflection)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.beginPath();
+            ctx.ellipse(-radius * 0.3, -radius * 0.3, radius * 0.25, radius * 0.15, Math.PI / 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 3. Inner Glow / Refraction (Subtle)
+            ctx.fillStyle = 'rgba(255, 200, 50, 0.3)';
+            ctx.beginPath();
+            ctx.arc(radius * 0.3, radius * 0.3, radius * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        } else {
+            // PROTEIN
+            // Check for Dead Insect Corpse (High Quality)
+            if (food.corpseType && PerformanceManager.level !== QualityLevel.LOW) {
                 ctx.save();
                 ctx.translate(food.x, food.y);
-                ctx.globalCompositeOperation = 'lighter'; // Additive blending
-                ctx.shadowColor = '#FF5'; // Yellowish glow
-                ctx.shadowBlur = 15;
-                ctx.fillStyle = 'rgba(255, 255, 100, 0.1)'; // Yellow tint
+                ctx.rotate((food.corpseAngle || 0) + Math.PI); // Upside down?
+
+                // Dead Insect Look (Darker, desaturated)
+                if (food.corpseType === 'BEETLE') {
+                    ctx.fillStyle = '#2F4F4F'; // Dark Slate Gray
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (food.corpseType === 'LADYBUG') {
+                    ctx.fillStyle = '#8B0000'; // Dark Red
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#000'; // Spots
+                    ctx.beginPath();
+                    ctx.arc(-2, -2, 1, 0, Math.PI * 2);
+                    ctx.arc(2, 2, 1, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (food.corpseType === 'SPIDER') {
+                    ctx.fillStyle = '#1a1a1a'; // Black
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 4, 5, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Curled legs
+                    ctx.strokeStyle = '#1a1a1a';
+                    ctx.lineWidth = 1;
+                    for (let i = 0; i < 4; i++) {
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        ctx.quadraticCurveTo(5, i * 2 - 4, 3, i * 2 - 4);
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        ctx.quadraticCurveTo(-5, i * 2 - 4, -3, i * 2 - 4);
+                        ctx.stroke();
+                    }
+                } else {
+                    // Generic (Prey/Predator)
+                    ctx.fillStyle = '#555';
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 5, 2.5, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // X eyes for dead effect?
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 1;
                 ctx.beginPath();
-                ctx.arc(0, 0, radius * 1.2, 0, Math.PI * 2);
+                ctx.moveTo(3, -1); ctx.lineTo(5, 1);
+                ctx.moveTo(5, -1); ctx.lineTo(3, 1);
+                ctx.stroke();
+
+                ctx.restore();
+            } else {
+                // Meat Chunks (Default / Low Quality)
+                ctx.save();
+                ctx.translate(food.x, food.y);
+                ctx.beginPath();
+                const seed = Math.floor(food.x + food.y);
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i / 8) * Math.PI * 2;
+                    const r = radius * (0.7 + 0.3 * Math.sin(seed + i));
+                    const vx = Math.cos(angle) * r;
+                    const vy = Math.sin(angle) * r;
+                    if (i === 0) ctx.moveTo(vx, vy);
+                    else ctx.lineTo(vx, vy);
+                }
+                ctx.closePath();
+                ctx.fillStyle = '#A33';
+                ctx.fill();
+                ctx.strokeStyle = '#611';
+                ctx.stroke();
+                ctx.fillStyle = '#EAA';
+                ctx.beginPath();
+                ctx.arc(-2, -2, radius * 0.2, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.restore();
             }
-
-            ctx.save();
-            ctx.translate(food.x, food.y);
-            const count = Math.min(10, Math.ceil(food.amount / 100));
-            for (let i = 0; i < count; i++) {
-                const angle = i * 137.5;
-                const r = (i / count) * radius;
-                const dx = Math.cos(angle) * r;
-                const dy = Math.sin(angle) * r;
-                ctx.beginPath();
-                ctx.arc(dx, dy, 3 + (i % 3), 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(255, 255, 100, 0.6)`; // Yellow crystals
-                ctx.fill();
-            }
-            ctx.restore();
-        } else {
-            ctx.save();
-            ctx.translate(food.x, food.y);
-            ctx.beginPath();
-            const seed = Math.floor(food.x + food.y);
-            for (let i = 0; i < 8; i++) {
-                const angle = (i / 8) * Math.PI * 2;
-                const r = radius * (0.7 + 0.3 * Math.sin(seed + i));
-                const vx = Math.cos(angle) * r;
-                const vy = Math.sin(angle) * r;
-                if (i === 0) ctx.moveTo(vx, vy);
-                else ctx.lineTo(vx, vy);
-            }
-            ctx.closePath();
-            ctx.fillStyle = '#A33';
-            ctx.fill();
-            ctx.strokeStyle = '#611';
-            ctx.stroke();
-            ctx.fillStyle = '#EAA';
-            ctx.beginPath();
-            ctx.arc(-2, -2, radius * 0.2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
         }
     }
     drawGrass(g: any) {

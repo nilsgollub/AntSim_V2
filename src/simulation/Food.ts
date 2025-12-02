@@ -6,6 +6,8 @@ export class Food {
     type: FoodType;
     amount: number;
     maxAmount: number;
+    corpseType?: string;
+    corpseAngle?: number;
 
     constructor(x: number, y: number, type: FoodType, amount: number) {
         this.x = x;

@@ -6,7 +6,7 @@ export class Ant {
     y: number;
     angle: number;
     type: 'WORKER' | 'SOLDIER' | 'QUEEN';
-    state: 'FORAGING' | 'RETURNING' | 'IDLE' | 'NURSING' | 'PATROLLING' | 'FLEEING' | 'ATTACKING' | 'TRANSPORTING';
+    state: 'FORAGING' | 'RETURNING' | 'IDLE' | 'NURSING' | 'PATROLLING' | 'FLEEING' | 'ATTACKING' | 'TRANSPORTING' | 'HARVESTING' | 'HUNGRY';
     carrying: 'NONE' | 'SUGAR' | 'PROTEIN' | 'BROOD';
     carryingAmount: number = 0;
     carryingInstance: any = null;
@@ -23,6 +23,7 @@ export class Ant {
     sprintCooldown: number = 0;
     speedMultiplier: number = 1.0;
     thinkTimer: number = 0;
+    harvestTimer: number = 0;
 
     // Patrol logic
     patrolAngle: number = 0;
@@ -91,6 +92,12 @@ export class Ant {
                 break;
             case 'TRANSPORTING':
                 this.handleTransporting(world);
+                break;
+            case 'HARVESTING':
+                this.handleHarvesting();
+                break;
+            case 'HUNGRY':
+                this.handleHungry(world);
                 break;
             case 'IDLE':
                 if (this.type === 'QUEEN') {
@@ -302,6 +309,11 @@ export class Ant {
     }
 
     handlePatrolling(world: World) {
+        if (this.energy < 600) {
+            this.state = 'HUNGRY';
+            return;
+        }
+
         // Check if colony needs protein
         // If low on protein, Soldiers go hunting (FORAGING state handles hunting if protein is needed)
         if (world.proteinStockpile < CONFIG.eggCost * 5) {
@@ -622,6 +634,11 @@ export class Ant {
     }
 
     handleForaging(world: World) {
+        if (this.energy < 600) {
+            this.state = 'HUNGRY';
+            return;
+        }
+
         if (this.obstacleTimer > 0) return; // Sliding along wall
 
         if (this.location === 'NEST') {
@@ -655,7 +672,50 @@ export class Ant {
             return;
         }
 
-        const needsProtein = world.proteinStockpile < CONFIG.eggCost * 25;
+        const proteinLow = world.proteinStockpile < CONFIG.eggCost * 25;
+        const sugarLow = world.sugarStockpile < 1000;
+
+        let prioritizeProtein = false;
+        if (this.type === 'SOLDIER') {
+            prioritizeProtein = true;
+        } else {
+            if (proteinLow && !sugarLow) {
+                prioritizeProtein = true;
+            } else if (sugarLow) {
+                prioritizeProtein = false;
+            } else {
+                prioritizeProtein = false;
+            }
+        }
+
+        // 2. Food - Check EVERY FRAME to prevent overshooting
+        for (const food of world.foods) {
+            if (food.amount <= 0) continue;
+            if (this.type === 'SOLDIER' && food.type === 'SUGAR') continue;
+
+            const dx = food.x - this.x;
+            const dy = food.y - this.y;
+            const distSq = dx * dx + dy * dy;
+
+            const foodRadius = Math.sqrt(food.amount) * 0.35;
+            const harvestRange = foodRadius + 5;
+            const harvestRangeSq = harvestRange * harvestRange;
+
+            if (distSq < harvestRangeSq) {
+                this.state = 'HARVESTING';
+                this.harvestTimer = food.type === 'SUGAR' ? 60 : 120; // 1s for sugar, 2s for protein
+                this.carryingInstance = food;
+                return;
+            } else if (distSq < 10000) {
+                // If visible, turn towards it
+                this.angle = Math.atan2(dy, dx);
+                this.angle += (Math.random() - 0.5) * 0.1;
+                // Don't return, allow other logic (like avoidance) to run if needed, 
+                // but usually we want to lock on.
+                // Actually, if we lock on, we should probably return to avoid being distracted.
+                return;
+            }
+        }
 
         // Throttled Perception
         if (this.thinkTimer > 0) {
@@ -682,7 +742,7 @@ export class Ant {
                     const distSq = dx * dx + dy * dy;
 
                     // Soldiers always hunt. Workers hunt if protein needed or self-defense (close)
-                    if (this.type === 'SOLDIER' || needsProtein || distSq < 2500) {
+                    if (this.type === 'SOLDIER' || prioritizeProtein || distSq < 2500) {
                         if (distSq < 4900) {
                             if (this.type === 'WORKER') {
                                 if (insect.type === 'BEETLE') {
@@ -724,36 +784,11 @@ export class Ant {
                 }
             }
 
-            // 2. Food
-            for (const food of world.foods) {
-                if (food.amount <= 0) continue;
-                if (this.type === 'SOLDIER' && food.type === 'SUGAR') continue;
 
-                const dx = food.x - this.x;
-                const dy = food.y - this.y;
-                const distSq = dx * dx + dy * dy;
-
-                const foodRadius = Math.sqrt(food.amount) * 0.5;
-                const harvestRange = foodRadius + 25;
-                const harvestRangeSq = harvestRange * harvestRange;
-
-                if (distSq < harvestRangeSq) {
-                    food.harvest(1);
-                    this.carrying = food.type;
-                    this.state = 'RETURNING';
-                    this.energy = CONFIG.antMaxEnergy;
-                    this.angle += Math.PI;
-                    return;
-                } else if (distSq < 10000) {
-                    this.angle = Math.atan2(dy, dx);
-                    this.angle += (Math.random() - 0.5) * 0.1;
-                    return;
-                }
-            }
         }
 
         // 3. Pheromones
-        const targetPheromone = (this.type === 'SOLDIER' || needsProtein) ? 'PROTEIN' : 'SUGAR';
+        const targetPheromone = prioritizeProtein ? 'PROTEIN' : 'SUGAR';
         const foundFood = this.senseAndSteer(world, targetPheromone);
 
         if (!foundFood) {
@@ -761,6 +796,28 @@ export class Ant {
         }
 
         world.grid.depositCircle(this.x, this.y, 'HOME', 0.5, 3);
+    }
+
+    handleHarvesting() {
+        this.harvestTimer--;
+        this.speedMultiplier = 0; // Stand still
+
+        if (this.harvestTimer <= 0) {
+            // Done!
+            const food = this.carryingInstance;
+            if (food && food.amount > 0) {
+                food.harvest(1);
+                this.carrying = food.type;
+                this.state = 'RETURNING';
+                this.energy = CONFIG.antMaxEnergy;
+                this.angle += Math.PI;
+                this.carryingInstance = null;
+            } else {
+                // Food gone?
+                this.state = 'FORAGING';
+                this.carryingInstance = null;
+            }
+        }
     }
 
     handleReturning(world: World) {
@@ -803,11 +860,17 @@ export class Ant {
 
                 if (distSq < 2500) {
                     if (this.carrying === 'SUGAR') world.sugarStockpile += CONFIG.sugarValue;
-                    else world.proteinStockpile += CONFIG.proteinValue;
+                    else if (this.carrying === 'PROTEIN') world.proteinStockpile += CONFIG.proteinValue;
 
                     this.carrying = 'NONE';
-                    this.state = 'FORAGING';
-                    this.energy = CONFIG.antMaxEnergy;
+
+                    // Check Hunger after dropping food
+                    if (this.energy < 1000) {
+                        this.state = 'HUNGRY';
+                    } else {
+                        this.state = 'FORAGING';
+                    }
+
                     this.angle += Math.PI;
                     return;
                 } else {
@@ -819,6 +882,50 @@ export class Ant {
                     } else {
                         this.angle = Math.atan2(dy, dx);
                     }
+                }
+            }
+        }
+    }
+
+    handleHungry(world: World) {
+        if (this.location === 'WORLD') {
+            // Use returning logic to get back to nest
+            // Temporarily switch to RETURNING state logic without changing state enum?
+            // Or just manually move to nest.
+            // Simplest: Switch to RETURNING, but we need to know we are hungry.
+            // Let's just copy the "Go Home" logic or force RETURNING state but with 'NONE' carrying?
+            // If carrying is NONE, handleReturning still works to get home.
+            this.state = 'RETURNING';
+            return;
+        }
+
+        // In Nest: Go to Storage and Eat
+        const storage = world.nest.chambers.find(c => c.type === 'STORAGE');
+        if (storage) {
+            const dx = storage.x - this.x;
+            const dy = storage.y - this.y;
+            const distSq = dx * dx + dy * dy;
+
+            if (distSq < 400) {
+                // Eat Sugar
+                if (world.sugarStockpile > 0) {
+                    world.sugarStockpile = Math.max(0, world.sugarStockpile - 5);
+                    this.energy = CONFIG.antMaxEnergy;
+                    // Done eating
+                    if (this.type === 'SOLDIER') this.state = 'PATROLLING';
+                    else this.state = 'FORAGING'; // Or IDLE
+                } else {
+                    // No food! Panic? Or just go back to work?
+                    if (this.type === 'SOLDIER') this.state = 'PATROLLING';
+                    else this.state = 'FORAGING';
+                }
+            } else {
+                // Move to storage
+                const nextNode = world.nest.getNextNodeTowards(this.x, this.y, storage.x, storage.y);
+                if (nextNode) {
+                    this.angle = Math.atan2(nextNode.y - this.y, nextNode.x - this.x);
+                } else {
+                    this.angle = Math.atan2(dy, dx);
                 }
             }
         }

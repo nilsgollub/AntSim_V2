@@ -153,7 +153,12 @@ export class World {
 
             if (!nearEntrance && !this.terrain.isBlocked(x, y, 45)) valid = true;
         }
-        this.foods.push(new Food(x, y, type, 1000));
+        let amount = 1000;
+        if (type === 'SUGAR') {
+            // Randomize amount between 500 and 2000
+            amount = 500 + Math.floor(Math.random() * 1500);
+        }
+        this.foods.push(new Food(x, y, type, amount));
     }
 
     getSafePosition(): { x: number, y: number } {
@@ -326,7 +331,10 @@ export class World {
                     }
 
                     if (!nearEntrance) {
-                        this.foods.push(new Food(dropX, dropY, 'PROTEIN', 50));
+                        const food = new Food(dropX, dropY, 'PROTEIN', 50);
+                        food.corpseType = insect.type;
+                        food.corpseAngle = insect.angle;
+                        this.foods.push(food);
                     }
                 }
                 this.insects.splice(i, 1);
