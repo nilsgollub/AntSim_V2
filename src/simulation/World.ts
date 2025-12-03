@@ -238,6 +238,13 @@ export class World {
             const ant = this.ants[i];
             ant.update(this);
             if (ant.health <= 0) {
+                // Spawn Corpse
+                if (ant.location === 'WORLD') {
+                    const corpse = new Food(ant.x, ant.y, 'CORPSE', 100);
+                    corpse.corpseType = 'ANT';
+                    corpse.corpseAngle = ant.angle;
+                    this.foods.push(corpse);
+                }
                 this.ants.splice(i, 1);
             }
         }

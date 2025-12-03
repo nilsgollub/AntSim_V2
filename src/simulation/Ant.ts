@@ -7,7 +7,7 @@ export class Ant {
     angle: number;
     type: 'WORKER' | 'SOLDIER' | 'QUEEN';
     state: 'FORAGING' | 'RETURNING' | 'IDLE' | 'NURSING' | 'PATROLLING' | 'FLEEING' | 'ATTACKING' | 'TRANSPORTING' | 'HARVESTING' | 'HUNGRY';
-    carrying: 'NONE' | 'SUGAR' | 'PROTEIN' | 'BROOD';
+    carrying: 'NONE' | 'SUGAR' | 'PROTEIN' | 'BROOD' | 'CORPSE';
     carryingAmount: number = 0;
     carryingInstance: any = null;
     energy: number;
@@ -689,7 +689,8 @@ export class Ant {
         }
 
         // 2. Food - Check EVERY FRAME to prevent overshooting
-        for (const food of world.foods) {
+        for (let i = 0; i < world.foods.length; i++) {
+            const food = world.foods[i];
             if (food.amount <= 0) continue;
             if (this.type === 'SOLDIER' && food.type === 'SUGAR') continue;
 
@@ -702,6 +703,25 @@ export class Ant {
             const harvestRangeSq = harvestRange * harvestRange;
 
             if (distSq < harvestRangeSq) {
+                if (food.type === 'CORPSE') {
+                    // Check if already in Graveyard
+                    const graveX = CONFIG.width - 50;
+                    const graveY = 50;
+                    const distToGraveSq = (food.x - graveX) ** 2 + (food.y - graveY) ** 2;
+
+                    if (distToGraveSq < 22500) { // 150px radius
+                        continue; // Leave it be
+                    }
+
+                    // Pick up Corpse
+                    this.carrying = 'CORPSE';
+                    this.carryingInstance = food;
+                    world.foods.splice(i, 1); // Remove from world
+                    this.state = 'RETURNING';
+                    this.angle += Math.PI;
+                    return;
+                }
+
                 this.state = 'HARVESTING';
                 this.harvestTimer = food.type === 'SUGAR' ? 60 : 120; // 1s for sugar, 2s for protein
                 this.carryingInstance = food;
@@ -710,9 +730,6 @@ export class Ant {
                 // If visible, turn towards it
                 this.angle = Math.atan2(dy, dx);
                 this.angle += (Math.random() - 0.5) * 0.1;
-                // Don't return, allow other logic (like avoidance) to run if needed, 
-                // but usually we want to lock on.
-                // Actually, if we lock on, we should probably return to avoid being distracted.
                 return;
             }
         }
@@ -822,6 +839,36 @@ export class Ant {
 
     handleReturning(world: World) {
         if (this.obstacleTimer > 0) return;
+
+        if (this.carrying === 'CORPSE') {
+            // Graveyard Location: Top Right Corner (with some padding)
+            const graveX = CONFIG.width - 50;
+            const graveY = 50;
+
+            const dx = graveX - this.x;
+            const dy = graveY - this.y;
+            const distSq = dx * dx + dy * dy;
+
+            if (distSq < 2500) { // Close enough (50px)
+                // Drop Corpse
+                const corpse = this.carryingInstance;
+                if (corpse) {
+                    corpse.x = this.x + (Math.random() - 0.5) * 20; // Scatter slightly
+                    corpse.y = this.y + (Math.random() - 0.5) * 20;
+                    world.foods.push(corpse);
+                }
+                this.carrying = 'NONE';
+                this.carryingInstance = null;
+                this.state = 'FORAGING';
+                this.angle += Math.PI;
+                return;
+            } else {
+                // Move towards Graveyard
+                this.angle = Math.atan2(dy, dx);
+                this.angle += (Math.random() - 0.5) * 0.2;
+            }
+            return;
+        }
 
         const grid = this.location === 'NEST' ? world.nestGrid : world.grid;
 

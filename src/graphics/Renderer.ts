@@ -662,6 +662,7 @@ export class Renderer {
             if (ant.carrying !== 'NONE') {
                 if (ant.carrying === 'SUGAR') ctx.fillStyle = '#FF0';
                 else if (ant.carrying === 'BROOD') ctx.fillStyle = '#FFF';
+                else if (ant.carrying === 'CORPSE') ctx.fillStyle = '#333';
                 else ctx.fillStyle = '#F00';
                 ctx.beginPath();
                 ctx.arc(5, 0, 2, 0, Math.PI * 2);
@@ -753,6 +754,18 @@ export class Renderer {
             ctx.beginPath();
             ctx.rect(4, -1.5, 3, 3);
             ctx.fill();
+        } else if (ant.carrying === 'CORPSE') {
+            ctx.fillStyle = '#333';
+            ctx.beginPath();
+            ctx.ellipse(5, 0, 3, 1.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Legs
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(5, 0); ctx.lineTo(5, -3);
+            ctx.moveTo(5, 0); ctx.lineTo(5, 3);
+            ctx.stroke();
         }
 
         // Attack Animation
@@ -1111,7 +1124,7 @@ export class Renderer {
 
             ctx.restore();
         } else {
-            // PROTEIN
+            // PROTEIN or CORPSE
             // Check for Dead Insect Corpse (High Quality)
             if (food.corpseType && PerformanceManager.level !== QualityLevel.LOW) {
                 ctx.save();
@@ -1119,7 +1132,20 @@ export class Renderer {
                 ctx.rotate((food.corpseAngle || 0) + Math.PI); // Upside down?
 
                 // Dead Insect Look (Darker, desaturated)
-                if (food.corpseType === 'BEETLE') {
+                if (food.corpseType === 'ANT') {
+                    // Dead Ant
+                    ctx.fillStyle = '#333'; // Dark Grey
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 3, 1.5, 0, 0, Math.PI * 2); // Body
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(3, 0, 1.5, 0, Math.PI * 2); // Head
+                    ctx.fill();
+                    // Curled legs
+                    ctx.strokeStyle = '#333';
+                    ctx.lineWidth = 0.5;
+                    this.drawLegs(3, 2, '#333', 0, ctx); // Static legs
+                } else if (food.corpseType === 'BEETLE') {
                     ctx.fillStyle = '#2F4F4F'; // Dark Slate Gray
                     ctx.beginPath();
                     ctx.arc(0, 0, 6, 0, Math.PI * 2);
