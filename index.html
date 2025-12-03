@@ -13,76 +13,97 @@
       color: #eee;
       font-family: sans-serif;
       display: flex;
+      height: 100dvh;
+      min-height: -webkit-fill-available;
     }
 
     #gameCanvas {
       display: block;
-      width: 75vw;
-      height: 100vh;
+      width: 80vw;
+      height: 100dvh;
+    }
+
+    /* Nest Container - Holds Canvas and UI */
+    #nest-container {
+      position: relative;
+      width: 20vw;
+      height: 100dvh;
+      border-left: 4px solid #333;
+      box-sizing: border-box;
+      background: #1a1a1a;
     }
 
     #nestCanvas {
       display: block;
-      width: 25vw;
-      height: 100vh;
-      background: #1a1a1a;
-      border-left: 4px solid #333;
+      width: 100%;
+      height: 100%;
     }
 
-    #ui {
+    /* Nest Overlay UI - Relative to Container */
+    #nest-overlay {
       position: absolute;
-      top: 10px;
-      left: 10px;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       pointer-events: none;
     }
 
-    #controls {
+    #stats-panel {
       position: absolute;
       top: 10px;
-      right: 26vw;
-      /* Moved left of nest view */
-      background: rgba(0, 0, 0, 0.5);
-      padding: 10px;
-      border-radius: 8px;
-      pointer-events: auto;
+      left: 10px;
+      font-size: 11px;
+      color: #aaa;
+      pointer-events: none;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 5px;
+      border-radius: 4px;
     }
 
-    #legend {
+    #controls-top {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      text-align: right;
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 5px;
+    }
+
+    #controls-bottom {
       position: absolute;
       bottom: 10px;
-      left: 10px;
-      background: rgba(0, 0, 0, 0.8);
-      padding: 10px;
-      border-radius: 8px;
-      pointer-events: none;
+      right: 10px;
+      text-align: right;
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 5px;
     }
 
-    .item {
-      display: flex;
-      align-items: center;
-      margin-bottom: 4px;
+    .control-group {
+      background: rgba(0, 0, 0, 0.6);
+      padding: 4px 8px;
+      border-radius: 4px;
       font-size: 12px;
     }
 
-    .color {
-      width: 12px;
-      height: 12px;
-      display: inline-block;
-      margin-right: 8px;
-      border-radius: 50%;
-    }
-
     .stat {
-      margin-bottom: 5px;
+      margin-bottom: 2px;
     }
 
     button {
       cursor: pointer;
-      padding: 5px 10px;
+      padding: 4px 8px;
       background: #444;
       color: #fff;
       border: none;
       border-radius: 4px;
+      font-size: 11px;
     }
 
     button:hover {
@@ -90,7 +111,16 @@
     }
 
     input[type=range] {
-      width: 100px;
+      width: 80px;
+      vertical-align: middle;
+    }
+
+    select {
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      border-radius: 3px;
+      font-size: 11px;
     }
 
     /* Responsive Layout */
@@ -101,27 +131,26 @@
 
       #gameCanvas {
         width: 100vw;
-        height: 75vh;
+        height: 80dvh;
       }
 
-      #nestCanvas {
+      #nest-container {
         width: 100vw;
-        height: 25vh;
+        height: 20dvh;
         border-left: none;
         border-top: 4px solid #333;
       }
 
-      #controls {
-        top: auto;
-        bottom: 26vh;
-        /* Just above nest view */
-        right: 10px;
-        left: auto;
+      #controls-top {
+        top: 5px;
+        right: 5px;
+        flex-direction: row;
       }
 
-      #legend {
-        bottom: 26vh;
-        /* Just above nest view */
+      #controls-bottom {
+        bottom: 25px;
+        right: 5px;
+        flex-direction: row;
       }
     }
   </style>
@@ -129,38 +158,44 @@
 
 <body>
   <canvas id="gameCanvas"></canvas>
-  <canvas id="nestCanvas"></canvas>
 
-  <div id="ui">
-    <div class="stat" id="fps">FPS: 0</div>
-    <div class="stat" id="popStat">Population: 0</div>
-    <div class="stat" id="foodStat">Protein: 0</div>
+  <div id="nest-container">
+    <canvas id="nestCanvas"></canvas>
+
+    <div id="nest-overlay">
+      <div id="stats-panel">
+        <div class="stat" id="fps">FPS: 0</div>
+        <div class="stat" id="popStat">Pop: 0</div>
+        <div class="stat" id="foodStat">P: 0 | S: 0</div>
+        <div class="stat" id="queenStat">Queen Age: 0m 0s</div>
+      </div>
+
+      <div id="controls-top">
+        <div class="control-group">
+          <label>Speed: <span id="speedVal">1x</span></label>
+          <input type="range" id="speedRange" min="0" max="10" value="1" step="0.1">
+        </div>
+        <div class="control-group">
+          <input type="checkbox" id="pheromoneToggle">
+          <label for="pheromoneToggle" style="cursor: pointer;">Pheromones</label>
+        </div>
+      </div>
+
+      <div id="controls-bottom">
+        <div class="control-group">
+          <select id="qualitySelect">
+            <option value="LOW">Low</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="HIGH">High</option>
+            <option value="ULTRA" selected>Ultra</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <button id="restartBtn">Restart</button>
+        </div>
+      </div>
+    </div>
   </div>
-
-  <div id="controls">
-    <h3>Controls</h3>
-    <div>
-      <label>Speed: <span id="speedVal">1x</span></label>
-      <input type="range" id="speedRange" min="0" max="10" value="1" step="0.1">
-    </div>
-    <div style="margin-top: 10px;">
-      <label>Quality:</label>
-      <select id="qualitySelect">
-        <option value="LOW">Low (Fast)</option>
-        <option value="MEDIUM">Medium</option>
-        <option value="HIGH">High</option>
-        <option value="ULTRA" selected>Ultra (Extreme)</option>
-      </select>
-    </div>
-    <div style="margin-top: 10px;">
-      <input type="checkbox" id="pheromoneToggle">
-      <label for="pheromoneToggle" style="cursor: pointer;">Show Pheromones</label>
-    </div>
-    <br>
-    <button id="restartBtn">Restart Simulation</button>
-  </div>
-
-
 
   <script type="module" src="/src/main.ts"></script>
 </body>

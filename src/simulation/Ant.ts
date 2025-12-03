@@ -705,8 +705,16 @@ export class Ant {
             if (distSq < harvestRangeSq) {
                 if (food.type === 'CORPSE') {
                     // Check if already in Graveyard
-                    const graveX = CONFIG.width - 50;
-                    const graveY = 50;
+                    const isLandscape = CONFIG.width > CONFIG.height;
+                    let graveX, graveY;
+                    if (isLandscape) {
+                        graveX = CONFIG.width - 50;
+                        graveY = CONFIG.height / 2;
+                    } else {
+                        graveX = CONFIG.width / 2;
+                        graveY = 50;
+                    }
+
                     const distToGraveSq = (food.x - graveX) ** 2 + (food.y - graveY) ** 2;
 
                     if (distToGraveSq < 22500) { // 150px radius
@@ -841,9 +849,18 @@ export class Ant {
         if (this.obstacleTimer > 0) return;
 
         if (this.carrying === 'CORPSE') {
-            // Graveyard Location: Top Right Corner (with some padding)
-            const graveX = CONFIG.width - 50;
-            const graveY = 50;
+            // Graveyard Location: Opposite side of the nest
+            const isLandscape = CONFIG.width > CONFIG.height;
+            let graveX, graveY;
+            if (isLandscape) {
+                // Nest is Left -> Graveyard Right Center
+                graveX = CONFIG.width - 50;
+                graveY = CONFIG.height / 2;
+            } else {
+                // Nest is Bottom -> Graveyard Top Center
+                graveX = CONFIG.width / 2;
+                graveY = 50;
+            }
 
             const dx = graveX - this.x;
             const dy = graveY - this.y;

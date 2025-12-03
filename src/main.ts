@@ -22,6 +22,7 @@ const restartBtn = document.getElementById('restartBtn') as HTMLButtonElement;
 const fpsDisplay = document.getElementById('fps') as HTMLElement;
 const popStat = document.getElementById('popStat') as HTMLElement;
 const foodStat = document.getElementById('foodStat') as HTMLElement;
+const queenStat = document.getElementById('queenStat') as HTMLElement;
 
 speedRange.addEventListener('input', () => {
   simSpeed = parseFloat(speedRange.value);
@@ -72,6 +73,11 @@ function loop(now: number) {
 
   popStat.innerText = `Population: ${world.ants.length} (W:${world.ants.filter(a => a.type === 'WORKER').length} S:${world.ants.filter(a => a.type === 'SOLDIER').length})`;
   foodStat.innerText = `Protein: ${world.proteinStockpile} | Sugar: ${world.sugarStockpile}`;
+
+  const ageSeconds = Math.floor(world.queen.age / 60);
+  const minutes = Math.floor(ageSeconds / 60);
+  const seconds = ageSeconds % 60;
+  queenStat.innerText = `Queen Age: ${minutes}m ${seconds}s`;
 
   // Update
   // If speed is high, we might need multiple updates per frame for stability

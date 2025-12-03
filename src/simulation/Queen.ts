@@ -14,6 +14,7 @@ export class Queen {
     stress: number = 0;
 
     layTimer: number = 0;
+    age: number = 0;
 
     constructor() {
         this.x = 0;
@@ -76,6 +77,8 @@ export class Queen {
         // Hunger check
         this.energy -= 0.2; // Metabolic cost
         if (this.energy < 0) this.energy = 0;
+
+        this.age++;
     }
 
     feed(amount: number) {
