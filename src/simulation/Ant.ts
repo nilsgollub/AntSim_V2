@@ -698,7 +698,7 @@ export class Ant {
             const dy = food.y - this.y;
             const distSq = dx * dx + dy * dy;
 
-            const foodRadius = Math.sqrt(food.amount) * 0.35;
+            const foodRadius = Math.max(10, Math.sqrt(food.amount) * 0.35);
             const harvestRange = foodRadius + 5;
             const harvestRangeSq = harvestRange * harvestRange;
 

@@ -38,7 +38,7 @@ Nach dem Kopieren ist die Simulation sofort im Netzwerk verfügbar. Home Assista
 Öffne deinen Browser und gib folgende URL ein:
 
 ```
-http://<DEINE-HA-IP>:8123/local/antsim/index.html
+http://192.168.1.155:8123/local/antsim/index.html
 ```
 
 *(Ersetze `<DEINE-HA-IP>` mit der IP-Adresse deines Home Assistant, z.B. 192.168.178.50)*

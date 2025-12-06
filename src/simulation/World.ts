@@ -144,14 +144,15 @@ export class World {
 
             // Check Entrance Proximity (Don't spawn too close to entrance)
             const isLandscape = CONFIG.width > CONFIG.height;
-            let nearEntrance = false;
-            if (isLandscape) {
-                if (x > CONFIG.width - 150 && Math.abs(y - CONFIG.height / 2) < 150) nearEntrance = true;
-            } else {
-                if (y > CONFIG.height - 150 && Math.abs(x - CONFIG.width / 2) < 150) nearEntrance = true;
-            }
+            const entranceX = isLandscape ? CONFIG.width : CONFIG.width / 2;
+            const entranceY = isLandscape ? CONFIG.height / 2 : CONFIG.height;
 
-            if (!nearEntrance && !this.terrain.isBlocked(x, y, 45)) valid = true;
+            // Minimum distance: 25% of the largest dimension
+            const maxDim = Math.max(CONFIG.width, CONFIG.height);
+            const minDistance = maxDim * 0.25;
+            const distSq = (x - entranceX) * (x - entranceX) + (y - entranceY) * (y - entranceY);
+
+            if (distSq >= minDistance * minDistance && !this.terrain.isBlocked(x, y, 45)) valid = true;
         }
         let amount = 1000;
         if (type === 'SUGAR') {

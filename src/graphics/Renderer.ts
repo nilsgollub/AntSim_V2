@@ -785,8 +785,8 @@ export class Renderer {
         this.ctx.translate(insect.x, insect.y);
 
         if (PerformanceManager.settings.simpleInsects) {
-            this.ctx.rotate(insect.angle + Math.PI / 2);
-            this.ctx.fillStyle = '#555';
+            this.ctx.rotate(insect.angle); // angle matches movement direction
+            this.ctx.fillStyle = insect.type === 'PREY' ? '#AAA' : '#555'; // Lighter for silverfish
             this.ctx.beginPath();
             this.ctx.ellipse(0, 0, 4, 2, 0, 0, Math.PI * 2);
             this.ctx.fill();
