@@ -1085,7 +1085,7 @@ export class Renderer {
 
     drawFood(food: any) {
         const ctx = this.ctx;
-        const radius = Math.sqrt(food.amount) * 0.35;
+        const radius = Math.max(8, Math.sqrt(food.amount) * 0.35);
 
         // Shadow
         ctx.save();
@@ -1210,11 +1210,11 @@ export class Renderer {
                     else ctx.lineTo(vx, vy);
                 }
                 ctx.closePath();
-                ctx.fillStyle = '#A33';
+                ctx.fillStyle = '#C19A6B';
                 ctx.fill();
-                ctx.strokeStyle = '#611';
+                ctx.strokeStyle = '#8B4513';
                 ctx.stroke();
-                ctx.fillStyle = '#EAA';
+                ctx.fillStyle = '#E1C699';
                 ctx.beginPath();
                 ctx.arc(-2, -2, radius * 0.2, 0, Math.PI * 2);
                 ctx.fill();

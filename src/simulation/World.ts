@@ -129,7 +129,7 @@ export class World {
             x, y,
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed,
-            life: type === 'BLOOD' ? 5.0 : 1.0,
+            life: type === 'BLOOD' ? 2.0 : 1.0,
             color,
             type
         });
@@ -225,7 +225,7 @@ export class World {
                 p.y += p.vy;
                 p.vx *= 0.9;
                 p.vy *= 0.9;
-                p.life -= 0.005;
+                p.life -= 0.05;
             } else {
                 p.x += p.vx;
                 p.y += p.vy;
