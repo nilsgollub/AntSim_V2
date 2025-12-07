@@ -663,7 +663,7 @@ export class Renderer {
                 if (ant.carrying === 'SUGAR') ctx.fillStyle = '#FF0';
                 else if (ant.carrying === 'BROOD') ctx.fillStyle = '#FFF';
                 else if (ant.carrying === 'CORPSE') ctx.fillStyle = '#333';
-                else ctx.fillStyle = '#C19A6B';
+                else ctx.fillStyle = '#CD5C5C';
                 ctx.beginPath();
                 ctx.arc(5, 0, 2, 0, Math.PI * 2);
                 ctx.fill();
@@ -698,8 +698,8 @@ export class Renderer {
 
             // Head (Massive, Heart-shaped/Square)
             const gradHead = ctx.createRadialGradient(3, 0, 0, 3, 0, 5);
-            gradHead.addColorStop(0, '#A0522D'); // Sienna (Reddish Brown)
-            gradHead.addColorStop(1, '#5D4037'); // Darker Brown
+            gradHead.addColorStop(0, '#8B0000'); // Dark Red
+            gradHead.addColorStop(1, '#5D0000'); // Darker Red
             ctx.fillStyle = gradHead;
 
             ctx.beginPath();
@@ -750,7 +750,7 @@ export class Renderer {
             ctx.arc(5, 0, 2, 0, Math.PI * 2);
             ctx.fill();
         } else if (ant.carrying === 'PROTEIN') {
-            ctx.fillStyle = '#C19A6B';
+            ctx.fillStyle = '#CD5C5C';
             ctx.beginPath();
             ctx.rect(4, -1.5, 3, 3);
             ctx.fill();
@@ -1210,7 +1210,7 @@ export class Renderer {
                     else ctx.lineTo(vx, vy);
                 }
                 ctx.closePath();
-                ctx.fillStyle = '#C19A6B';
+                ctx.fillStyle = '#CD5C5C';
                 ctx.fill();
                 ctx.strokeStyle = '#8B4513';
                 ctx.stroke();
