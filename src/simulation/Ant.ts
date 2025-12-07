@@ -6,7 +6,7 @@ export class Ant {
     y: number;
     angle: number;
     type: 'WORKER' | 'SOLDIER' | 'QUEEN';
-    state: 'FORAGING' | 'RETURNING' | 'IDLE' | 'NURSING' | 'PATROLLING' | 'FLEEING' | 'ATTACKING' | 'TRANSPORTING' | 'HARVESTING' | 'HUNGRY';
+    state: 'FORAGING' | 'RETURNING' | 'IDLE' | 'NURSING' | 'PATROLLING' | 'FLEEING' | 'ATTACKING' | 'TRANSPORTING' | 'HARVESTING' | 'HUNGRY' | 'MILKING';
     carrying: 'NONE' | 'SUGAR' | 'PROTEIN' | 'BROOD' | 'CORPSE';
     carryingAmount: number = 0;
     carryingInstance: any = null;
@@ -98,6 +98,9 @@ export class Ant {
                 break;
             case 'HARVESTING':
                 this.handleHarvesting();
+                break;
+            case 'MILKING':
+                this.handleMilking(world);
                 break;
             case 'HUNGRY':
                 this.handleHungry(world);
@@ -312,6 +315,19 @@ export class Ant {
     }
 
     handlePatrolling(world: World) {
+        // Active Enemy Scan (Soldiers should not ignore threats while patrolling)
+        if (this.type === 'SOLDIER') {
+            for (const insect of world.insects) {
+                if (insect.type === 'SPIDER' || insect.type === 'PREDATOR' || insect.type === 'BEETLE') {
+                    const distSq = (this.x - insect.x) ** 2 + (this.y - insect.y) ** 2;
+                    if (distSq < 10000) { // 100px detection
+                        this.state = 'ATTACKING';
+                        return; // Switch immediately
+                    }
+                }
+            }
+        }
+
         if (this.energy < 600) {
             this.state = 'HUNGRY';
             return;
@@ -712,6 +728,15 @@ export class Ant {
             if (food.amount <= 0) continue;
             if (this.type === 'SOLDIER' && food.type === 'SUGAR') continue;
 
+            // Ignore Corpses in Graveyard (Prevent getting stuck approaching them)
+            if (food.type === 'CORPSE') {
+                const isLandscape = CONFIG.width > CONFIG.height;
+                const graveX = isLandscape ? 50 : CONFIG.width / 2;
+                const graveY = isLandscape ? CONFIG.height / 2 : 50;
+                const dG = (food.x - graveX) ** 2 + (food.y - graveY) ** 2;
+                if (dG < 40000) continue;
+            }
+
             const dx = food.x - this.x;
             const dy = food.y - this.y;
             const distSq = dx * dx + dy * dy;
@@ -721,32 +746,8 @@ export class Ant {
             const harvestRangeSq = harvestRange * harvestRange;
 
             if (distSq < harvestRangeSq) {
-                if (food.type === 'CORPSE') {
-                    // Check if already in Graveyard
-                    const isLandscape = CONFIG.width > CONFIG.height;
-                    let graveX, graveY;
-                    if (isLandscape) {
-                        graveX = 50; // Nest is Right -> Graveyard Left
-                        graveY = CONFIG.height / 2;
-                    } else {
-                        graveX = CONFIG.width / 2;
-                        graveY = 50;
-                    }
-
-                    const distToGraveSq = (food.x - graveX) ** 2 + (food.y - graveY) ** 2;
-
-                    if (distToGraveSq < 22500) { // 150px radius
-                        continue; // Leave it be
-                    }
-
-                    // Pick up Corpse
-                    this.carrying = 'CORPSE';
-                    this.carryingInstance = food;
-                    world.foods.splice(i, 1); // Remove from world
-                    this.state = 'RETURNING';
-                    this.angle += Math.PI;
-                    return;
-                }
+                // Corpses are now harvested as food in place.
+                // Logic falls through to HARVESTING below.
 
                 this.state = 'HARVESTING';
                 this.harvestTimer = food.type === 'SUGAR' ? 60 : 120; // 1s for sugar, 2s for protein
@@ -803,7 +804,7 @@ export class Ant {
                                 }
                                 if (insect.type === 'SPIDER' || insect.type === 'PREDATOR') {
                                     const allies = this.countNearbyAllies(world, 100);
-                                    if (allies < 4) continue;
+                                    if (allies < 2) continue;
                                 }
                             }
                             this.state = 'ATTACKING';
@@ -821,12 +822,10 @@ export class Ant {
                         const dy = this.y - insect.y;
                         const distSq = dx * dx + dy * dy;
 
-                        if (distSq < 144) {
-                            this.carrying = 'SUGAR';
-                            this.state = 'RETURNING';
-                            this.energy = CONFIG.antMaxEnergy;
-                            this.angle += Math.PI;
-                            world.addParticle(this.x, this.y, '#FFFF00');
+                        if (distSq < 900) { // 30px close enough
+                            this.state = 'MILKING';
+                            this.harvestTimer = 60; // 1 second milking duration represents interaction
+                            this.carryingInstance = insect;
                             return;
                         } else if (distSq < 10000) {
                             this.angle = Math.atan2(dy, dx);
@@ -844,11 +843,14 @@ export class Ant {
         const foundFood = this.senseAndSteer(world, targetPheromone);
 
         if (!foundFood) {
-            this.senseAndAvoid(world, 'HOME');
+            // this.senseAndAvoid(world, 'HOME');
+            this.wander();
         }
 
         world.grid.depositCircle(this.x, this.y, 'HOME', 0.5, 3);
     }
+
+
 
     handleHarvesting() {
         this.harvestTimer--;
@@ -859,7 +861,7 @@ export class Ant {
             const food = this.carryingInstance;
             if (food && food.amount > 0) {
                 food.harvest(1);
-                this.carrying = food.type;
+                this.carrying = food.type === 'CORPSE' ? 'PROTEIN' : food.type;
                 this.state = 'RETURNING';
                 this.energy = CONFIG.antMaxEnergy;
                 this.angle += Math.PI;
@@ -874,6 +876,14 @@ export class Ant {
 
     handleReturning(world: World) {
         if (this.obstacleTimer > 0) return;
+
+        // Stuck Check
+        if (this.stuckTimer > 20) {
+            this.angle += Math.PI + (Math.random() - 0.5);
+            this.stuckTimer = 0;
+            this.obstacleTimer = 10;
+            return;
+        }
 
         if (this.carrying === 'CORPSE') {
             // Graveyard Location: Opposite side of the nest
@@ -1019,6 +1029,33 @@ export class Ant {
                     this.angle = Math.atan2(dy, dx);
                 }
             }
+        }
+    }
+
+
+
+    handleMilking(world: World) {
+        this.harvestTimer--;
+        this.speedMultiplier = 0; // Stand still
+
+        // Face the aphid
+        if (this.carryingInstance) {
+            const dx = this.carryingInstance.x - this.x;
+            const dy = this.carryingInstance.y - this.y;
+            this.angle = Math.atan2(dy, dx);
+        }
+
+        if (this.harvestTimer <= 0) {
+            // Milking Complete
+            this.carrying = 'SUGAR';
+            this.carryingAmount = 200;
+            this.state = 'RETURNING';
+            this.energy = CONFIG.antMaxEnergy;
+            this.angle += Math.PI;
+            this.carryingInstance = null;
+
+            // Particles
+            world.addParticle(this.x, this.y, '#FFD700', 'DEFAULT');
         }
     }
 

@@ -23,7 +23,7 @@ buildInfo.style.color = 'rgba(255, 255, 255, 0.5)';
 buildInfo.style.fontFamily = 'monospace';
 buildInfo.style.fontSize = '12px';
 buildInfo.style.pointerEvents = 'none';
-buildInfo.innerText = 'Build: 2025-12-07 20:23 - FIX ENEMY ORIENTATION';
+buildInfo.innerText = 'Build: 2025-12-08 01:00 - AGGRESSIVE PATROL';
 document.body.appendChild(buildInfo);
 
 // Controls

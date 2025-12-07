@@ -86,7 +86,7 @@ export class Terrain {
         }
 
         // Wall collision (if no obstacle matched)
-        return currentAngle + Math.PI;
+        return currentAngle + Math.PI + (Math.random() - 0.5) * 1.5;
     }
 
     normalizeAngle(a: number): number {

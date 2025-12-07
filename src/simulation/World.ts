@@ -156,8 +156,8 @@ export class World {
         }
         let amount = 1000;
         if (type === 'SUGAR') {
-            // Randomize amount between 500 and 2000
-            amount = 500 + Math.floor(Math.random() * 1500);
+            // Reduced to 150-400
+            amount = 150 + Math.floor(Math.random() * 250);
         }
         this.foods.push(new Food(x, y, type, amount));
     }
@@ -339,7 +339,7 @@ export class World {
                     }
 
                     if (!nearEntrance) {
-                        const food = new Food(dropX, dropY, 'PROTEIN', 50);
+                        const food = new Food(dropX, dropY, 'CORPSE', 15); // Explicitly CORPSE type
                         food.corpseType = insect.type;
                         food.corpseAngle = insect.angle;
                         this.foods.push(food);

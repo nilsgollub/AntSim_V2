@@ -653,6 +653,34 @@ export class Renderer {
         ctx.translate(ant.x, ant.y);
         ctx.rotate(ant.angle);
 
+        // Milking Visual (Particle Flow)
+        if (ant.state === 'MILKING' && ant.carryingInstance) {
+            const dx = ant.carryingInstance.x - ant.x;
+            const dy = ant.carryingInstance.y - ant.y;
+
+            const time = Date.now() * 0.002;
+            const count = 3;
+            ctx.fillStyle = '#FFD700'; // Gold/Sugar
+
+            for (let i = 0; i < count; i++) {
+                // Flow from Aphid (1.0) to Ant (0.0)
+                const t = 1.0 - ((time + i / count) % 1.0);
+
+                // Interpolate in World Space (Relative to Ant)
+                const wx = dx * t;
+                const wy = dy * t;
+
+                // Rotate to Ant's Local Space
+                // We apply inverse rotation of the generic drawAnt transform
+                const lx = wx * Math.cos(-ant.angle) - wy * Math.sin(-ant.angle);
+                const ly = wx * Math.sin(-ant.angle) + wy * Math.cos(-ant.angle);
+
+                ctx.beginPath();
+                ctx.arc(lx, ly, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
         if (PerformanceManager.settings.simpleInsects) {
             // Simplified Ant - Distinct Shapes & Colors
             if (ant.type === 'SOLDIER') {
@@ -900,22 +928,28 @@ export class Renderer {
             this.drawLegs(8, 12, '#3e2723', 1.0);
 
             // Abdomen (Large, fuzzy)
-            this.ctx.fillStyle = '#4e342e';
+            this.ctx.fillStyle = '#1a1a1a'; // Much darker (Black)
+            this.ctx.strokeStyle = '#AAA'; // Light Grey Outline
+            this.ctx.lineWidth = 0.8;
             this.ctx.beginPath();
             this.ctx.ellipse(0, 3, 5, 6, 0, 0, Math.PI * 2);
             this.ctx.fill();
+            this.ctx.stroke();
 
             // Cephalothorax (Smaller)
-            this.ctx.fillStyle = '#3e2723';
+            this.ctx.fillStyle = '#000'; // Pure Black
             this.ctx.beginPath();
             this.ctx.ellipse(0, -4, 4, 4, 0, 0, Math.PI * 2);
             this.ctx.fill();
+            this.ctx.stroke();
 
             // Eyes (Many)
-            this.ctx.fillStyle = '#FFF';
+            this.ctx.fillStyle = '#F00'; // Glowing Red Eyes
             this.ctx.beginPath();
             this.ctx.rect(-1.5, -7, 1, 1);
             this.ctx.rect(0.5, -7, 1, 1);
+            this.ctx.rect(-3.5, -6, 1, 1); // Extra eyes
+            this.ctx.rect(2.5, -6, 1, 1);
             this.ctx.fill();
 
         } else if (insect.type === 'BEETLE') {
@@ -933,6 +967,10 @@ export class Renderer {
             this.ctx.beginPath();
             this.ctx.ellipse(0, 0, 5, 7, 0, 0, Math.PI * 2);
             this.ctx.fill();
+            // Outline for visibility
+            this.ctx.strokeStyle = '#DDD';
+            this.ctx.lineWidth = 0.5;
+            this.ctx.stroke();
 
             // Elytra Line (Wing case split)
             this.ctx.strokeStyle = '#000';
@@ -1134,7 +1172,7 @@ export class Renderer {
 
     drawFood(food: any) {
         const ctx = this.ctx;
-        const radius = Math.max(8, Math.sqrt(food.amount) * 0.35);
+        const radius = Math.max(8, Math.sqrt(food.amount) * 0.85);
 
         // Shadow
         ctx.save();

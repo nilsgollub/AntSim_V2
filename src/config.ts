@@ -44,16 +44,16 @@ export const CONFIG = {
     eggCost: 20,
 
     // Pheromones
-    pheromoneDecay: 0.995,
+    pheromoneDecay: 0.990,
     evaporationRate: 0.02,
 
     // World Generation
     obstacleCount: 12,
 
     // Ecosystem
-    sugarSourceCount: 5,
-    maxPrey: 10,
-    preySpawnRate: 0.01,
+    sugarSourceCount: 3, // Reduced from 5
+    maxPrey: 7,          // Reduced from 10
+    preySpawnRate: 0.005, // Reduced to 0.5%
 
     // Enemy Spawning
     gracePeriod: 4000, // Increased grace period (~60-70s)
