@@ -29,6 +29,9 @@ export class Ant {
     patrolAngle: number = 0;
     patrolRadius: number = 100;
     patrolTarget: { x: number, y: number } | null = null;
+    stuckTimer: number = 0;
+    lastX: number = 0;
+    lastY: number = 0;
 
     constructor(x: number, y: number, type: 'WORKER' | 'SOLDIER' | 'QUEEN') {
         this.x = x;
@@ -639,6 +642,25 @@ export class Ant {
             return;
         }
 
+        // Stuck Detection (Anti-Crowding)
+        const dMoved = Math.sqrt((this.x - this.lastX) ** 2 + (this.y - this.lastY) ** 2);
+        this.lastX = this.x;
+        this.lastY = this.y;
+
+        if (dMoved < 0.3) {
+            this.stuckTimer++;
+        } else {
+            this.stuckTimer = 0;
+        }
+
+        if (this.stuckTimer > 60) {
+            // Stuck in a crowd! Turn around and wander to unclog.
+            this.angle += Math.PI * (0.5 + Math.random());
+            this.obstacleTimer = 45; // Force move in new direction
+            this.stuckTimer = 0;
+            return;
+        }
+
         if (this.obstacleTimer > 0) return; // Sliding along wall
 
         if (this.location === 'NEST') {
@@ -699,7 +721,7 @@ export class Ant {
             const distSq = dx * dx + dy * dy;
 
             const foodRadius = Math.max(8, Math.sqrt(food.amount) * 0.35);
-            const harvestRange = foodRadius + 5;
+            const harvestRange = foodRadius + 20; // Increased range to allow more ants to feed without blocking
             const harvestRangeSq = harvestRange * harvestRange;
 
             if (distSq < harvestRangeSq) {

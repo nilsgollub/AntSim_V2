@@ -663,7 +663,7 @@ export class Renderer {
                 if (ant.carrying === 'SUGAR') ctx.fillStyle = '#FF0';
                 else if (ant.carrying === 'BROOD') ctx.fillStyle = '#FFF';
                 else if (ant.carrying === 'CORPSE') ctx.fillStyle = '#333';
-                else ctx.fillStyle = '#F00';
+                else ctx.fillStyle = '#C19A6B';
                 ctx.beginPath();
                 ctx.arc(5, 0, 2, 0, Math.PI * 2);
                 ctx.fill();
@@ -750,7 +750,7 @@ export class Renderer {
             ctx.arc(5, 0, 2, 0, Math.PI * 2);
             ctx.fill();
         } else if (ant.carrying === 'PROTEIN') {
-            ctx.fillStyle = '#F00';
+            ctx.fillStyle = '#C19A6B';
             ctx.beginPath();
             ctx.rect(4, -1.5, 3, 3);
             ctx.fill();
