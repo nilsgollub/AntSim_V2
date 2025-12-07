@@ -399,11 +399,27 @@ export class Ant {
         let homeX, homeY;
 
         if (this.location === 'WORLD') {
-            homeX = CONFIG.width;
-            homeY = CONFIG.height / 2;
+            // Determine orientation based on world dimensions
+            if (CONFIG.width > CONFIG.height) {
+                // Landscape: Nest is on the Right
+                homeX = CONFIG.width;
+                homeY = CONFIG.height / 2;
+            } else {
+                // Portrait: Nest is on the Bottom
+                homeX = CONFIG.width / 2;
+                homeY = CONFIG.height;
+            }
         } else {
-            homeX = 0; // Nest Exit
-            homeY = world.nest.height / 2;
+            // Nest Location: Determine exit based on nest shape
+            // Tall Nest (Landscape Mode) -> Exit is Left (x=0)
+            // Wide Nest (Portrait Mode) -> Exit is Top (y=0)
+            if (CONFIG.nestWidth < CONFIG.nestHeight) {
+                homeX = 0;
+                homeY = CONFIG.nestHeight / 2;
+            } else {
+                homeX = CONFIG.nestWidth / 2;
+                homeY = 0;
+            }
         }
 
         const dx = homeX - this.x;
@@ -495,17 +511,13 @@ export class Ant {
                 this.sprintCooldown = 180; // 3s cooldown
             }
 
-            if (minDist < 2500) { // Close range (50px)
-                this.speedMultiplier = 0.5; // Slow down for precision
-
-                if (minDist < 900) { // Attack range (30px)
-                    this.speedMultiplier = 0; // Stop moving to attack!
-                    if (this.attackCooldown <= 0) {
-                        const dmg = this.type === 'SOLDIER' ? CONFIG.soldierDamage : CONFIG.workerDamage;
-                        nearestEnemy.health -= dmg;
-                        world.addParticle(nearestEnemy.x, nearestEnemy.y, 'red', 'BLOOD');
-                        this.attackCooldown = 20;
-                    }
+            if (minDist < 900) { // Attack range (30px)
+                this.speedMultiplier = 0; // Stop moving to attack!
+                if (this.attackCooldown <= 0) {
+                    const dmg = this.type === 'SOLDIER' ? CONFIG.soldierDamage : CONFIG.workerDamage;
+                    nearestEnemy.health -= dmg;
+                    world.addParticle(nearestEnemy.x, nearestEnemy.y, 'red', 'BLOOD');
+                    this.attackCooldown = 20;
                 }
             }
         } else {
@@ -642,24 +654,8 @@ export class Ant {
             return;
         }
 
-        // Stuck Detection (Anti-Crowding)
-        const dMoved = Math.sqrt((this.x - this.lastX) ** 2 + (this.y - this.lastY) ** 2);
-        this.lastX = this.x;
-        this.lastY = this.y;
-
-        if (dMoved < 0.3) {
-            this.stuckTimer++;
-        } else {
-            this.stuckTimer = 0;
-        }
-
-        if (this.stuckTimer > 60) {
-            // Stuck in a crowd! Turn around and wander to unclog.
-            this.angle += Math.PI * (0.5 + Math.random());
-            this.obstacleTimer = 45; // Force move in new direction
-            this.stuckTimer = 0;
-            return;
-        }
+        // Check if we are already performing an evasive maneuver
+        if (this.obstacleTimer > 0) return;
 
         if (this.obstacleTimer > 0) return; // Sliding along wall
 
@@ -721,7 +717,7 @@ export class Ant {
             const distSq = dx * dx + dy * dy;
 
             const foodRadius = Math.max(8, Math.sqrt(food.amount) * 0.35);
-            const harvestRange = foodRadius + 20; // Increased range to allow more ants to feed without blocking
+            const harvestRange = foodRadius + 5; // Tighter range (User request: ants must be AT the source)
             const harvestRangeSq = harvestRange * harvestRange;
 
             if (distSq < harvestRangeSq) {
@@ -730,7 +726,7 @@ export class Ant {
                     const isLandscape = CONFIG.width > CONFIG.height;
                     let graveX, graveY;
                     if (isLandscape) {
-                        graveX = CONFIG.width - 50;
+                        graveX = 50; // Nest is Right -> Graveyard Left
                         graveY = CONFIG.height / 2;
                     } else {
                         graveX = CONFIG.width / 2;
@@ -757,6 +753,15 @@ export class Ant {
                 this.carryingInstance = food;
                 return;
             } else if (distSq < 10000) {
+                // Anti-Clustering: If stuck while approaching food, back off
+                if (this.stuckTimer > 20) {
+                    world.addParticle(this.x, this.y, 'yellow'); // Debug Visual: Unstuck Triggered
+                    this.angle += Math.PI + (Math.random() - 0.5);
+                    this.obstacleTimer = 45; // Move away for 0.75s (increased from 30)
+                    this.stuckTimer = 0;
+                    return;
+                }
+
                 // If visible, turn towards it
                 this.angle = Math.atan2(dy, dx);
                 this.angle += (Math.random() - 0.5) * 0.1;
@@ -875,8 +880,8 @@ export class Ant {
             const isLandscape = CONFIG.width > CONFIG.height;
             let graveX, graveY;
             if (isLandscape) {
-                // Nest is Left -> Graveyard Right Center
-                graveX = CONFIG.width - 50;
+                // Nest is Right -> Graveyard Left
+                graveX = 50;
                 graveY = CONFIG.height / 2;
             } else {
                 // Nest is Bottom -> Graveyard Top Center
@@ -1102,6 +1107,15 @@ export class Ant {
                 }
             }
         }
+        // Stuck Detection
+        const movedDist = (this.x - this.lastX) ** 2 + (this.y - this.lastY) ** 2;
+        if (movedDist < 0.25) {
+            this.stuckTimer++;
+        } else {
+            this.stuckTimer = 0;
+        }
+        this.lastX = this.x;
+        this.lastY = this.y;
     }
 
     applySeparation(world: World) {

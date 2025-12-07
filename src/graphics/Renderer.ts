@@ -27,6 +27,11 @@ export class Renderer {
     // Background Texture
     bgCanvas: HTMLCanvasElement;
 
+    // Nest Geometry Cache
+    nestStructureCanvas: HTMLCanvasElement;
+    nestStructureCtx: CanvasRenderingContext2D;
+    lastNodeCount: number = -1;
+
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d', { alpha: false })!;
@@ -58,6 +63,12 @@ export class Renderer {
         this.bgCanvas.width = this.width;
         this.bgCanvas.height = this.height;
         this.generateBackground();
+
+        // Setup Nest Structure Cache
+        this.nestStructureCanvas = document.createElement('canvas');
+        this.nestStructureCanvas.width = this.nestCanvas.width;
+        this.nestStructureCanvas.height = this.nestCanvas.height;
+        this.nestStructureCtx = this.nestStructureCanvas.getContext('2d')!;
     }
 
     generateBackground() {
@@ -255,18 +266,33 @@ export class Renderer {
         const w = CONFIG.nestWidth;
         const h = CONFIG.nestHeight;
 
-        // Clear
-        ctx.fillStyle = '#2a2a2a';
+        // Clear with Dark Soil Background
+        ctx.fillStyle = '#2e231d'; // Dark Earth
         ctx.fillRect(0, 0, w, h);
 
-        // 0. Nest Pheromones (Background)
+        // Gradient for depth
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
+        bgGrad.addColorStop(0, 'rgba(0,0,0,0.2)');
+        bgGrad.addColorStop(1, 'rgba(0,0,0,0.6)');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, w, h);
+
+        // 1. Structure (Cached)
+        // Ensure cache exists and check dirty state
+        if (!this.nestStructureCanvas || world.nest.nodes.length !== this.lastNodeCount) {
+            this.lastNodeCount = world.nest.nodes.length;
+            this.renderNestStructure(world);
+        }
+        ctx.drawImage(this.nestStructureCanvas, 0, 0);
+
+        // 2. Nest Pheromones (Overlay)
         if (this.showPheromones) {
+            // Update logic (simplified/copied from previous)
             const toHome = world.nestGrid.toHome;
             const toSugar = world.nestGrid.toSugar;
             const toProtein = world.nestGrid.toProtein;
             const toDanger = world.nestGrid.toDanger;
 
-            // Iterate over the smaller buffer
             for (let i = 0; i < this.nestPheroBuf32.length; i++) {
                 const home = toHome[i];
                 const sugar = toSugar[i];
@@ -274,96 +300,78 @@ export class Renderer {
                 const danger = toDanger[i];
 
                 if (home > 0.01 || sugar > 0.01 || protein > 0.01 || danger > 0.01) {
-                    let r = protein + sugar; // Sugar adds Red (Yellow = R+G)
+                    let r = protein + sugar + danger;
                     let g = sugar;
-                    let b = home;
-
-                    // Add danger
-                    r += danger;
-                    b += danger;
-
+                    let b = home + danger;
                     const rVal = Math.min(255, Math.floor(r * 255));
                     const gVal = Math.min(255, Math.floor(g * 255));
                     const bVal = Math.min(255, Math.floor(b * 255));
-
+                    // Alpha hack
                     this.nestPheroBuf32[i] = (255 << 24) | (bVal << 16) | (gVal << 8) | rVal;
                 } else {
-                    this.nestPheroBuf32[i] = 0xFF222222; // Match background
+                    this.nestPheroBuf32[i] = 0; // Transparent
                 }
             }
-
-            // Put data to offscreen canvas
             this.nestPheromoneCtx.putImageData(this.nestPheroImageData, 0, 0);
 
-            // Draw scaled up to nest canvas
-            ctx.imageSmoothingEnabled = true; // Smooth scaling
+            ctx.save();
+            ctx.globalCompositeOperation = 'overlay'; // Blend mode
+            ctx.imageSmoothingEnabled = true;
             ctx.drawImage(this.nestPheromoneCanvas, 0, 0, w, h);
-            ctx.imageSmoothingEnabled = false; // Reset
+            ctx.imageSmoothingEnabled = false;
+            ctx.restore();
         }
 
-        // Draw Tunnels & Chambers
-        ctx.fillStyle = '#1a1a1a';
-        ctx.strokeStyle = '#444';
-        ctx.lineWidth = 2;
-
-        // Draw Organic Nest Structure (Nodes)
-
-        // 1. Wall Cut (The "rim" of the tunnel)
-        ctx.strokeStyle = '#8d7a6a'; // Much lighter, distinct cut
-        ctx.lineWidth = 6; // Thick border
-        for (const node of world.nest.nodes) {
-            ctx.beginPath();
-            ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
-            ctx.stroke();
-        }
-
-        // 2. Chamber Floor (Depth)
-        for (const node of world.nest.nodes) {
-            const grad = ctx.createRadialGradient(node.x, node.y, node.radius * 0.2, node.x, node.y, node.radius);
-            grad.addColorStop(0, '#4e3e30'); // Lighter Floor
-            grad.addColorStop(1, '#1f1510'); // Shadow Edge
-
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // 3. Texture (Subtle Noise)
-        ctx.globalCompositeOperation = 'overlay';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-        for (const node of world.nest.nodes) {
-            if (node.type === 'CHAMBER') {
-                // Draw some random noise circles
-                for (let i = 0; i < 5; i++) {
-                    ctx.beginPath();
-                    ctx.arc(node.x + (Math.random() - 0.5) * node.radius, node.y + (Math.random() - 0.5) * node.radius, Math.random() * 10, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            }
-        }
-        ctx.globalCompositeOperation = 'source-over';
-
-        // Draw Queen (Detailed)
+        // Draw Dynamic Entities
         this.drawQueen(world.queen, ctx);
 
-        // Draw Brood
         for (const b of world.brood) {
             this.drawBrood(b, ctx);
         }
 
-        // Draw Ants (Nest only)
         for (const ant of world.ants) {
             if (ant.location === 'NEST') {
                 this.drawAnt(ant, ctx);
             }
         }
 
-        // Draw Stored Food in Storage Chamber
         const storage = world.nest.chambers.find(c => c.type === 'STORAGE');
         if (storage) {
             this.drawFoodPile(storage.x, storage.y, storage.radius, world.sugarStockpile, 'SUGAR', ctx);
             this.drawFoodPile(storage.x, storage.y, storage.radius, world.proteinStockpile, 'PROTEIN', ctx);
+        }
+    }
+
+    renderNestStructure(world: World) {
+        const ctx = this.nestStructureCtx;
+        const w = this.nestStructureCanvas.width;
+        const h = this.nestStructureCanvas.height;
+
+        ctx.clearRect(0, 0, w, h);
+
+        // 1. Wall Cut (The "rim" of the tunnel - Rough hewn earth)
+        ctx.strokeStyle = '#6b5b4e'; // Earthy Rim
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 4;
+        ctx.lineWidth = 10; // Thicker rim for depth
+        for (const node of world.nest.nodes) {
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, node.radius + 2, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        ctx.shadowBlur = 0; // Reset
+
+        // 2. Chamber Floor (Depth - Deep Shadow at edges)
+        for (const node of world.nest.nodes) {
+            const grad = ctx.createRadialGradient(node.x, node.y, node.radius * 0.1, node.x, node.y, node.radius * 1.1);
+            grad.addColorStop(0, '#5a4a3a'); // Lit Floor (Center)
+            grad.addColorStop(0.7, '#3e3228'); // Standard Floor
+            grad.addColorStop(1, '#1a140f'); // Deep Walls (Edge)
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+            ctx.fill();
         }
     }
 
@@ -526,7 +534,7 @@ export class Renderer {
 
             if (type === 'SUGAR') {
                 // Honey Drops - Golden/Amber
-                ctx.fillStyle = `rgba(255, 180, 40, ${0.6 + (i % 5) * 0.1})`;
+                ctx.fillStyle = `rgba(255, 180, 20, ${0.6 + (i % 5) * 0.1})`;
                 ctx.beginPath();
                 ctx.arc(px, py, 1.5 + (i % 3) * 0.5, 0, Math.PI * 2);
                 ctx.fill();
@@ -646,26 +654,37 @@ export class Renderer {
         ctx.rotate(ant.angle);
 
         if (PerformanceManager.settings.simpleInsects) {
-            // Simplified Ant (No legs, simple shapes)
-            ctx.fillStyle = ant.type === 'SOLDIER' ? '#8B4513' : '#AAA';
-            ctx.beginPath();
-            // Body
-            ctx.ellipse(0, 0, 3, 1.5, 0, 0, Math.PI * 2);
-            ctx.fill();
+            // Simplified Ant - Distinct Shapes & Colors
+            if (ant.type === 'SOLDIER') {
+                // SOLDIER: Large, Darker Brown, Square Head (Slimmer)
+                ctx.fillStyle = '#654321'; // Dark Brown
+                ctx.beginPath();
+                ctx.ellipse(-2, 0, 3.5, 2.0, 0, 0, Math.PI * 2); // Body (Slimmer)
+                ctx.fill();
 
-            // Head
-            ctx.fillStyle = '#555';
-            ctx.beginPath();
-            ctx.arc(3, 0, 1.5, 0, Math.PI * 2);
-            ctx.fill();
+                ctx.fillStyle = '#8B4513'; // SaddleBrown Head (Not bright red)
+                ctx.fillRect(1.5, -2, 4, 4); // Square Head (Smaller)
+            } else {
+                // WORKER: Small, Amber/Brown
+                ctx.fillStyle = '#A0522D'; // Sienna/Amber
+                ctx.beginPath();
+                ctx.ellipse(-2, 0, 3, 1.5, 0, 0, Math.PI * 2); // Body
+                ctx.fill();
 
+                ctx.fillStyle = '#5D4037'; // Dark Brown Head
+                ctx.beginPath();
+                ctx.arc(2, 0, 1.8, 0, Math.PI * 2); // Round Head
+                ctx.fill();
+            }
+
+            // Carrying Overlay
             if (ant.carrying !== 'NONE') {
-                if (ant.carrying === 'SUGAR') ctx.fillStyle = '#FF0';
+                if (ant.carrying === 'SUGAR') ctx.fillStyle = '#FFD700';
                 else if (ant.carrying === 'BROOD') ctx.fillStyle = '#FFF';
                 else if (ant.carrying === 'CORPSE') ctx.fillStyle = '#333';
                 else ctx.fillStyle = '#CD5C5C';
                 ctx.beginPath();
-                ctx.arc(5, 0, 2, 0, Math.PI * 2);
+                ctx.arc(4, 0, 2.5, 0, Math.PI * 2);
                 ctx.fill();
             }
             ctx.restore();
@@ -680,45 +699,60 @@ export class Renderer {
         this.drawLegs(6, 4, '#AAA', animSpeed, ctx);
 
         if (ant.type === 'SOLDIER') {
-            // Pheidole Soldier (Big-headed Ant)
+            // Pheidole Soldier (Big-headed Ant) - HEAVY ARMOR VISUALS
 
-            // Thorax (Small, compressed)
+            // Thorax (Muscular)
             const gradThorax = ctx.createRadialGradient(0, 0, 0, 0, 0, 3);
-            gradThorax.addColorStop(0, '#FFF');
-            gradThorax.addColorStop(1, '#CCC');
+            gradThorax.addColorStop(0, '#5D0000'); // Dark Red Core
+            gradThorax.addColorStop(1, '#3E0000'); // Darker Edge
             ctx.fillStyle = gradThorax;
             ctx.beginPath();
-            ctx.ellipse(-1, 0, 2.0, 1.5, 0, 0, Math.PI * 2);
+            ctx.ellipse(-1, 0, 2.5, 2.0, 0, 0, Math.PI * 2); // Beefier thorax
             ctx.fill();
 
-            // Abdomen (Standard size, smaller than head)
+            // Abdomen (Armored/Striped)
+            ctx.fillStyle = '#4A0404'; // Dark Maroon
             ctx.beginPath();
-            ctx.ellipse(-5, 0, 2.5, 1.8, 0, 0, Math.PI * 2);
+            ctx.ellipse(-6, 0, 3.5, 2.5, 0, 0, Math.PI * 2); // Larger abdomen
             ctx.fill();
+
+            // Abdomen Stripes (Lighter Red)
+            ctx.fillStyle = '#8B0000';
+            ctx.fillRect(-7.5, -1.5, 1, 3);
+            ctx.fillRect(-5.5, -1.8, 1, 3.6);
 
             // Head (Massive, Heart-shaped/Square)
             const gradHead = ctx.createRadialGradient(3, 0, 0, 3, 0, 5);
-            gradHead.addColorStop(0, '#8B0000'); // Dark Red
-            gradHead.addColorStop(1, '#5D0000'); // Darker Red
+            gradHead.addColorStop(0, '#B22222'); // Firebrick Red
+            gradHead.addColorStop(1, '#800000'); // Maroon
             ctx.fillStyle = gradHead;
 
             ctx.beginPath();
             // Draw a rounded square/heart shape for the head
-            // Slightly smaller: +/- 4.0
-            ctx.moveTo(1, -4.0);
-            ctx.lineTo(5, -4.0); // Top edge
-            ctx.quadraticCurveTo(7, -4.0, 7, 0); // Front curve
-            ctx.quadraticCurveTo(7, 4.0, 5, 4.0); // Bottom edge
-            ctx.lineTo(1, 4.0);
-            ctx.quadraticCurveTo(0, 0, 1, -4.0); // Back curve
+            ctx.moveTo(1, -4.5);
+            ctx.lineTo(6, -4.5); // Top edge
+            ctx.quadraticCurveTo(8, -4.5, 8, 0); // Front curve
+            ctx.quadraticCurveTo(8, 4.5, 6, 4.5); // Bottom edge
+            ctx.lineTo(1, 4.5);
+            ctx.quadraticCurveTo(0, 0, 1, -4.5); // Back curve
             ctx.fill();
 
-            // Mandibles (Thick, short)
-            ctx.strokeStyle = '#3e2723'; // Dark Brown
-            ctx.lineWidth = 2.5;
+            // Head Armor Highlight (Shiny Chitin)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
             ctx.beginPath();
-            ctx.moveTo(6.5, 3.0); ctx.lineTo(9, 1.0);
-            ctx.moveTo(6.5, -3.0); ctx.lineTo(9, -1.0);
+            ctx.ellipse(4, -2, 1.5, 1, -0.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Mandibles (Massive, Crushing)
+            ctx.strokeStyle = '#221100'; // Almost Black
+            ctx.lineWidth = 3.0; // Thicker
+            ctx.beginPath();
+            // Left Mandible
+            ctx.moveTo(7, 3.0);
+            ctx.quadraticCurveTo(10, 3.0, 11, 0.5); // Curved, sharp
+            // Right Mandible
+            ctx.moveTo(7, -3.0);
+            ctx.quadraticCurveTo(10, -3.0, 11, -0.5);
             ctx.stroke();
 
         } else {
@@ -785,11 +819,26 @@ export class Renderer {
         this.ctx.translate(insect.x, insect.y);
 
         if (PerformanceManager.settings.simpleInsects) {
-            this.ctx.rotate(insect.angle); // angle matches movement direction
-            this.ctx.fillStyle = insect.type === 'PREY' ? '#AAA' : '#555'; // Lighter for silverfish
-            this.ctx.beginPath();
-            this.ctx.ellipse(0, 0, 4, 2, 0, 0, Math.PI * 2);
-            this.ctx.fill();
+            this.ctx.rotate(insect.angle + Math.PI / 2); // Face forward for consistency
+            if (insect.type === 'PREY') {
+                // PREY (Silverfish): Silver Ellipse (Restored)
+                this.ctx.fillStyle = '#ADD8E6'; // Light Blue/Silver
+                this.ctx.beginPath();
+                this.ctx.ellipse(0, 0, 2.5, 5, 0, 0, Math.PI * 2);
+                this.ctx.fill();
+            } else if (insect.type === 'APHID') {
+                // APHID: Small Green Dot
+                this.ctx.fillStyle = '#32CD32'; // LimeGreen
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+                this.ctx.fill();
+            } else {
+                // ENEMY (Predator/Spider/Beetle): Red Ellipse
+                this.ctx.fillStyle = '#DC143C'; // Crimson Red
+                this.ctx.beginPath();
+                this.ctx.ellipse(0, 0, 3, 4.5, 0, 0, Math.PI * 2); // Swapped X/Y to be taller (Head-to-tail)
+                this.ctx.fill();
+            }
             this.ctx.restore();
             return;
         }

@@ -14,6 +14,18 @@ nestCanvas.height = CONFIG.nestHeight;
 let world = new World();
 const renderer = new Renderer(canvas);
 
+// Build Info Overlay
+const buildInfo = document.createElement('div');
+buildInfo.style.position = 'absolute';
+buildInfo.style.bottom = '5px';
+buildInfo.style.right = '5px';
+buildInfo.style.color = 'rgba(255, 255, 255, 0.5)';
+buildInfo.style.fontFamily = 'monospace';
+buildInfo.style.fontSize = '12px';
+buildInfo.style.pointerEvents = 'none';
+buildInfo.innerText = 'Build: 2025-12-07 20:23 - FIX ENEMY ORIENTATION';
+document.body.appendChild(buildInfo);
+
 // Controls
 let simSpeed = 1;
 const speedRange = document.getElementById('speedRange') as HTMLInputElement;
