@@ -26,6 +26,8 @@ export class Food {
     update() {
         if (this.type === 'PROTEIN') {
             this.amount -= 0.02; // Decay over time (Rotting)
+        } else if (this.type === 'CORPSE') {
+            this.amount -= 0.005; // Corpses rot away (~30s)
         }
     }
 }

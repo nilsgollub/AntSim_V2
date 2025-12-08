@@ -322,6 +322,13 @@ export class Renderer {
             ctx.restore();
         }
 
+        const storage = world.nest.chambers.find(c => c.type === 'STORAGE');
+        if (storage) {
+            // Draw Food Piles BEFORE ants so ants walk ON TOP
+            this.drawFoodPile(storage.x, storage.y, storage.radius, world.sugarStockpile, 'SUGAR', ctx);
+            this.drawFoodPile(storage.x, storage.y, storage.radius, world.proteinStockpile, 'PROTEIN', ctx);
+        }
+
         // Draw Dynamic Entities
         this.drawQueen(world.queen, ctx);
 
@@ -333,12 +340,6 @@ export class Renderer {
             if (ant.location === 'NEST') {
                 this.drawAnt(ant, ctx);
             }
-        }
-
-        const storage = world.nest.chambers.find(c => c.type === 'STORAGE');
-        if (storage) {
-            this.drawFoodPile(storage.x, storage.y, storage.radius, world.sugarStockpile, 'SUGAR', ctx);
-            this.drawFoodPile(storage.x, storage.y, storage.radius, world.proteinStockpile, 'PROTEIN', ctx);
         }
     }
 

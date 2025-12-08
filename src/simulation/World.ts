@@ -157,7 +157,7 @@ export class World {
         let amount = 1000;
         if (type === 'SUGAR') {
             // Reduced to 150-400
-            amount = 150 + Math.floor(Math.random() * 250);
+            amount = 100 + Math.floor(Math.random() * 200);
         }
         this.foods.push(new Food(x, y, type, amount));
     }
@@ -255,7 +255,7 @@ export class World {
         const antCount = this.ants.length;
         const currentMaxPredators = CONFIG.maxPredators + Math.floor(antCount / 50);
         const currentMaxSpiders = CONFIG.maxSpiders + Math.floor(antCount / 100);
-        const currentMaxBeetles = CONFIG.maxBeetles + Math.floor(antCount / 75);
+        const currentMaxBeetles = CONFIG.maxBeetles + Math.floor(antCount / 150);
         const currentMaxLadybugs = CONFIG.maxLadybugs + Math.floor(antCount / 40);
 
         // Spawn Prey
@@ -339,7 +339,7 @@ export class World {
                     }
 
                     if (!nearEntrance) {
-                        const food = new Food(dropX, dropY, 'CORPSE', 15); // Explicitly CORPSE type
+                        const food = new Food(dropX, dropY, 'CORPSE', 10); // Explicitly CORPSE type
                         food.corpseType = insect.type;
                         food.corpseAngle = insect.angle;
                         this.foods.push(food);

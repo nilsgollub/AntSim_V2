@@ -24,7 +24,7 @@ export const CONFIG = {
     soldierUnlockThreshold: 30,
 
     // Resources
-    sugarValue: 20,
+    sugarValue: 10,
     proteinValue: 5,
 
     // Ant Stats
@@ -36,8 +36,8 @@ export const CONFIG = {
     soldierHealth: 60,
     soldierDamage: 8,
     workerDamage: 3,
-    antMaxEnergy: 3000,
-    antEnergyDecay: 0.15,
+    antMaxEnergy: 2000,
+    antEnergyDecay: 0.30,
 
     // Queen
     queenPosition: { x: logicalWidth / 2, y: logicalHeight / 2 },
@@ -51,7 +51,7 @@ export const CONFIG = {
     obstacleCount: 12,
 
     // Ecosystem
-    sugarSourceCount: 3, // Reduced from 5
+    sugarSourceCount: 2, // Reduced from 3
     maxPrey: 7,          // Reduced from 10
     preySpawnRate: 0.005, // Reduced to 0.5%
 

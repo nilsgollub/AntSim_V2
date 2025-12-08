@@ -6,7 +6,7 @@ export class Ant {
     y: number;
     angle: number;
     type: 'WORKER' | 'SOLDIER' | 'QUEEN';
-    state: 'FORAGING' | 'RETURNING' | 'IDLE' | 'NURSING' | 'PATROLLING' | 'FLEEING' | 'ATTACKING' | 'TRANSPORTING' | 'HARVESTING' | 'HUNGRY' | 'MILKING';
+    state: 'FORAGING' | 'RETURNING' | 'IDLE' | 'NURSING' | 'PATROLLING' | 'FLEEING' | 'ATTACKING' | 'TRANSPORTING' | 'HARVESTING' | 'HUNGRY' | 'MILKING' | 'RESTING';
     carrying: 'NONE' | 'SUGAR' | 'PROTEIN' | 'BROOD' | 'CORPSE';
     carryingAmount: number = 0;
     carryingInstance: any = null;
@@ -24,6 +24,7 @@ export class Ant {
     speedMultiplier: number = 1.0;
     thinkTimer: number = 0;
     harvestTimer: number = 0;
+    restTimer: number = 0;
 
     // Patrol logic
     patrolAngle: number = 0;
@@ -105,11 +106,16 @@ export class Ant {
             case 'HUNGRY':
                 this.handleHungry(world);
                 break;
+            case 'RESTING':
+                this.handleResting(world);
+                break;
             case 'IDLE':
                 if (this.type === 'QUEEN') {
                     // Queen idle logic
                 } else if (this.type === 'WORKER') {
                     this.handleNurseIdle(world);
+                } else if (this.type === 'SOLDIER') {
+                    this.state = 'PATROLLING';
                 }
                 break;
         }
@@ -177,12 +183,80 @@ export class Ant {
         }
     }
 
+    handleResting(world: World) {
+        if (this.location === 'WORLD') {
+            // Go Home to Rest
+            this.speedMultiplier = 1.0;
+            this.patrolTarget = null; // Clear any existing target
+
+            let homeX, homeY;
+            if (CONFIG.width > CONFIG.height) {
+                homeX = CONFIG.width;
+                homeY = CONFIG.height / 2;
+            } else {
+                homeX = CONFIG.width / 2;
+                homeY = CONFIG.height;
+            }
+
+            const dx = homeX - this.x;
+            const dy = homeY - this.y;
+            this.angle = Math.atan2(dy, dx);
+        } else {
+            // In Nest: Find a cozy spot (Random Chamber)
+            if (!this.patrolTarget) {
+                if (world.nest.chambers.length > 0) {
+                    const chamber = world.nest.chambers[Math.floor(Math.random() * world.nest.chambers.length)];
+                    // Random point inside chamber
+                    const angle = Math.random() * Math.PI * 2;
+                    const r = Math.random() * (chamber.radius * 0.8);
+                    this.patrolTarget = {
+                        x: chamber.x + Math.cos(angle) * r,
+                        y: chamber.y + Math.sin(angle) * r
+                    };
+                } else {
+                    // Fallback if no chambers (shouldn't happen)
+                    this.patrolTarget = { x: world.nest.width / 2, y: world.nest.height / 2 };
+                }
+            }
+
+            // Move to Bed
+            const dx = this.patrolTarget.x - this.x;
+            const dy = this.patrolTarget.y - this.y;
+            const distSq = dx * dx + dy * dy;
+
+            if (distSq < 100) { // Arrived (within 10px)
+                this.speedMultiplier = 0;
+                this.restTimer--;
+
+                // Wake up
+                if (this.restTimer <= 0 || this.energy < 500) {
+                    this.state = 'IDLE';
+                    this.patrolTarget = null;
+                }
+            } else {
+                // Walking to bed
+                this.speedMultiplier = 1.0;
+                this.angle = Math.atan2(dy, dx);
+                // Random jitter for natural movement
+                this.angle += (Math.random() - 0.5) * 0.5;
+            }
+        }
+    }
+
     handleNurseIdle(world: World) {
         if (this.location === 'WORLD') {
             // Go to Entrance (Right edge of World)
             const dx = CONFIG.width - this.x;
             const dy = (CONFIG.height / 2) - this.y;
             this.angle = Math.atan2(dy, dx);
+            return;
+        }
+
+        // 1. Rest Chance (Top Priority)
+        // Drastically reduced probability to 0.005% per frame (approx once every 5.5 minutes)
+        if (Math.random() < 0.00005) {
+            this.state = 'RESTING';
+            this.restTimer = 300 + Math.random() * 600;
             return;
         }
 
@@ -265,8 +339,16 @@ export class Ant {
                         // Move to storage
                         this.angle = Math.atan2(dy, dx);
                     }
-                    return;
                 }
+                return;
+            }
+        }
+
+        // Worker Logic: Go back to foraging if needed (Critical only)
+        if (this.type === 'WORKER') {
+            if (world.sugarStockpile < 50 || world.proteinStockpile < 20 || Math.random() < 0.001) {
+                this.state = 'FORAGING';
+                return;
             }
         }
 
@@ -335,8 +417,14 @@ export class Ant {
 
         // Check if colony needs protein
         // If low on protein, Soldiers go hunting (FORAGING state handles hunting if protein is needed)
-        if (world.proteinStockpile < CONFIG.eggCost * 5) {
+        if (world.proteinStockpile < 20) {
             this.state = 'FORAGING';
+            return;
+        }
+
+        if (Math.random() < 0.00005) {
+            this.state = 'RESTING';
+            this.restTimer = 300 + Math.random() * 600;
             return;
         }
 
@@ -348,6 +436,10 @@ export class Ant {
                 const angle = Math.atan2(nextNode.y - this.y, nextNode.x - this.x);
                 this.angle = angle + (Math.random() - 0.5) * 0.5;
             } else {
+                // Fallback: If no path found, steer directly towards entrance
+                const dx = entrance.x - this.x;
+                const dy = entrance.y - this.y;
+                this.angle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 1.0;
             }
             return;
         }
@@ -357,12 +449,12 @@ export class Ant {
 
         if (CONFIG.width > CONFIG.height) {
             // Landscape: Entrance at Right Edge
-            entranceX = CONFIG.width - 50;
+            entranceX = CONFIG.width - 150;
             entranceY = CONFIG.height / 2;
         } else {
             // Portrait: Entrance at Bottom Edge
             entranceX = CONFIG.width / 2;
-            entranceY = CONFIG.height - 50;
+            entranceY = CONFIG.height - 150;
         }
 
         // Initialize or Update Patrol Target
@@ -969,7 +1061,7 @@ export class Ant {
                     if (this.energy < 1000) {
                         this.state = 'HUNGRY';
                     } else {
-                        this.state = 'FORAGING';
+                        this.state = 'IDLE'; // Go IDLE to check for rest/nursing
                     }
 
                     this.angle += Math.PI;
@@ -1156,6 +1248,8 @@ export class Ant {
     }
 
     applySeparation(world: World) {
+        if (this.location === 'NEST') return;
+
         const separationRadius = 15;
         const nearby = world.spatialGrid.getNearby(this.x, this.y, separationRadius);
 
