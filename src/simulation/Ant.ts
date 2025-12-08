@@ -190,7 +190,10 @@ export class Ant {
             this.patrolTarget = null; // Clear any existing target
 
             let homeX, homeY;
-            if (CONFIG.width > CONFIG.height) {
+
+            // Use Nest Dimensions to determine orientation reliably
+            // If Nest is Taller than Wide -> Landscape Mode (Nest Right)
+            if (world.nest.height > world.nest.width) {
                 homeX = CONFIG.width;
                 homeY = CONFIG.height / 2;
             } else {
@@ -246,8 +249,15 @@ export class Ant {
     handleNurseIdle(world: World) {
         if (this.location === 'WORLD') {
             // Go to Entrance (Right edge of World)
-            const dx = CONFIG.width - this.x;
-            const dy = (CONFIG.height / 2) - this.y;
+            // Go to Entrance based on Nest Orientation
+            let dx, dy;
+            if (world.nest.height > world.nest.width) { // Landscape
+                dx = CONFIG.width - this.x;
+                dy = (CONFIG.height / 2) - this.y;
+            } else { // Portrait
+                dx = (CONFIG.width / 2) - this.x;
+                dy = CONFIG.height - this.y;
+            }
             this.angle = Math.atan2(dy, dx);
             return;
         }
@@ -447,7 +457,7 @@ export class Ant {
         // Patrol near Entrance (World side)
         let entranceX, entranceY;
 
-        if (CONFIG.width > CONFIG.height) {
+        if (world.nest.height > world.nest.width) {
             // Landscape: Entrance at Right Edge
             entranceX = CONFIG.width - 150;
             entranceY = CONFIG.height / 2;
@@ -508,7 +518,7 @@ export class Ant {
 
         if (this.location === 'WORLD') {
             // Determine orientation based on world dimensions
-            if (CONFIG.width > CONFIG.height) {
+            if (world.nest.height > world.nest.width) {
                 // Landscape: Nest is on the Right
                 homeX = CONFIG.width;
                 homeY = CONFIG.height / 2;
@@ -534,7 +544,13 @@ export class Ant {
         const dy = homeY - this.y;
         const homeAngle = Math.atan2(dy, dx);
 
-        this.angle = this.angle * 0.5 + homeAngle * 0.5 + (Math.random() - 0.5) * 0.5;
+        // Robust Angle Interpolation (Shortest path)
+        let diff = homeAngle - this.angle;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+
+        this.angle += diff * 0.5; // High turn rate for fleeing
+        this.angle += (Math.random() - 0.5) * 0.5; // Panic jitter
 
         // Drop Danger trail while fleeing to warn others
         if (this.fleeTimer % 5 === 0) {
@@ -979,7 +995,7 @@ export class Ant {
 
         if (this.carrying === 'CORPSE') {
             // Graveyard Location: Opposite side of the nest
-            const isLandscape = CONFIG.width > CONFIG.height;
+            const isLandscape = world.nest.height > world.nest.width;
             let graveX, graveY;
             if (isLandscape) {
                 // Nest is Right -> Graveyard Left
@@ -1026,7 +1042,7 @@ export class Ant {
 
         if (this.location === 'WORLD') {
             let targetX, targetY;
-            if (CONFIG.width > CONFIG.height) {
+            if (world.nest.height > world.nest.width) {
                 targetX = CONFIG.width;
                 targetY = CONFIG.height / 2;
             } else {
@@ -1162,7 +1178,7 @@ export class Ant {
         const nextY = this.y + Math.sin(this.angle) * speed;
 
         if (this.location === 'WORLD') {
-            const isLandscape = CONFIG.width > CONFIG.height;
+            const isLandscape = world.nest.height > world.nest.width;
 
             if (isLandscape) {
                 if (nextX > CONFIG.width - 10 && Math.abs(nextY - CONFIG.height / 2) < 50) {
@@ -1193,7 +1209,7 @@ export class Ant {
             }
         } else {
             // NEST
-            const isLandscape = CONFIG.width > CONFIG.height;
+            const isLandscape = world.nest.height > world.nest.width;
 
             if (isLandscape) {
                 if (nextX < 5 && Math.abs(nextY - world.nest.height / 2) < 50) {

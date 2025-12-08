@@ -23,7 +23,7 @@ buildInfo.style.color = 'rgba(255, 255, 255, 0.5)';
 buildInfo.style.fontFamily = 'monospace';
 buildInfo.style.fontSize = '12px';
 buildInfo.style.pointerEvents = 'none';
-buildInfo.innerText = 'Build: 2025-12-08 02:18 - NEST RENDER ORDER FIX';
+buildInfo.innerText = 'Build: 2025-12-08 03:30 - PRODUCTION (LEGACY MODE)';
 document.body.appendChild(buildInfo);
 
 // Controls

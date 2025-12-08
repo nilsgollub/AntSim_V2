@@ -34,7 +34,7 @@ export class Renderer {
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
-        this.ctx = canvas.getContext('2d', { alpha: false })!;
+        this.ctx = canvas.getContext('2d')!;
         this.width = canvas.width;
         this.height = canvas.height;
 
