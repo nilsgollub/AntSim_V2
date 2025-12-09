@@ -4,8 +4,25 @@ import { Renderer } from './graphics/Renderer';
 import { PerformanceManager, QualityLevel } from './PerformanceManager';
 
 const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
-canvas.width = CONFIG.width;
-canvas.height = CONFIG.height;
+
+// DEBUG: Catch global errors
+window.onerror = function (msg, _url, lineNo, _columnNo, _error) {
+  const div = document.createElement('div');
+  div.style.position = 'fixed';
+  div.style.top = '0';
+  div.style.left = '0';
+  div.style.width = '100%';
+  div.style.background = '#AA0000';
+  div.style.color = 'white';
+  div.style.padding = '10px';
+  div.style.zIndex = '99999';
+  div.style.fontSize = '14px';
+  div.style.fontFamily = 'monospace';
+  div.innerText = `ERROR: ${msg}\nLine: ${lineNo}`;
+  document.body.appendChild(div);
+  return false;
+};
+// Canvas size is now managed by Renderer for resolution scaling
 
 const nestCanvas = document.getElementById('nestCanvas') as HTMLCanvasElement;
 nestCanvas.width = CONFIG.nestWidth;
@@ -23,8 +40,9 @@ buildInfo.style.color = 'rgba(255, 255, 255, 0.5)';
 buildInfo.style.fontFamily = 'monospace';
 buildInfo.style.fontSize = '12px';
 buildInfo.style.pointerEvents = 'none';
-buildInfo.innerText = 'Build: 2025-12-08 03:30 - PRODUCTION (LEGACY MODE)';
+buildInfo.innerText = 'Build: 2025-12-09 10:55 - DEBUG MODE (ERROR CATCHER)';
 document.body.appendChild(buildInfo);
+
 
 // Controls
 let simSpeed = 1;
@@ -50,6 +68,7 @@ const qualitySelect = document.getElementById('qualitySelect') as HTMLSelectElem
 qualitySelect.addEventListener('change', () => {
   const val = qualitySelect.value as keyof typeof QualityLevel;
   PerformanceManager.setQuality(QualityLevel[val]);
+  renderer.resize(CONFIG.width, CONFIG.height, PerformanceManager.settings.resolutionScale);
 });
 
 restartBtn.addEventListener('click', () => {

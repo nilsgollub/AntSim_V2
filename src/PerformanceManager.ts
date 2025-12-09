@@ -1,4 +1,5 @@
 export const QualityLevel = {
+    ULTRA_LOW: 'ULTRA_LOW',
     LOW: 'LOW',
     MEDIUM: 'MEDIUM',
     HIGH: 'HIGH',
@@ -13,9 +14,12 @@ export interface PerformanceProfile {
     shadows: boolean;
     gradients: boolean;
     simpleInsects: boolean;
-    pheromoneUpdateSkip: number; // Update every N frames
-    renderSkip: number; // Render every N frames (not implemented yet, but good to have)
+    simpleAnts: boolean;
+    pheromoneUpdateSkip: number;
+    renderSkip: number;
     grassAnimation: boolean;
+    resolutionScale: number;
+    legAnimation: boolean;
 }
 
 export class PerformanceManager {
@@ -24,49 +28,75 @@ export class PerformanceManager {
 
     static getProfile(level: QualityLevel): PerformanceProfile {
         switch (level) {
-            case QualityLevel.LOW:
+            case QualityLevel.ULTRA_LOW:
                 return {
-                    maxAnts: 50,
+                    maxAnts: 80,
                     particleLimit: 20,
                     shadows: false,
                     gradients: false,
                     simpleInsects: true,
-                    pheromoneUpdateSkip: 3,
+                    simpleAnts: true,
+                    pheromoneUpdateSkip: 6,
                     renderSkip: 1,
-                    grassAnimation: false
+                    grassAnimation: false,
+                    resolutionScale: 0.4,
+                    legAnimation: false
+                };
+            case QualityLevel.LOW:
+                return {
+                    maxAnts: 120,
+                    particleLimit: 40,
+                    shadows: false,
+                    gradients: false,
+                    simpleInsects: true,
+                    simpleAnts: true,
+                    pheromoneUpdateSkip: 6,
+                    renderSkip: 1,
+                    grassAnimation: false,
+                    resolutionScale: 0.4,
+                    legAnimation: false
                 };
             case QualityLevel.MEDIUM:
                 return {
-                    maxAnts: 150,
-                    particleLimit: 100,
-                    shadows: true, // Simple shadows
-                    gradients: false, // Flat colors
-                    simpleInsects: false,
-                    pheromoneUpdateSkip: 2,
+                    maxAnts: 250, // Reduced from 350
+                    particleLimit: 80,
+                    shadows: false,
+                    gradients: false,
+                    simpleInsects: false, // Detailed
+                    simpleAnts: false, // Detailed
+                    pheromoneUpdateSkip: 5, // Increased from 4
                     renderSkip: 1,
-                    grassAnimation: false
+                    grassAnimation: false,
+                    resolutionScale: 0.5, // Reduced from 0.6
+                    legAnimation: false // Static legs (Cached Sprites)
                 };
             case QualityLevel.HIGH:
                 return {
-                    maxAnts: 500,
-                    particleLimit: 500,
-                    shadows: true,
+                    maxAnts: 600,
+                    particleLimit: 200,
+                    shadows: false,
                     gradients: true,
                     simpleInsects: false,
-                    pheromoneUpdateSkip: 1,
+                    simpleAnts: false,
+                    pheromoneUpdateSkip: 2,
                     renderSkip: 1,
-                    grassAnimation: false
+                    grassAnimation: false,
+                    resolutionScale: 0.85,
+                    legAnimation: true
                 };
             case QualityLevel.ULTRA:
                 return {
-                    maxAnts: 1000,
+                    maxAnts: 1200,
                     particleLimit: 2000,
                     shadows: true,
                     gradients: true,
                     simpleInsects: false,
+                    simpleAnts: false,
                     pheromoneUpdateSkip: 1,
                     renderSkip: 1,
-                    grassAnimation: true
+                    grassAnimation: true,
+                    resolutionScale: 1.0,
+                    legAnimation: true
                 };
         }
     }
@@ -77,12 +107,11 @@ export class PerformanceManager {
         console.log(`Performance Quality set to ${level}`, this.settings);
     }
 
-    // Auto-Performance Tuning
     static lowFpsFrames: number = 0;
     static lastDowngrade: number = 0;
     static readonly CRITICAL_FPS = 20;
-    static readonly FPS_CHECK_FRAMES = 60; // ~1 second of sustained low FPS
-    static readonly DOWNGRADE_COOLDOWN = 10000; // 10 seconds cooldown
+    static readonly FPS_CHECK_FRAMES = 60;
+    static readonly DOWNGRADE_COOLDOWN = 10000;
 
     static monitorFPS(fps: number) {
         if (fps < this.CRITICAL_FPS) {
@@ -106,15 +135,13 @@ export class PerformanceManager {
             case QualityLevel.ULTRA: newLevel = QualityLevel.HIGH; break;
             case QualityLevel.HIGH: newLevel = QualityLevel.MEDIUM; break;
             case QualityLevel.MEDIUM: newLevel = QualityLevel.LOW; break;
-            case QualityLevel.LOW: return; // Already lowest
+            case QualityLevel.LOW: newLevel = QualityLevel.ULTRA_LOW; break;
+            case QualityLevel.ULTRA_LOW: return;
         }
 
         if (newLevel) {
             console.warn(`FPS Critical! Downgrading quality to ${newLevel}`);
             this.setQuality(newLevel);
-
-            // Notify user via UI if possible (optional, but good for UX)
-            // For now, we just log it.
         }
     }
 }

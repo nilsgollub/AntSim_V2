@@ -205,30 +205,49 @@ export class Ant {
             const dy = homeY - this.y;
             this.angle = Math.atan2(dy, dx);
         } else {
-            // In Nest: Find a cozy spot (Random Chamber)
+            // In Nest: Find a cozy spot
+
+            // 1. If not already targeting a spot, find one
             if (!this.patrolTarget) {
-                if (world.nest.chambers.length > 0) {
-                    const chamber = world.nest.chambers[Math.floor(Math.random() * world.nest.chambers.length)];
-                    // Random point inside chamber
+                // Check if we are currently inside a chamber
+                const currentChamber = world.nest.chambers.find(c => (this.x - c.x) ** 2 + (this.y - c.y) ** 2 < (c.radius * 0.9) ** 2);
+
+                if (currentChamber) {
+                    // If we are in STORAGE, we probably just finished work. Don't sleep here!
+                    // 80% chance to go find another room (dispersal)
+                    if (currentChamber.type === 'STORAGE' && Math.random() < 0.8) {
+                        // Just leave the current chamber!
+                        const otherChambers = world.nest.chambers.filter(c => c !== currentChamber);
+                        if (otherChambers.length > 0) {
+                            this.wander();
+                            this.applySeparation(world);
+                            return;
+                        }
+                    }
+
+                    // We are in a valid resting chamber (or decided to stay). Pick a random spot HERE to sleep.
                     const angle = Math.random() * Math.PI * 2;
-                    const r = Math.random() * (chamber.radius * 0.8);
+                    const r = Math.random() * (currentChamber.radius * 0.7); // Stay well inside
                     this.patrolTarget = {
-                        x: chamber.x + Math.cos(angle) * r,
-                        y: chamber.y + Math.sin(angle) * r
+                        x: currentChamber.x + Math.cos(angle) * r,
+                        y: currentChamber.y + Math.sin(angle) * r
                     };
                 } else {
-                    // Fallback if no chambers (shouldn't happen)
-                    this.patrolTarget = { x: world.nest.width / 2, y: world.nest.height / 2 };
+                    // In a corridor / tunnel.
+                    // Don't just walk straight (walls!). Wander randomly until we hit a chamber.
+                    this.wander();
+                    this.applySeparation(world);
+                    return;
                 }
             }
 
-            // Move to Bed
+            // 2. Move to Bed (Linear, but short distance since valid target is in same chamber)
             const dx = this.patrolTarget.x - this.x;
             const dy = this.patrolTarget.y - this.y;
             const distSq = dx * dx + dy * dy;
 
             if (distSq < 100) { // Arrived (within 10px)
-                this.speedMultiplier = 0;
+                this.speedMultiplier = 0; // Zzz...
                 this.restTimer--;
 
                 // Wake up
@@ -237,11 +256,10 @@ export class Ant {
                     this.patrolTarget = null;
                 }
             } else {
-                // Walking to bed
-                this.speedMultiplier = 1.0;
+                // Walking to local bed spot
+                this.speedMultiplier = 0.5; // Walk slowly to bed
                 this.angle = Math.atan2(dy, dx);
-                // Random jitter for natural movement
-                this.angle += (Math.random() - 0.5) * 0.5;
+                this.applySeparation(world); // Don't sleep on top of others
             }
         }
     }
@@ -356,14 +374,22 @@ export class Ant {
 
         // Worker Logic: Go back to foraging if needed (Critical only)
         if (this.type === 'WORKER') {
-            if (world.sugarStockpile < 50 || world.proteinStockpile < 20 || Math.random() < 0.001) {
+            if (world.sugarStockpile < 50 || world.proteinStockpile < 20 || Math.random() < 0.005) {
                 this.state = 'FORAGING';
                 return;
             }
         }
 
-        // Wander in nest
-        this.wander();
+        // 5. No task found: Rest or Loiter
+        // If we are deep in the nest and have nothing to do, REST.
+        if (Math.random() < 0.05) { // 5% chance per frame to fall asleep if idle
+            this.state = 'RESTING';
+            this.restTimer = 300 + Math.random() * 600; // 5-15 seconds nap
+        } else {
+            // Wander in nest (loiter)
+            this.wander();
+            this.applySeparation(world); // Spread out
+        }
     }
 
     handleTransporting(world: World) {

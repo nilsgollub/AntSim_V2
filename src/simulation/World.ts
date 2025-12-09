@@ -181,8 +181,12 @@ export class World {
     update() {
         this.age++;
         this.timeOfDay = (this.age % this.dayLength) / this.dayLength;
-        this.grid.update();
-        this.nestGrid.update();
+
+        if (this.age % PerformanceManager.settings.pheromoneUpdateSkip === 0) {
+            this.grid.update();
+            this.nestGrid.update();
+        }
+
         this.queen.update(this);
 
         // Update Spatial Grid

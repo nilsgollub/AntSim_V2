@@ -3,65 +3,50 @@ import { World } from '../simulation/World';
 import { PerformanceManager, QualityLevel } from '../PerformanceManager';
 
 export class Renderer {
-    canvas: HTMLCanvasElement;
-    ctx: CanvasRenderingContext2D;
-    width: number;
-    height: number;
+    canvas!: HTMLCanvasElement;
+    ctx!: CanvasRenderingContext2D;
+    width!: number;
+    height!: number;
 
     // Pheromone Rendering
-    pheromoneCanvas: HTMLCanvasElement;
-    pheromoneCtx: CanvasRenderingContext2D;
-    pheroImageData: ImageData;
-    pheroBuf32: Uint32Array;
+    pheromoneCanvas!: HTMLCanvasElement;
+    pheromoneCtx!: CanvasRenderingContext2D;
+    pheroImageData!: ImageData;
+    pheroBuf32!: Uint32Array;
 
     // Nest Pheromone Rendering
-    nestPheromoneCanvas: HTMLCanvasElement;
-    nestPheromoneCtx: CanvasRenderingContext2D;
-    nestPheroImageData: ImageData;
-    nestPheroBuf32: Uint32Array;
+    nestPheromoneCanvas!: HTMLCanvasElement;
+    nestPheromoneCtx!: CanvasRenderingContext2D;
+    nestPheroImageData!: ImageData;
+    nestPheroBuf32!: Uint32Array;
 
-    nestCanvas: HTMLCanvasElement;
-    nestCtx: CanvasRenderingContext2D;
+    nestCanvas!: HTMLCanvasElement;
+    nestCtx!: CanvasRenderingContext2D;
     showPheromones: boolean = false;
 
     // Background Texture
-    bgCanvas: HTMLCanvasElement;
+    bgCanvas!: HTMLCanvasElement;
 
     // Nest Geometry Cache
-    nestStructureCanvas: HTMLCanvasElement;
-    nestStructureCtx: CanvasRenderingContext2D;
+    private mediumDebugLogged = false;
+    nestStructureCanvas!: HTMLCanvasElement;
+    nestStructureCtx!: CanvasRenderingContext2D;
     lastNodeCount: number = -1;
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d')!;
-        this.width = canvas.width;
-        this.height = canvas.height;
-
-        // Setup Pheromone Offscreen Canvas (1/2 resolution)
-        const scale = 0.5;
-        this.pheromoneCanvas = document.createElement('canvas');
-        this.pheromoneCanvas.width = Math.ceil(this.width * scale);
-        this.pheromoneCanvas.height = Math.ceil(this.height * scale);
-        this.pheromoneCtx = this.pheromoneCanvas.getContext('2d', { alpha: false })!;
-        this.pheroImageData = this.pheromoneCtx.createImageData(this.pheromoneCanvas.width, this.pheromoneCanvas.height);
-        this.pheroBuf32 = new Uint32Array(this.pheroImageData.data.buffer);
 
         this.nestCanvas = document.getElementById('nestCanvas') as HTMLCanvasElement;
         this.nestCtx = this.nestCanvas.getContext('2d')!;
 
-        // Setup Nest Pheromone Offscreen Canvas (1/4 resolution)
-        this.nestPheromoneCanvas = document.createElement('canvas');
-        this.nestPheromoneCanvas.width = Math.ceil(this.nestCanvas.width * scale);
-        this.nestPheromoneCanvas.height = Math.ceil(this.nestCanvas.height * scale);
-        this.nestPheromoneCtx = this.nestPheromoneCanvas.getContext('2d', { alpha: false })!;
-        this.nestPheroImageData = this.nestPheromoneCtx.createImageData(this.nestPheromoneCanvas.width, this.nestPheromoneCanvas.height);
-        this.nestPheroBuf32 = new Uint32Array(this.nestPheroImageData.data.buffer);
+        // Default Init
+        this.resize(CONFIG.width, CONFIG.height, 1.0);
 
-        // Generate Background Texture
+        // Background Texture
         this.bgCanvas = document.createElement('canvas');
-        this.bgCanvas.width = this.width;
-        this.bgCanvas.height = this.height;
+        this.bgCanvas.width = CONFIG.width;
+        this.bgCanvas.height = CONFIG.height;
         this.generateBackground();
 
         // Setup Nest Structure Cache
@@ -69,6 +54,42 @@ export class Renderer {
         this.nestStructureCanvas.width = this.nestCanvas.width;
         this.nestStructureCanvas.height = this.nestCanvas.height;
         this.nestStructureCtx = this.nestStructureCanvas.getContext('2d')!;
+
+        this.initPheromoneBuffers(CONFIG.width, CONFIG.height);
+    }
+
+    resize(logicalWidth: number, logicalHeight: number, scale: number) {
+        this.width = logicalWidth;
+        this.height = logicalHeight;
+
+        // Physical size (pixels)
+        this.canvas.width = Math.floor(logicalWidth * scale);
+        this.canvas.height = Math.floor(logicalHeight * scale);
+
+        // Context Transform: 
+        // We want draw ops at (100,100) to land on (100*scale, 100*scale)
+        this.ctx.resetTransform();
+        this.ctx.scale(scale, scale);
+        this.ctx.imageSmoothingEnabled = false;
+    }
+
+    initPheromoneBuffers(w: number, h: number) {
+        // Setup Pheromone Offscreen Canvas (1/2 logical resolution)
+        const scale = 0.5;
+        this.pheromoneCanvas = document.createElement('canvas');
+        this.pheromoneCanvas.width = Math.ceil(w * scale);
+        this.pheromoneCanvas.height = Math.ceil(h * scale);
+        this.pheromoneCtx = this.pheromoneCanvas.getContext('2d', { alpha: false })!;
+        this.pheroImageData = this.pheromoneCtx.createImageData(this.pheromoneCanvas.width, this.pheromoneCanvas.height);
+        this.pheroBuf32 = new Uint32Array(this.pheroImageData.data.buffer);
+
+        // Nest Pheromone
+        this.nestPheromoneCanvas = document.createElement('canvas');
+        this.nestPheromoneCanvas.width = Math.ceil(CONFIG.nestWidth * scale); // Use Config for now
+        this.nestPheromoneCanvas.height = Math.ceil(CONFIG.nestHeight * scale);
+        this.nestPheromoneCtx = this.nestPheromoneCanvas.getContext('2d', { alpha: false })!;
+        this.nestPheroImageData = this.nestPheromoneCtx.createImageData(this.nestPheromoneCanvas.width, this.nestPheromoneCanvas.height);
+        this.nestPheroBuf32 = new Uint32Array(this.nestPheroImageData.data.buffer);
     }
 
     generateBackground() {
@@ -126,29 +147,42 @@ export class Renderer {
             const toProtein = world.grid.toProtein;
             const toDanger = world.grid.toDanger;
 
-            // Iterate over the smaller buffer
-            for (let i = 0; i < this.pheroBuf32.length; i++) {
-                const home = toHome[i];
-                const sugar = toSugar[i];
-                const protein = toProtein[i];
-                const danger = toDanger[i];
+            // Iterate over the pheromone canvas pixels
+            const canvasWidth = this.pheromoneCanvas.width;
+            const canvasHeight = this.pheromoneCanvas.height;
+            const gridWidth = world.grid.width;
+            const gridHeight = world.grid.height;
 
-                if (home > 0.01 || sugar > 0.01 || protein > 0.01 || danger > 0.01) {
-                    let r = protein + sugar; // Sugar adds Red (Yellow = R+G)
-                    let g = sugar;
-                    let b = home;
+            for (let y = 0; y < canvasHeight; y++) {
+                for (let x = 0; x < canvasWidth; x++) {
+                    // Map canvas pixel to grid pixel
+                    const gridX = Math.floor(x * gridWidth / canvasWidth);
+                    const gridY = Math.floor(y * gridHeight / canvasHeight);
+                    const gridIdx = gridY * gridWidth + gridX;
+                    const canvasIdx = y * canvasWidth + x;
 
-                    // Add danger
-                    r += danger;
-                    b += danger;
+                    const home = toHome[gridIdx] || 0;
+                    const sugar = toSugar[gridIdx] || 0;
+                    const protein = toProtein[gridIdx] || 0;
+                    const danger = toDanger[gridIdx] || 0;
 
-                    const rVal = Math.min(255, Math.floor(r * 255));
-                    const gVal = Math.min(255, Math.floor(g * 255));
-                    const bVal = Math.min(255, Math.floor(b * 255));
+                    if (home > 0.01 || sugar > 0.01 || protein > 0.01 || danger > 0.01) {
+                        let r = protein + sugar;
+                        let g = sugar;
+                        let b = home;
 
-                    this.pheroBuf32[i] = (255 << 24) | (bVal << 16) | (gVal << 8) | rVal;
-                } else {
-                    this.pheroBuf32[i] = 0; // Transparent
+                        // Add danger
+                        r += danger;
+                        b += danger;
+
+                        const rVal = Math.min(255, Math.floor(r * 255));
+                        const gVal = Math.min(255, Math.floor(g * 255));
+                        const bVal = Math.min(255, Math.floor(b * 255));
+
+                        this.pheroBuf32[canvasIdx] = (255 << 24) | (bVal << 16) | (gVal << 8) | rVal;
+                    } else {
+                        this.pheroBuf32[canvasIdx] = 0;
+                    }
                 }
             }
 
@@ -156,15 +190,25 @@ export class Renderer {
             this.pheromoneCtx.putImageData(this.pheroImageData, 0, 0);
 
             // Draw scaled up to main canvas
-            this.ctx.imageSmoothingEnabled = true; // Smooth scaling
+            this.ctx.imageSmoothingEnabled = true;
+
+
+
             this.ctx.globalAlpha = 0.6; // Slight transparency for pheromones
 
-            // Apply blur to simulate smoke/diffusion
-            if (PerformanceManager.level !== QualityLevel.LOW) {
+            // Apply blur to simulate smoke/diffusion (HIGH/ULTRA only)
+            if (PerformanceManager.level === QualityLevel.ULTRA || PerformanceManager.level === QualityLevel.HIGH) {
                 this.ctx.filter = 'blur(4px)';
             }
-            this.ctx.drawImage(this.pheromoneCanvas, 0, 0, this.width, this.height);
+            // Save and reset transform to draw at physical canvas size
+            this.ctx.save();
+            this.ctx.resetTransform();
+            this.ctx.drawImage(this.pheromoneCanvas, 0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.restore();
             this.ctx.filter = 'none'; // Reset filter
+
+            // Reset shadow
+            this.ctx.shadowBlur = 0;
 
             this.ctx.globalAlpha = 1.0;
             this.ctx.imageSmoothingEnabled = false;
@@ -234,7 +278,7 @@ export class Renderer {
 
         // 4.5 Vegetation (Grass)
         // Only draw grass if not in LOW mode (or check specific setting)
-        if (PerformanceManager.level !== QualityLevel.LOW) {
+        if (PerformanceManager.level === QualityLevel.ULTRA || PerformanceManager.level === QualityLevel.HIGH || PerformanceManager.level === QualityLevel.MEDIUM) {
             for (const g of world.grass) {
                 this.drawGrass(g);
             }
@@ -352,8 +396,14 @@ export class Renderer {
 
         // 1. Wall Cut (The "rim" of the tunnel - Rough hewn earth)
         ctx.strokeStyle = '#6b5b4e'; // Earthy Rim
-        ctx.shadowColor = 'rgba(0,0,0,0.5)';
-        ctx.shadowBlur = 4;
+
+        if (PerformanceManager.settings.shadows) {
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 4;
+        } else {
+            ctx.shadowBlur = 0;
+        }
+
         ctx.lineWidth = 10; // Thicker rim for depth
         for (const node of world.nest.nodes) {
             ctx.beginPath();
@@ -363,13 +413,18 @@ export class Renderer {
         ctx.shadowBlur = 0; // Reset
 
         // 2. Chamber Floor (Depth - Deep Shadow at edges)
+        // 2. Chamber Floor (Depth - Deep Shadow at edges)
         for (const node of world.nest.nodes) {
-            const grad = ctx.createRadialGradient(node.x, node.y, node.radius * 0.1, node.x, node.y, node.radius * 1.1);
-            grad.addColorStop(0, '#5a4a3a'); // Lit Floor (Center)
-            grad.addColorStop(0.7, '#3e3228'); // Standard Floor
-            grad.addColorStop(1, '#1a140f'); // Deep Walls (Edge)
+            if (PerformanceManager.settings.gradients) {
+                const grad = ctx.createRadialGradient(node.x, node.y, node.radius * 0.1, node.x, node.y, node.radius * 1.1);
+                grad.addColorStop(0, '#5a4a3a'); // Lit Floor (Center)
+                grad.addColorStop(0.7, '#3e3228'); // Standard Floor
+                grad.addColorStop(1, '#1a140f'); // Deep Walls (Edge)
+                ctx.fillStyle = grad;
+            } else {
+                ctx.fillStyle = '#3e3228'; // Flat Standard Floor
+            }
 
-            ctx.fillStyle = grad;
             ctx.beginPath();
             ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
             ctx.fill();
@@ -597,7 +652,9 @@ export class Renderer {
     drawLegs(count: number, length: number, color: string, speed: number, ctx: CanvasRenderingContext2D = this.ctx, isVertical: boolean = false) {
         ctx.strokeStyle = color;
         ctx.lineWidth = 0.5;
-        const time = Date.now() * 0.02 * speed;
+        // Explicit animation control
+        const animate = PerformanceManager.settings.legAnimation;
+        const time = animate ? Date.now() * 0.02 * speed : 0;
 
         for (let i = 0; i < count; i++) {
             const side = i % 2 === 0 ? 1 : -1;
@@ -606,7 +663,7 @@ export class Renderer {
             const spread = (count > 6) ? 3 : 2;
             const legOffset = (legIndex - (count / 4) + 0.5) * spread;
 
-            const move = Math.sin(time + i * Math.PI) * 0.5;
+            const move = animate ? Math.sin(time + i * Math.PI) * 0.5 : (i % 2 === 0 ? 0.3 : -0.3);
 
             ctx.beginPath();
 
@@ -649,10 +706,166 @@ export class Renderer {
         ctx.fill();
     }
 
+    // Cache for static ants (Medium Quality)
+    private antSprites: Partial<Record<'WORKER' | 'SOLDIER', HTMLCanvasElement>> = {};
+
+    private getCachedAnt(type: 'WORKER' | 'SOLDIER'): HTMLCanvasElement {
+        if (this.antSprites[type]) return this.antSprites[type]!;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 30; // Sufficient size
+        canvas.height = 30;
+        const ctx = canvas.getContext('2d')!;
+
+        ctx.translate(15, 15); // Center
+        // No rotation needed here, we rotate the canvas usage
+
+        // Draw Legs (Static)
+        ctx.strokeStyle = '#AAA';
+        ctx.lineWidth = 0.5;
+        const count = 6;
+        const length = 4;
+        for (let i = 0; i < count; i++) {
+            const side = i % 2 === 0 ? 1 : -1;
+            const legIndex = Math.floor(i / 2);
+            const spread = 2;
+            const legOffset = (legIndex - (count / 4) + 0.5) * spread;
+            const move = (i % 2 === 0 ? 0.3 : -0.3); // Static pose
+
+            ctx.beginPath();
+            ctx.moveTo(legOffset, 0);
+            const kx = legOffset + move;
+            const ky = side * length * 0.5;
+            const fx = kx + move;
+            const fy = side * length;
+            ctx.quadraticCurveTo(kx, ky, fx, fy);
+            ctx.stroke();
+        }
+
+        // Draw Body
+        if (type === 'SOLDIER') {
+            ctx.fillStyle = '#4B0000'; // Flat Dark Red
+            // Thorax
+            ctx.beginPath(); ctx.ellipse(-1, 0, 2.5, 2.0, 0, 0, Math.PI * 2); ctx.fill();
+            // Abdomen
+            ctx.fillStyle = '#4A0404';
+            ctx.beginPath(); ctx.ellipse(-6, 0, 3.5, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+            // Stripes
+            ctx.fillStyle = '#8B0000';
+            ctx.fillRect(-7.5, -1.5, 1, 3);
+            ctx.fillRect(-5.5, -1.8, 1, 3.6);
+            // Head
+            ctx.fillStyle = '#900000';
+            ctx.beginPath();
+            ctx.moveTo(1, -4.5);
+            ctx.lineTo(6, -4.5);
+            ctx.quadraticCurveTo(8, -4.5, 8, 0);
+            ctx.quadraticCurveTo(8, 4.5, 6, 4.5);
+            ctx.lineTo(1, 4.5);
+            ctx.quadraticCurveTo(0, 0, 1, -4.5);
+            ctx.fill();
+            // Mandibles
+            ctx.strokeStyle = '#221100'; ctx.lineWidth = 3.0;
+            ctx.beginPath(); ctx.moveTo(7, 3.0); ctx.quadraticCurveTo(10, 3.0, 11, 0.5);
+            ctx.moveTo(7, -3.0); ctx.quadraticCurveTo(10, -3.0, 11, -0.5); ctx.stroke();
+
+        } else {
+            // WORKER
+            ctx.fillStyle = '#CCC';
+            // Head
+            ctx.beginPath(); ctx.arc(2, 0, 1.5, 0, Math.PI * 2); ctx.fill();
+            // Thorax
+            ctx.beginPath(); ctx.ellipse(0, 0, 2, 1, 0, 0, Math.PI * 2); ctx.fill();
+            // Abdomen
+            ctx.beginPath(); ctx.ellipse(-3, 0, 2.5, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+        }
+
+        this.antSprites[type] = canvas;
+        return canvas;
+    }
+
     drawAnt(ant: any, ctx: CanvasRenderingContext2D = this.ctx) {
         ctx.save();
         ctx.translate(ant.x, ant.y);
         ctx.rotate(ant.angle);
+
+
+        // DEBUG: Log on first ant render for MEDIUM
+        if (PerformanceManager.level === 'MEDIUM' && !this.mediumDebugLogged) {
+            console.log('[RENDERER] MEDIUM Quality Active:', {
+                simpleAnts: PerformanceManager.settings.simpleAnts,
+                resolutionScale: PerformanceManager.settings.resolutionScale,
+                maxAnts: PerformanceManager.settings.maxAnts,
+                pheromoneSkip: PerformanceManager.settings.pheromoneUpdateSkip
+            });
+            (this as any).mediumDebugLogged = true;
+        }
+
+        if (PerformanceManager.settings.simpleAnts) {
+            // OPTIMIZED (Body Only, No Legs, Flat Colors)
+            if (ant.type === 'SOLDIER') {
+                // Soldier: Dark body, RED head (matching HIGH/ULTRA theme)
+                ctx.fillStyle = '#444'; // Dark Gray body
+
+                // Abdomen
+                ctx.beginPath(); ctx.ellipse(-5, 0, 3.5, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+                // Thorax
+                ctx.beginPath(); ctx.ellipse(-1, 0, 2.5, 2.0, 0, 0, Math.PI * 2); ctx.fill();
+
+                // Head (RED)
+                ctx.fillStyle = '#C00'; // Bright Red
+                ctx.beginPath(); ctx.rect(1, -3, 5, 6); ctx.fill();
+
+            } else {
+                // Worker: Light Gray (matching HIGH/ULTRA)
+                ctx.fillStyle = '#CCC';
+
+                // Abdomen
+                ctx.beginPath(); ctx.ellipse(-3, 0, 2.5, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+                // Thorax
+                ctx.beginPath(); ctx.ellipse(0, 0, 2, 1, 0, 0, Math.PI * 2); ctx.fill();
+                // Head
+                ctx.beginPath(); ctx.arc(2, 0, 1.5, 0, Math.PI * 2); ctx.fill();
+            }
+
+            // Carrying Indicator (Simple dot)
+            if (ant.carrying !== 'NONE') {
+                if (ant.carrying === 'SUGAR') ctx.fillStyle = '#FFD700';
+                else if (ant.carrying === 'BROOD') ctx.fillStyle = '#FFF';
+                else ctx.fillStyle = '#555';
+
+                ctx.beginPath();
+                ctx.arc(3, 0, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+            return;
+        }
+
+        // Optimization for MEDIUM: Use Cached Sprite if legs are static
+        if (!PerformanceManager.settings.legAnimation && (ant.type === 'WORKER' || ant.type === 'SOLDIER')) {
+            const sprite = this.getCachedAnt(ant.type);
+            ctx.drawImage(sprite, -15, -15);
+
+            // Draw Carrying Item on top
+            if (ant.carrying !== 'NONE') {
+                if (ant.carrying === 'SUGAR') {
+                    ctx.fillStyle = '#FF0';
+                    ctx.beginPath(); ctx.arc(5, 0, 2, 0, Math.PI * 2); ctx.fill();
+                } else if (ant.carrying === 'PROTEIN') {
+                    ctx.fillStyle = '#F00';
+                    ctx.beginPath(); ctx.arc(5, 0, 2, 0, Math.PI * 2); ctx.fill();
+                } else if (ant.carrying === 'BROOD' && ant.carryingInstance) {
+                    ctx.fillStyle = '#FFF';
+                    ctx.beginPath(); ctx.ellipse(4, 0, 2, 3, Math.PI / 2, 0, Math.PI * 2); ctx.fill();
+                } else if (ant.carrying === 'CORPSE') {
+                    ctx.fillStyle = '#555';
+                    ctx.beginPath(); ctx.arc(5, 0, 2.5, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+            ctx.restore();
+            return;
+        }
 
         // Milking Visual (Particle Flow)
         if (ant.state === 'MILKING' && ant.carryingInstance) {
@@ -671,49 +884,19 @@ export class Renderer {
                 const wx = dx * t;
                 const wy = dy * t;
 
-                // Rotate to Ant's Local Space
-                // We apply inverse rotation of the generic drawAnt transform
-                const lx = wx * Math.cos(-ant.angle) - wy * Math.sin(-ant.angle);
-                const ly = wx * Math.sin(-ant.angle) + wy * Math.cos(-ant.angle);
-
                 ctx.beginPath();
-                ctx.arc(lx, ly, 1.5, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-
-        if (PerformanceManager.settings.simpleInsects) {
-            // Simplified Ant - Distinct Shapes & Colors
-            if (ant.type === 'SOLDIER') {
-                // SOLDIER: Large, Darker Brown, Square Head (Slimmer)
-                ctx.fillStyle = '#654321'; // Dark Brown
-                ctx.beginPath();
-                ctx.ellipse(-2, 0, 3.5, 2.0, 0, 0, Math.PI * 2); // Body (Slimmer)
-                ctx.fill();
-
-                ctx.fillStyle = '#8B4513'; // SaddleBrown Head (Not bright red)
-                ctx.fillRect(1.5, -2, 4, 4); // Square Head (Smaller)
-            } else {
-                // WORKER: Small, Amber/Brown
-                ctx.fillStyle = '#A0522D'; // Sienna/Amber
-                ctx.beginPath();
-                ctx.ellipse(-2, 0, 3, 1.5, 0, 0, Math.PI * 2); // Body
-                ctx.fill();
-
-                ctx.fillStyle = '#5D4037'; // Dark Brown Head
-                ctx.beginPath();
-                ctx.arc(2, 0, 1.8, 0, Math.PI * 2); // Round Head
+                ctx.arc(wx, wy, 2.0, 0, Math.PI * 2); // particle
                 ctx.fill();
             }
 
-            // Carrying Overlay
+            // Carrying Indicator (Simple dot)
             if (ant.carrying !== 'NONE') {
                 if (ant.carrying === 'SUGAR') ctx.fillStyle = '#FFD700';
                 else if (ant.carrying === 'BROOD') ctx.fillStyle = '#FFF';
-                else if (ant.carrying === 'CORPSE') ctx.fillStyle = '#333';
-                else ctx.fillStyle = '#CD5C5C';
+                else ctx.fillStyle = '#555';
+
                 ctx.beginPath();
-                ctx.arc(4, 0, 2.5, 0, Math.PI * 2);
+                ctx.arc(3, 0, 2, 0, Math.PI * 2);
                 ctx.fill();
             }
             ctx.restore();
@@ -731,10 +914,14 @@ export class Renderer {
             // Pheidole Soldier (Big-headed Ant) - HEAVY ARMOR VISUALS
 
             // Thorax (Muscular)
-            const gradThorax = ctx.createRadialGradient(0, 0, 0, 0, 0, 3);
-            gradThorax.addColorStop(0, '#5D0000'); // Dark Red Core
-            gradThorax.addColorStop(1, '#3E0000'); // Darker Edge
-            ctx.fillStyle = gradThorax;
+            if (PerformanceManager.settings.gradients) {
+                const gradThorax = ctx.createRadialGradient(0, 0, 0, 0, 0, 3);
+                gradThorax.addColorStop(0, '#5D0000'); // Dark Red Core
+                gradThorax.addColorStop(1, '#3E0000'); // Darker Edge
+                ctx.fillStyle = gradThorax;
+            } else {
+                ctx.fillStyle = '#4B0000'; // Flat Dark Red
+            }
             ctx.beginPath();
             ctx.ellipse(-1, 0, 2.5, 2.0, 0, 0, Math.PI * 2); // Beefier thorax
             ctx.fill();
@@ -751,10 +938,15 @@ export class Renderer {
             ctx.fillRect(-5.5, -1.8, 1, 3.6);
 
             // Head (Massive, Heart-shaped/Square)
-            const gradHead = ctx.createRadialGradient(3, 0, 0, 3, 0, 5);
-            gradHead.addColorStop(0, '#B22222'); // Firebrick Red
-            gradHead.addColorStop(1, '#800000'); // Maroon
-            ctx.fillStyle = gradHead;
+            // Head (Massive, Heart-shaped/Square)
+            if (PerformanceManager.settings.gradients) {
+                const gradHead = ctx.createRadialGradient(3, 0, 0, 3, 0, 5);
+                gradHead.addColorStop(0, '#B22222'); // Firebrick Red
+                gradHead.addColorStop(1, '#800000'); // Maroon
+                ctx.fillStyle = gradHead;
+            } else {
+                ctx.fillStyle = '#900000'; // Flat Maroon
+            }
 
             ctx.beginPath();
             // Draw a rounded square/heart shape for the head
@@ -787,10 +979,16 @@ export class Renderer {
         } else {
             // WORKER
             // Head
-            const gradHead = ctx.createRadialGradient(2, 0, 0, 2, 0, 2);
-            gradHead.addColorStop(0, '#FFF');
-            gradHead.addColorStop(1, '#AAA');
-            ctx.fillStyle = gradHead;
+            // WORKER
+            // Head
+            if (PerformanceManager.settings.gradients) {
+                const gradHead = ctx.createRadialGradient(2, 0, 0, 2, 0, 2);
+                gradHead.addColorStop(0, '#FFF');
+                gradHead.addColorStop(1, '#AAA');
+                ctx.fillStyle = gradHead;
+            } else {
+                ctx.fillStyle = '#CCC';
+            }
             ctx.beginPath();
             ctx.arc(2, 0, 1.5, 0, Math.PI * 2);
             ctx.fill();
@@ -836,7 +1034,9 @@ export class Renderer {
             ctx.strokeStyle = '#FFF';
             ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.moveTo(4, -2); ctx.lineTo(8, 0); ctx.lineTo(4, 2);
+            ctx.moveTo(4, -2);
+            ctx.lineTo(8, 0);
+            ctx.lineTo(4, 2);
             ctx.stroke();
         }
 
@@ -848,30 +1048,28 @@ export class Renderer {
         this.ctx.translate(insect.x, insect.y);
 
         if (PerformanceManager.settings.simpleInsects) {
-            this.ctx.rotate(insect.angle + Math.PI / 2); // Face forward for consistency
+            this.ctx.rotate(insect.angle + Math.PI / 2);
             if (insect.type === 'PREY') {
-                // PREY (Silverfish): Silver Ellipse (Restored)
-                this.ctx.fillStyle = '#ADD8E6'; // Light Blue/Silver
+                this.ctx.fillStyle = '#ADD8E6'; // Silver
                 this.ctx.beginPath();
                 this.ctx.ellipse(0, 0, 2.5, 5, 0, 0, Math.PI * 2);
                 this.ctx.fill();
             } else if (insect.type === 'APHID') {
-                // APHID: Small Green Dot
-                this.ctx.fillStyle = '#32CD32'; // LimeGreen
+                this.ctx.fillStyle = '#32CD32'; // Lime
                 this.ctx.beginPath();
                 this.ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
                 this.ctx.fill();
             } else {
-                // ENEMY (Predator/Spider/Beetle): Red Ellipse
-                this.ctx.fillStyle = '#DC143C'; // Crimson Red
+                this.ctx.fillStyle = '#DC143C'; // Red
                 this.ctx.beginPath();
-                this.ctx.ellipse(0, 0, 3, 4.5, 0, 0, Math.PI * 2); // Swapped X/Y to be taller (Head-to-tail)
+                this.ctx.ellipse(0, 0, 3, 4.5, 0, 0, Math.PI * 2);
                 this.ctx.fill();
             }
             this.ctx.restore();
             return;
         }
 
+        // Complex Drawing
         // Shadow - Handled by drawShadows
         // this.drawShadow(0, 0, 6, this.ctx);
 
@@ -899,6 +1097,7 @@ export class Renderer {
             this.ctx.beginPath();
             this.ctx.moveTo(0, 8); this.ctx.lineTo(0, 12);
             this.ctx.moveTo(0, 8); this.ctx.lineTo(-2, 11);
+            this.ctx.moveTo(0, 8); this.ctx.lineTo(2, 11);
             this.ctx.moveTo(0, 8); this.ctx.lineTo(2, 11);
             this.ctx.stroke();
 
@@ -1101,8 +1300,6 @@ export class Renderer {
 
         this.ctx.restore();
     }
-
-
 
     drawRock(x: number, y: number, radius: number) {
         const ctx = this.ctx;
@@ -1310,13 +1507,12 @@ export class Renderer {
             }
         }
     }
+
     drawGrass(g: any) {
         const ctx = this.ctx;
         ctx.save();
         ctx.translate(g.x, g.y);
 
-        // Sway animation (shared for the tuft)
-        // Only animate if enabled in settings (ULTRA)
         const animate = PerformanceManager.settings.grassAnimation;
         const baseSway = animate ? Math.sin(Date.now() * 0.002 + g.x * 0.01) * 0.3 : 0;
 
@@ -1355,6 +1551,8 @@ export class Renderer {
 
         ctx.restore();
     }
+
+
     drawGodRays() {
         const ctx = this.ctx;
         ctx.save();

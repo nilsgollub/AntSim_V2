@@ -52,9 +52,10 @@
     }
 
     #stats-panel {
-      position: absolute;
+      position: fixed;
       top: 10px;
       left: 10px;
+      z-index: 1000;
       font-size: 11px;
       color: #aaa;
       pointer-events: none;
@@ -187,6 +188,7 @@
       <div id="controls-bottom">
         <div class="control-group">
           <select id="qualitySelect">
+            <option value="ULTRA_LOW">Ultra Low</option>
             <option value="LOW">Low</option>
             <option value="MEDIUM">Medium</option>
             <option value="HIGH">High</option>
