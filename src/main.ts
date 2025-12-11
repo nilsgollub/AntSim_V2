@@ -42,7 +42,7 @@ buildInfo.style.color = 'rgba(255, 255, 255, 0.5)';
 buildInfo.style.fontFamily = 'monospace';
 buildInfo.style.fontSize = '12px';
 buildInfo.style.pointerEvents = 'none';
-buildInfo.innerText = 'Build: 2025-12-10 22:25 - FIX: RESTORED NURSE LOGIC & QUEEN PRIO';
+buildInfo.innerText = 'Build: 2025-12-11 13:10 - RELEASE: STABLE (NO-CACHE)';
 document.body.appendChild(buildInfo);
 
 
@@ -115,7 +115,7 @@ function loop(now: number) {
   const ageSeconds = Math.floor(world.queen.age / 60);
   const minutes = Math.floor(ageSeconds / 60);
   const seconds = ageSeconds % 60;
-  queenStat.innerText = `Queen Age: ${minutes}m ${seconds}s | State: ${world.queen.state} | En: ${Math.floor(world.queen.energy)} | Stress: ${Math.floor(world.queen.stress)} | Brood: ${world.brood.length}`;
+  queenStat.innerText = `Queen Age: ${minutes}m ${seconds}s`;
 
   // Update
   // If speed is high, we might need multiple updates per frame for stability
