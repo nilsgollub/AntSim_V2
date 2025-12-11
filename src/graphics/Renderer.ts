@@ -33,6 +33,8 @@ export class Renderer {
     nestStructureCtx!: CanvasRenderingContext2D;
     lastNodeCount: number = -1;
 
+    grassSprites: HTMLCanvasElement[] = [];
+
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d')!;
@@ -56,6 +58,46 @@ export class Renderer {
         this.nestStructureCtx = this.nestStructureCanvas.getContext('2d')!;
 
         this.initPheromoneBuffers(CONFIG.width, CONFIG.height);
+        this.initGrassSprites();
+    }
+
+    initGrassSprites() {
+        this.grassSprites = [];
+        for (let v = 0; v < 5; v++) { // 5 Variations
+            const c = document.createElement('canvas');
+            c.width = 60; // Wide enough
+            c.height = 60;
+            const ctx = c.getContext('2d')!;
+
+            // Draw relative to bottom-center (30, 60)
+            ctx.translate(30, 60);
+
+            // Draw a Tuft (Cluster of blades)
+            const bladeCount = 5 + Math.floor(Math.random() * 3);
+            for (let i = 0; i < bladeCount; i++) {
+                const offsetAngle = (i - bladeCount / 2) * 0.3 + (Math.random() - 0.5) * 0.2;
+                const lengthVar = 0.8 + Math.random() * 0.4;
+                const size = 6; // Base size for generation
+
+                ctx.save();
+                ctx.rotate(offsetAngle);
+
+                // Blade Gradient (Baked in)
+                const gradient = ctx.createLinearGradient(0, 0, 5, -30 * lengthVar);
+                gradient.addColorStop(0, '#1a331a'); // Dark base
+                gradient.addColorStop(1, '#4d804d'); // Light tip
+                ctx.fillStyle = gradient;
+
+                ctx.beginPath();
+                ctx.moveTo(-2, 0);
+                ctx.quadraticCurveTo(0, -size * 2 * lengthVar, 2, -size * 5 * lengthVar); // Curve right
+                ctx.quadraticCurveTo(0, -size * 2 * lengthVar, 2, 0);
+                ctx.fill();
+
+                ctx.restore();
+            }
+            this.grassSprites.push(c);
+        }
     }
 
     resize(logicalWidth: number, logicalHeight: number, scale: number) {
@@ -74,8 +116,9 @@ export class Renderer {
     }
 
     initPheromoneBuffers(w: number, h: number) {
-        // Setup Pheromone Offscreen Canvas (1/2 logical resolution)
-        const scale = 0.5;
+        // Setup Pheromone Offscreen Canvas (Scaled by Quality)
+        const scale = PerformanceManager.settings.pheromoneResolutionScale;
+
         this.pheromoneCanvas = document.createElement('canvas');
         this.pheromoneCanvas.width = Math.ceil(w * scale);
         this.pheromoneCanvas.height = Math.ceil(h * scale);
@@ -85,11 +128,18 @@ export class Renderer {
 
         // Nest Pheromone
         this.nestPheromoneCanvas = document.createElement('canvas');
-        this.nestPheromoneCanvas.width = Math.ceil(CONFIG.nestWidth * scale); // Use Config for now
+        this.nestPheromoneCanvas.width = Math.ceil(CONFIG.nestWidth * scale);
         this.nestPheromoneCanvas.height = Math.ceil(CONFIG.nestHeight * scale);
         this.nestPheromoneCtx = this.nestPheromoneCanvas.getContext('2d', { alpha: false })!;
         this.nestPheroImageData = this.nestPheromoneCtx.createImageData(this.nestPheromoneCanvas.width, this.nestPheromoneCanvas.height);
         this.nestPheroBuf32 = new Uint32Array(this.nestPheroImageData.data.buffer);
+    }
+
+    updateSettings() {
+        // Re-init buffers with new scale
+        this.initPheromoneBuffers(this.width, this.height);
+        // Force Nest Redraw (shadows/gradients might change)
+        this.lastNodeCount = -1;
     }
 
     generateBackground() {
@@ -277,8 +327,8 @@ export class Renderer {
         }
 
         // 4.5 Vegetation (Grass)
-        // Only draw grass if not in LOW mode (or check specific setting)
-        if (PerformanceManager.level === QualityLevel.ULTRA || PerformanceManager.level === QualityLevel.HIGH || PerformanceManager.level === QualityLevel.MEDIUM) {
+        // Draw on MEDIUM, HIGH, ULTRA
+        if (PerformanceManager.level !== QualityLevel.LOW && PerformanceManager.level !== QualityLevel.ULTRA_LOW) {
             for (const g of world.grass) {
                 this.drawGrass(g);
             }
@@ -1509,46 +1559,28 @@ export class Renderer {
     }
 
     drawGrass(g: any) {
+        // Optimized: Use Cached Sprite
         const ctx = this.ctx;
+
+        // Pick variation deterministically
+        const variant = Math.floor(g.x + g.y) % this.grassSprites.length;
+        const sprite = this.grassSprites[variant];
+
         ctx.save();
         ctx.translate(g.x, g.y);
+        ctx.rotate(g.angle); // Sparse rotation is fine
 
-        const animate = PerformanceManager.settings.grassAnimation;
-        const baseSway = animate ? Math.sin(Date.now() * 0.002 + g.x * 0.01) * 0.3 : 0;
+        // Scale
+        const s = g.size * 0.3; // Adjust scale to match sprite size
+        ctx.scale(s, s);
 
-        // Shadow for the tuft
-        if (PerformanceManager.settings.shadows) {
-            ctx.fillStyle = 'rgba(0,0,0,0.2)';
-            ctx.beginPath();
-            ctx.ellipse(0, 0, 4, 2, 0, 0, Math.PI * 2);
-            ctx.fill();
+        // Simple sway for HIGH/ULTRA only
+        if (PerformanceManager.settings.grassAnimation) {
+            const sway = Math.sin(Date.now() * 0.002 + g.x * 0.01) * 0.1;
+            ctx.rotate(sway);
         }
 
-        // Draw a Tuft (Cluster of blades)
-        const bladeCount = 5;
-        for (let i = 0; i < bladeCount; i++) {
-            // Randomize each blade slightly based on index
-            const offsetAngle = (i - bladeCount / 2) * 0.3; // Spread out
-            const lengthVar = 0.8 + Math.abs(Math.sin(i * 123.45)) * 0.4; // Random length
-
-            ctx.save();
-            ctx.rotate(g.angle + offsetAngle + baseSway * (1 + i * 0.1));
-
-            // Blade Gradient
-            const gradient = ctx.createLinearGradient(0, 0, baseSway * 5, -g.size * 5 * lengthVar);
-            gradient.addColorStop(0, '#1a331a'); // Dark base
-            gradient.addColorStop(1, '#4d804d'); // Light tip
-            ctx.fillStyle = gradient;
-
-            ctx.beginPath();
-            ctx.moveTo(-1.5, 0);
-            ctx.quadraticCurveTo(0, -g.size * 2 * lengthVar, baseSway * 5, -g.size * 5 * lengthVar);
-            ctx.quadraticCurveTo(0, -g.size * 2 * lengthVar, 1.5, 0);
-            ctx.fill();
-
-            ctx.restore();
-        }
-
+        ctx.drawImage(sprite, -30, -60); // Centered bottom
         ctx.restore();
     }
 

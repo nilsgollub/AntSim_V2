@@ -44,7 +44,8 @@ export class Queen {
                 this.energy = Math.min(this.maxEnergy, this.energy + 0.1);
 
                 // Decide to lay eggs if healthy and fed
-                if (this.energy > 500 && this.stress < 20 && world.brood.length < 50) {
+                // FIX: Increased brood limit from 50 to 200 to support larger colony sizes
+                if (this.energy > 500 && this.stress < 20 && world.brood.length < 200) {
                     this.state = 'LAYING';
                     this.layTimer = 100;
                 }

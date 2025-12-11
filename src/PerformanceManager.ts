@@ -19,6 +19,7 @@ export interface PerformanceProfile {
     renderSkip: number;
     grassAnimation: boolean;
     resolutionScale: number;
+    pheromoneResolutionScale: number;
     legAnimation: boolean;
 }
 
@@ -40,6 +41,7 @@ export class PerformanceManager {
                     renderSkip: 1,
                     grassAnimation: false,
                     resolutionScale: 0.4,
+                    pheromoneResolutionScale: 0.2, // Very low res pheromones
                     legAnimation: false
                 };
             case QualityLevel.LOW:
@@ -54,20 +56,22 @@ export class PerformanceManager {
                     renderSkip: 1,
                     grassAnimation: false,
                     resolutionScale: 0.4,
+                    pheromoneResolutionScale: 0.25, // Optimized
                     legAnimation: false
                 };
             case QualityLevel.MEDIUM:
                 return {
-                    maxAnts: 250, // Reduced from 350
-                    particleLimit: 80,
+                    maxAnts: 300, // Increased from 200 -> 300
+                    particleLimit: 100,
                     shadows: false,
                     gradients: false,
-                    simpleInsects: false, // Detailed
-                    simpleAnts: false, // Detailed
-                    pheromoneUpdateSkip: 5, // Increased from 4
+                    simpleInsects: false, // Detailed insects
+                    simpleAnts: false, // Detailed ants (Sprites)
+                    pheromoneUpdateSkip: 4,
                     renderSkip: 1,
                     grassAnimation: false,
-                    resolutionScale: 0.5, // Reduced from 0.6
+                    resolutionScale: 0.6, // Sharper (0.5 -> 0.6)
+                    pheromoneResolutionScale: 0.3,
                     legAnimation: false // Static legs (Cached Sprites)
                 };
             case QualityLevel.HIGH:
@@ -82,6 +86,7 @@ export class PerformanceManager {
                     renderSkip: 1,
                     grassAnimation: false,
                     resolutionScale: 0.85,
+                    pheromoneResolutionScale: 0.5,
                     legAnimation: true
                 };
             case QualityLevel.ULTRA:
@@ -96,6 +101,7 @@ export class PerformanceManager {
                     renderSkip: 1,
                     grassAnimation: true,
                     resolutionScale: 1.0,
+                    pheromoneResolutionScale: 0.5,
                     legAnimation: true
                 };
         }

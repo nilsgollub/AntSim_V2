@@ -1,3 +1,5 @@
+import './errorhandler.js'; // Must be first to catch errors
+import './style.css';
 import { CONFIG } from './config';
 import { World } from './simulation/World';
 import { Renderer } from './graphics/Renderer';
@@ -40,7 +42,7 @@ buildInfo.style.color = 'rgba(255, 255, 255, 0.5)';
 buildInfo.style.fontFamily = 'monospace';
 buildInfo.style.fontSize = '12px';
 buildInfo.style.pointerEvents = 'none';
-buildInfo.innerText = 'Build: 2025-12-09 10:55 - DEBUG MODE (ERROR CATCHER)';
+buildInfo.innerText = 'Build: 2025-12-10 22:25 - FIX: RESTORED NURSE LOGIC & QUEEN PRIO';
 document.body.appendChild(buildInfo);
 
 
@@ -69,6 +71,7 @@ qualitySelect.addEventListener('change', () => {
   const val = qualitySelect.value as keyof typeof QualityLevel;
   PerformanceManager.setQuality(QualityLevel[val]);
   renderer.resize(CONFIG.width, CONFIG.height, PerformanceManager.settings.resolutionScale);
+  renderer.updateSettings();
 });
 
 restartBtn.addEventListener('click', () => {
@@ -79,6 +82,7 @@ restartBtn.addEventListener('click', () => {
 let lastTime = performance.now();
 let frames = 0;
 let lastFpsTime = lastTime;
+let lastQuality = PerformanceManager.level;
 
 function loop(now: number) {
   requestAnimationFrame(loop);
@@ -88,16 +92,19 @@ function loop(now: number) {
   const instantFps = 1000 / (delta || 16); // Avoid infinity on first frame
   PerformanceManager.monitorFPS(instantFps);
 
+  // Check for auto-downgrade driven by PerformanceManager
+  if (PerformanceManager.level !== lastQuality) {
+    lastQuality = PerformanceManager.level;
+    qualitySelect.value = PerformanceManager.level;
+    renderer.resize(CONFIG.width, CONFIG.height, PerformanceManager.settings.resolutionScale);
+    renderer.updateSettings();
+    console.log('Applied Quality Downgrade via Main Loop');
+  }
+
   // FPS
   frames++;
   if (now - lastFpsTime >= 1000) {
     fpsDisplay.innerText = `FPS: ${frames}`;
-
-    // Sync Quality UI (in case of auto-downgrade)
-    if (qualitySelect.value !== PerformanceManager.level) {
-      qualitySelect.value = PerformanceManager.level;
-    }
-
     frames = 0;
     lastFpsTime = now;
   }
@@ -108,7 +115,7 @@ function loop(now: number) {
   const ageSeconds = Math.floor(world.queen.age / 60);
   const minutes = Math.floor(ageSeconds / 60);
   const seconds = ageSeconds % 60;
-  queenStat.innerText = `Queen Age: ${minutes}m ${seconds}s`;
+  queenStat.innerText = `Queen Age: ${minutes}m ${seconds}s | State: ${world.queen.state} | En: ${Math.floor(world.queen.energy)} | Stress: ${Math.floor(world.queen.stress)} | Brood: ${world.brood.length}`;
 
   // Update
   // If speed is high, we might need multiple updates per frame for stability

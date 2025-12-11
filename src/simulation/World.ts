@@ -25,8 +25,8 @@ export class World {
     brood: Brood[];
 
     // Resources
-    proteinStockpile: number = 0;
-    sugarStockpile: number = 0;
+    proteinStockpile: number = 500; // Start with a buffer
+    sugarStockpile: number = 2000; // Start with enough to keep Queen alive
 
     // Simulation Age
     age: number = 0;

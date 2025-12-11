@@ -58,7 +58,13 @@ export class Ant {
     }
 
     update(world: World) {
-        this.energy -= CONFIG.antEnergyDecay;
+        // Metabolism
+        if (this.state === 'RESTING') {
+            this.energy -= CONFIG.antEnergyDecay * 0.1; // Sleep: Low energy usage
+        } else {
+            this.energy -= CONFIG.antEnergyDecay;
+        }
+
         if (this.energy <= 0) {
             this.health--;
             if (this.health <= 0) {
@@ -67,6 +73,16 @@ export class Ant {
                 if (index > -1) world.ants.splice(index, 1);
                 return;
             }
+        }
+
+        // Critically Hungry -> Force Eat (override other states mostly)
+        // FIX: Don't interrupt if already looking for food (FORAGING) or eating (HARVESTING) to prevent Death Loop when Nest is empty
+        if (this.energy < 200 &&
+            this.state !== 'HUNGRY' &&
+            this.state !== 'ATTACKING' &&
+            this.state !== 'FORAGING' &&
+            this.state !== 'HARVESTING') {
+            this.state = 'HUNGRY';
         }
 
         if (this.attackCooldown > 0) this.attackCooldown--;
@@ -130,38 +146,39 @@ export class Ant {
             return;
         }
 
-        // Prioritize Queen
-        let targetX = world.queen.x;
-        let targetY = world.queen.y;
-        let target: any = world.queen;
+        // Target Selection Priority:
+        // 1. Queen if hungry (< 1500) - CRITICAL
+        // 2. Critical Larvae (Starving)
+        // 3. Queen if not full (< 1900) - Maintain
+        // 4. Normal Larvae
 
-        // 1. Critical Larvae (Starving) - Priority #1
-        const criticalLarva = world.brood.find(b => b.stage === 'LARVA' && b.hunger > 50);
-        if (criticalLarva) {
-            targetX = criticalLarva.x;
-            targetY = criticalLarva.y;
-            target = criticalLarva;
+        let target: any = null;
+
+        if (world.queen.energy < 1500) {
+            target = world.queen;
         } else {
-            // 2. Queen (if not full) - Priority #2
-            if (world.queen.energy < 1500) {
-                // Target Queen
-                // (Already set as default target)
+            const criticalLarva = world.brood.find(b => b.stage === 'LARVA' && b.hunger > 50);
+            if (criticalLarva) {
+                target = criticalLarva;
+            } else if (world.queen.energy < 1900) {
+                target = world.queen;
             } else {
-                // 3. Normal Larvae (Hungry) - Priority #3
                 const hungryLarva = world.brood.find(b => b.stage === 'LARVA' && b.hunger > 20);
                 if (hungryLarva) {
-                    targetX = hungryLarva.x;
-                    targetY = hungryLarva.y;
                     target = hungryLarva;
-                } else {
-                    // No one hungry, dump in stockpile
-                    this.state = 'RETURNING';
-                    return;
                 }
             }
         }
 
+        if (!target) {
+            // No one hungry, dump in stockpile
+            this.state = 'RETURNING';
+            return;
+        }
+
         // Move to target
+        const targetX = target.x;
+        const targetY = target.y;
         const dx = targetX - this.x;
         const dy = targetY - this.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -267,7 +284,6 @@ export class Ant {
     handleNurseIdle(world: World) {
         if (this.location === 'WORLD') {
             // Go to Entrance (Right edge of World)
-            // Go to Entrance based on Nest Orientation
             let dx, dy;
             if (world.nest.height > world.nest.width) { // Landscape
                 dx = CONFIG.width - this.x;
@@ -281,10 +297,10 @@ export class Ant {
         }
 
         // 1. Rest Chance (Top Priority)
-        // Drastically reduced probability to 0.005% per frame (approx once every 5.5 minutes)
-        if (Math.random() < 0.00005) {
+        // Tune: 0.1% chance per frame
+        if (Math.random() < 0.001) {
             this.state = 'RESTING';
-            this.restTimer = 300 + Math.random() * 600;
+            this.restTimer = 300 + Math.random() * 300; // Short nap (5-10s)
             return;
         }
 
@@ -316,9 +332,8 @@ export class Ant {
             // 1. Check for Misplaced Brood (Priority)
             const broodChamber = world.nest.chambers.find(c => c.type === 'BROOD');
             if (broodChamber) {
-                // Find brood that is NOT in the brood chamber and NOT being carried
                 const misplacedBrood = world.brood.find(b => {
-                    if (b.carrier) return false; // Already being moved
+                    if (b.carrier) return false;
                     const dx = b.x - broodChamber.x;
                     const dy = b.y - broodChamber.y;
                     return dx * dx + dy * dy > broodChamber.radius * broodChamber.radius;
@@ -331,13 +346,11 @@ export class Ant {
                     const distSq = dx * dx + dy * dy;
 
                     if (distSq < 400) {
-                        // Pick up
                         this.carrying = 'BROOD';
                         this.carryingInstance = misplacedBrood;
                         misplacedBrood.carrier = this;
                         this.state = 'TRANSPORTING';
                     } else {
-                        // Move towards it
                         this.angle = Math.atan2(dy, dx);
                     }
                     return;
@@ -346,13 +359,14 @@ export class Ant {
 
             // 2. Check if Queen or Larva needs food AND we have stockpile
             if (world.proteinStockpile >= 10) {
-                const queenHungry = world.queen.energy < 1000;
+                // FIXED: Aggressive check for Queen (keep her > 1800 energy)
+                const queenHungry = world.queen.energy < 1800;
                 const larvaHungry = world.brood.some(b => b.stage === 'LARVA' && b.hunger > 20);
 
                 if (queenHungry || larvaHungry) {
-                    // Go to Storage (Find it dynamically)
+                    // Go to Storage
                     const storage = world.nest.chambers.find(c => c.type === 'STORAGE');
-                    if (!storage) return; // Should not happen
+                    if (!storage) return;
 
                     const dx = storage.x - this.x;
                     const dy = storage.y - this.y;
@@ -367,8 +381,8 @@ export class Ant {
                         // Move to storage
                         this.angle = Math.atan2(dy, dx);
                     }
+                    return;
                 }
-                return;
             }
         }
 
@@ -382,12 +396,13 @@ export class Ant {
 
         // 5. No task found: Rest or Loiter
         // If we are deep in the nest and have nothing to do, REST.
-        if (Math.random() < 0.05) { // 5% chance per frame to fall asleep if idle
+        if (Math.random() < 0.005) { // 0.5% chance per frame
             this.state = 'RESTING';
-            this.restTimer = 300 + Math.random() * 600; // 5-15 seconds nap
+            this.restTimer = 300 + Math.random() * 300; // 5-10s nap
         } else {
             // Wander in nest (loiter)
             this.wander();
+            this.speedMultiplier = 0.3; // Walk very slowly when loitering
             this.applySeparation(world); // Spread out
         }
     }
