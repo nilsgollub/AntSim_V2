@@ -42,7 +42,7 @@ buildInfo.style.color = 'rgba(255, 255, 255, 0.5)';
 buildInfo.style.fontFamily = 'monospace';
 buildInfo.style.fontSize = '12px';
 buildInfo.style.pointerEvents = 'none';
-buildInfo.innerText = 'Build: 2025-12-11 13:10 - RELEASE: STABLE (NO-CACHE)';
+buildInfo.innerText = 'Build: 2025-12-15 08:15 - RELEASE 1.0';
 document.body.appendChild(buildInfo);
 
 
@@ -79,27 +79,16 @@ restartBtn.addEventListener('click', () => {
 });
 
 // Loop
-let lastTime = performance.now();
 let frames = 0;
-let lastFpsTime = lastTime;
-let lastQuality = PerformanceManager.level;
+let lastFpsTime = performance.now();
+
 
 function loop(now: number) {
   requestAnimationFrame(loop);
 
-  const delta = now - lastTime;
-  lastTime = now;
-  const instantFps = 1000 / (delta || 16); // Avoid infinity on first frame
-  PerformanceManager.monitorFPS(instantFps);
 
-  // Check for auto-downgrade driven by PerformanceManager
-  if (PerformanceManager.level !== lastQuality) {
-    lastQuality = PerformanceManager.level;
-    qualitySelect.value = PerformanceManager.level;
-    renderer.resize(CONFIG.width, CONFIG.height, PerformanceManager.settings.resolutionScale);
-    renderer.updateSettings();
-    console.log('Applied Quality Downgrade via Main Loop');
-  }
+
+  // Auto-downgrade disabled for Release 1.0
 
   // FPS
   frames++;
