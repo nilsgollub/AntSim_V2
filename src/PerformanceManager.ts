@@ -24,8 +24,8 @@ export interface PerformanceProfile {
 }
 
 export class PerformanceManager {
-    static level: QualityLevel = QualityLevel.HIGH;
-    static settings: PerformanceProfile = PerformanceManager.getProfile(QualityLevel.HIGH);
+    static level: QualityLevel = QualityLevel.MEDIUM;
+    static settings: PerformanceProfile = PerformanceManager.getProfile(QualityLevel.MEDIUM);
 
     static getProfile(level: QualityLevel): PerformanceProfile {
         switch (level) {
