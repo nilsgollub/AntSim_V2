@@ -21,6 +21,7 @@ export interface PerformanceProfile {
     resolutionScale: number;
     pheromoneResolutionScale: number;
     legAnimation: boolean;
+    pheromoneDiffusion: boolean;
 }
 
 export class PerformanceManager {
@@ -42,7 +43,8 @@ export class PerformanceManager {
                     grassAnimation: false,
                     resolutionScale: 0.4,
                     pheromoneResolutionScale: 0.2, // Very low res pheromones
-                    legAnimation: false
+                    legAnimation: false,
+                    pheromoneDiffusion: false
                 };
             case QualityLevel.LOW:
                 return {
@@ -57,7 +59,8 @@ export class PerformanceManager {
                     grassAnimation: false,
                     resolutionScale: 0.4,
                     pheromoneResolutionScale: 0.25, // Optimized
-                    legAnimation: false
+                    legAnimation: false,
+                    pheromoneDiffusion: false
                 };
             case QualityLevel.MEDIUM:
                 return {
@@ -72,7 +75,8 @@ export class PerformanceManager {
                     grassAnimation: false,
                     resolutionScale: 0.6, // Sharper (0.5 -> 0.6)
                     pheromoneResolutionScale: 0.3,
-                    legAnimation: false // Static legs (Cached Sprites)
+                    legAnimation: false, // Static legs (Cached Sprites)
+                    pheromoneDiffusion: true
                 };
             case QualityLevel.HIGH:
                 return {
@@ -87,7 +91,8 @@ export class PerformanceManager {
                     grassAnimation: false,
                     resolutionScale: 0.85,
                     pheromoneResolutionScale: 0.5,
-                    legAnimation: true
+                    legAnimation: true,
+                    pheromoneDiffusion: true
                 };
             case QualityLevel.ULTRA:
                 return {
@@ -102,7 +107,8 @@ export class PerformanceManager {
                     grassAnimation: true,
                     resolutionScale: 1.0,
                     pheromoneResolutionScale: 0.5,
-                    legAnimation: true
+                    legAnimation: true,
+                    pheromoneDiffusion: true
                 };
         }
     }

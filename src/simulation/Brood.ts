@@ -1,3 +1,5 @@
+import { CONFIG } from '../config';
+
 export type BroodStage = 'EGG' | 'LARVA' | 'PUPA';
 
 export class Brood {
@@ -8,10 +10,10 @@ export class Brood {
     hunger: number = 0; // Only for Larvae
     carrier: any = null;
 
-    // Configurable lifecycle durations
-    static EGG_DURATION = 1000;
-    static LARVA_DURATION = 2000;
-    static PUPA_DURATION = 1500;
+    // Configurable lifecycle durations (sourced from CONFIG so they can be tuned centrally)
+    static get EGG_DURATION() { return CONFIG.brood.eggDuration; }
+    static get LARVA_DURATION() { return CONFIG.brood.larvaDuration; }
+    static get PUPA_DURATION() { return CONFIG.brood.pupaDuration; }
 
     constructor(x: number, y: number) {
         this.x = x;
@@ -29,10 +31,10 @@ export class Brood {
                 this.hunger = 0; // Starts full
             }
         } else if (this.stage === 'LARVA') {
-            this.hunger += 0.005; // Gets hungrier VERY slowly (was 0.05)
+            this.hunger += CONFIG.brood.hungerRate; // Gets hungrier VERY slowly
 
             // Die if starving (Hardy)
-            if (this.hunger > 200) return false; // Dead
+            if (this.hunger > CONFIG.brood.larvaStarveLimit) return false; // Dead
 
             // Metamorphosis if well fed and old enough
             if (this.age > Brood.LARVA_DURATION && this.hunger < 20) {

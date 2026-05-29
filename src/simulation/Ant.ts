@@ -14,6 +14,10 @@ export class Ant {
     health: number;
     location: 'WORLD' | 'NEST';
 
+    // Ageing: ants die of old age once `age` exceeds `maxAge` (jittered per ant).
+    age: number = 0;
+    maxAge: number;
+
     // Pathfinding/Movement
     obstacleTimer: number = 0;
     exitTimer: number = 0;
@@ -41,6 +45,7 @@ export class Ant {
         this.angle = Math.random() * Math.PI * 2;
         this.energy = CONFIG.antMaxEnergy;
         this.health = type === 'SOLDIER' ? CONFIG.soldierHealth : CONFIG.workerHealth;
+        this.maxAge = CONFIG.ant.lifespan + Math.random() * CONFIG.ant.lifespanJitter;
         this.carrying = 'NONE';
         this.location = 'WORLD'; // Start in world
 
@@ -58,6 +63,14 @@ export class Ant {
     }
 
     update(world: World) {
+        // Ageing: die of old age. Setting health to 0 lets World handle removal
+        // (and corpse spawning when above ground) uniformly with combat deaths.
+        this.age++;
+        if (this.type !== 'QUEEN' && this.age > this.maxAge) {
+            this.health = 0;
+            return;
+        }
+
         // Metabolism
         if (this.state === 'RESTING') {
             this.energy -= CONFIG.antEnergyDecay * 0.1; // Sleep: Low energy usage
@@ -77,7 +90,7 @@ export class Ant {
 
         // Critically Hungry -> Force Eat (override other states mostly)
         // FIX: Don't interrupt if already looking for food (FORAGING) or eating (HARVESTING) to prevent Death Loop when Nest is empty
-        if (this.energy < 200 &&
+        if (this.energy < CONFIG.ant.hungryThreshold &&
             this.state !== 'HUNGRY' &&
             this.state !== 'ATTACKING' &&
             this.state !== 'FORAGING' &&
@@ -154,13 +167,13 @@ export class Ant {
 
         let target: any = null;
 
-        if (world.queen.energy < 1500) {
+        if (world.queen.energy < CONFIG.ant.queenCriticalEnergy) {
             target = world.queen;
         } else {
             const criticalLarva = world.brood.find(b => b.stage === 'LARVA' && b.hunger > 50);
             if (criticalLarva) {
                 target = criticalLarva;
-            } else if (world.queen.energy < 1900) {
+            } else if (world.queen.energy < CONFIG.ant.queenMaintainEnergy) {
                 target = world.queen;
             } else {
                 const hungryLarva = world.brood.find(b => b.stage === 'LARVA' && b.hunger > 20);
@@ -187,12 +200,12 @@ export class Ant {
         if (dist < 10) {
             // Feed
             if (target === world.queen) {
-                world.queen.energy += 500; // Feed queen
+                world.queen.energy += CONFIG.ant.queenFeedAmount; // Feed queen
             } else {
-                target.feed(50); // Feed larva
+                target.feed(CONFIG.ant.larvaFeedAmount); // Feed larva
             }
 
-            this.carryingAmount -= 50; // Assume protein chunk is large
+            this.carryingAmount -= CONFIG.ant.larvaFeedAmount; // Assume protein chunk is large
             // Simplified: One protein item feeds one thing fully for now
             this.carrying = 'NONE';
             this.carryingAmount = 0;
@@ -268,7 +281,7 @@ export class Ant {
                 this.restTimer--;
 
                 // Wake up
-                if (this.restTimer <= 0 || this.energy < 500) {
+                if (this.restTimer <= 0 || this.energy < CONFIG.ant.restWakeThreshold) {
                     this.state = 'IDLE';
                     this.patrolTarget = null;
                 }
@@ -306,14 +319,14 @@ export class Ant {
 
         // In Nest
         // 0. Self-Preservation (Eat if hungry)
-        if (this.energy < 1000) {
+        if (this.energy < CONFIG.ant.nurseEatThreshold) {
             const storage = world.nest.chambers.find(c => c.type === 'STORAGE');
             if (storage) {
                 const dx = storage.x - this.x;
                 const dy = storage.y - this.y;
                 const distSq = dx * dx + dy * dy;
 
-                if (distSq < 400) {
+                if (distSq < CONFIG.ant.arriveRangeSq) {
                     // Eat Sugar
                     if (world.sugarStockpile > 0) {
                         world.sugarStockpile = Math.max(0, world.sugarStockpile - 5);
@@ -345,7 +358,7 @@ export class Ant {
                     const dy = misplacedBrood.y - this.y;
                     const distSq = dx * dx + dy * dy;
 
-                    if (distSq < 400) {
+                    if (distSq < CONFIG.ant.arriveRangeSq) {
                         this.carrying = 'BROOD';
                         this.carryingInstance = misplacedBrood;
                         misplacedBrood.carrier = this;
@@ -360,7 +373,7 @@ export class Ant {
             // 2. Check if Queen or Larva needs food AND we have stockpile
             if (world.proteinStockpile >= 10) {
                 // FIXED: Aggressive check for Queen (keep her > 1800 energy)
-                const queenHungry = world.queen.energy < 1800;
+                const queenHungry = world.queen.energy < CONFIG.ant.queenHungryEnergy;
                 const larvaHungry = world.brood.some(b => b.stage === 'LARVA' && b.hunger > 20);
 
                 if (queenHungry || larvaHungry) {
@@ -371,7 +384,7 @@ export class Ant {
                     const dx = storage.x - this.x;
                     const dy = storage.y - this.y;
 
-                    if (dx * dx + dy * dy < 400) {
+                    if (dx * dx + dy * dy < CONFIG.ant.arriveRangeSq) {
                         // Grab from stockpile
                         world.proteinStockpile -= 10;
                         this.carrying = 'PROTEIN';
@@ -453,7 +466,7 @@ export class Ant {
             for (const insect of world.insects) {
                 if (insect.type === 'SPIDER' || insect.type === 'PREDATOR' || insect.type === 'BEETLE') {
                     const distSq = (this.x - insect.x) ** 2 + (this.y - insect.y) ** 2;
-                    if (distSq < 10000) { // 100px detection
+                    if (distSq < CONFIG.ant.detectEnemyRangeSq) { // 100px detection
                         this.state = 'ATTACKING';
                         return; // Switch immediately
                     }
@@ -461,7 +474,7 @@ export class Ant {
             }
         }
 
-        if (this.energy < 600) {
+        if (this.energy < CONFIG.ant.foragingHungerThreshold) {
             this.state = 'HUNGRY';
             return;
         }
@@ -596,7 +609,7 @@ export class Ant {
         // Drop Danger trail while fleeing to warn others
         if (this.fleeTimer % 5 === 0) {
             const grid = this.location === 'NEST' ? world.nestGrid : world.grid;
-            grid.depositCircle(this.x, this.y, 'DANGER', 0.5, 10); // Increased trail size
+            grid.depositCircle(this.x, this.y, 'DANGER', CONFIG.pheromone.depositTrail, 10); // Increased trail size
         }
 
         if (this.fleeTimer <= 0) {
@@ -640,7 +653,7 @@ export class Ant {
             }
         }
 
-        if (nearestEnemy && minDist < 10000) { // 100px chase range
+        if (nearestEnemy && minDist < CONFIG.ant.detectEnemyRangeSq) { // 100px chase range
 
             // Cowardice Check for Workers
             if (this.type === 'WORKER' && this.attackCooldown % 10 === 0) {
@@ -670,13 +683,13 @@ export class Ant {
                 this.sprintTimer--;
             } else if (this.sprintCooldown > 0) {
                 this.sprintCooldown--;
-            } else if (minDist > 900) { // If > 30px away
+            } else if (minDist > CONFIG.ant.attackRangeSq) { // If > 30px away
                 // Trigger Sprint to catch up
                 this.sprintTimer = 30; // 0.5s sprint
                 this.sprintCooldown = 180; // 3s cooldown
             }
 
-            if (minDist < 900) { // Attack range (30px)
+            if (minDist < CONFIG.ant.attackRangeSq) { // Attack range (30px)
                 this.speedMultiplier = 0; // Stop moving to attack!
                 if (this.attackCooldown <= 0) {
                     const dmg = this.type === 'SOLDIER' ? CONFIG.soldierDamage : CONFIG.workerDamage;
@@ -814,7 +827,7 @@ export class Ant {
     }
 
     handleForaging(world: World) {
-        if (this.energy < 600) {
+        if (this.energy < CONFIG.ant.foragingHungerThreshold) {
             this.state = 'HUNGRY';
             return;
         }
@@ -902,7 +915,7 @@ export class Ant {
                 this.harvestTimer = food.type === 'SUGAR' ? 60 : 120; // 1s for sugar, 2s for protein
                 this.carryingInstance = food;
                 return;
-            } else if (distSq < 10000) {
+            } else if (distSq < CONFIG.ant.detectEnemyRangeSq) {
                 // Anti-Clustering: If stuck while approaching food, back off
                 if (this.stuckTimer > 20) {
                     world.addParticle(this.x, this.y, 'yellow'); // Debug Visual: Unstuck Triggered
@@ -971,12 +984,12 @@ export class Ant {
                         const dy = this.y - insect.y;
                         const distSq = dx * dx + dy * dy;
 
-                        if (distSq < 900) { // 30px close enough
+                        if (distSq < CONFIG.ant.attackRangeSq) { // 30px close enough
                             this.state = 'MILKING';
                             this.harvestTimer = 60; // 1 second milking duration represents interaction
                             this.carryingInstance = insect;
                             return;
-                        } else if (distSq < 10000) {
+                        } else if (distSq < CONFIG.ant.detectEnemyRangeSq) {
                             this.angle = Math.atan2(dy, dx);
                             return;
                         }
@@ -996,7 +1009,7 @@ export class Ant {
             this.wander();
         }
 
-        world.grid.depositCircle(this.x, this.y, 'HOME', 0.5, 3);
+        world.grid.depositCircle(this.x, this.y, 'HOME', CONFIG.pheromone.depositTrail, CONFIG.pheromone.trailRadius);
     }
 
 
@@ -1076,9 +1089,9 @@ export class Ant {
         const grid = this.location === 'NEST' ? world.nestGrid : world.grid;
 
         if (this.carrying === 'SUGAR') {
-            grid.depositCircle(this.x, this.y, 'SUGAR', 1.0, 3);
+            grid.depositCircle(this.x, this.y, 'SUGAR', CONFIG.pheromone.depositFood, CONFIG.pheromone.trailRadius);
         } else if (this.carrying === 'PROTEIN') {
-            grid.depositCircle(this.x, this.y, 'PROTEIN', 1.0, 3);
+            grid.depositCircle(this.x, this.y, 'PROTEIN', CONFIG.pheromone.depositFood, CONFIG.pheromone.trailRadius);
         }
 
         if (this.location === 'WORLD') {
@@ -1115,7 +1128,7 @@ export class Ant {
                     this.carrying = 'NONE';
 
                     // Check Hunger after dropping food
-                    if (this.energy < 1000) {
+                    if (this.energy < CONFIG.ant.nurseEatThreshold) {
                         this.state = 'HUNGRY';
                     } else {
                         this.state = 'IDLE'; // Go IDLE to check for rest/nursing
@@ -1156,7 +1169,7 @@ export class Ant {
             const dy = storage.y - this.y;
             const distSq = dx * dx + dy * dy;
 
-            if (distSq < 400) {
+            if (distSq < CONFIG.ant.arriveRangeSq) {
                 // Eat Sugar
                 if (world.sugarStockpile > 0) {
                     world.sugarStockpile = Math.max(0, world.sugarStockpile - 5);

@@ -1,10 +1,15 @@
-const isLandscape = window.innerWidth > window.innerHeight;
+// Screen dimensions. Guarded so the module can be imported in a non-DOM
+// environment (e.g. Vitest under the `node` environment) without crashing.
+const screenW = typeof window !== 'undefined' ? window.innerWidth : 1000;
+const screenH = typeof window !== 'undefined' ? window.innerHeight : 600;
+
+const isLandscape = screenW > screenH;
 
 // Define a target "playable area" in logical pixels.
 // 1000x600 = 600,000 pixels.
 // This ensures the world is always roughly this "size" to the ants, regardless of screen resolution.
 const TARGET_AREA = 1000 * 600;
-const aspect = window.innerWidth / window.innerHeight;
+const aspect = screenW / screenH;
 
 // Calculate logical dimensions that preserve the aspect ratio but approximate the target area
 const logicalHeight = Math.sqrt(TARGET_AREA / aspect);
@@ -46,6 +51,50 @@ export const CONFIG = {
     // Pheromones
     pheromoneDecay: 0.990,
     evaporationRate: 0.02,
+
+    // Grouped pheromone tuning (used by PheromoneGrid + Ant trail deposits)
+    pheromone: {
+        decay: 0.990,          // per-update decay for HOME/SUGAR/PROTEIN
+        dangerDecay: 0.95,     // DANGER fades faster
+        minThreshold: 0.001,   // values below this are clamped to 0
+        diffusionEnabled: true,// master switch for spatial diffusion
+        diffusionRate: 0.12,   // 0..1 share of a cell that bleeds into neighbours
+        depositTrail: 0.5,     // amount dropped on a normal trail (HOME / DANGER)
+        depositFood: 1.0,      // amount dropped while carrying food
+        trailRadius: 3,        // radius (logical px) of a deposited trail blob
+    },
+
+    // Brood lifecycle (frames)
+    brood: {
+        eggDuration: 1000,
+        larvaDuration: 2000,
+        pupaDuration: 1500,
+        larvaStarveLimit: 200, // hunger above this = larva dies
+        hungerRate: 0.005,     // hunger gained per frame while a larva
+    },
+
+    // Ant behaviour tuning (extracted magic numbers; values unchanged)
+    ant: {
+        // Natural ageing / lifespan (frames). ~5min base at 60fps.
+        lifespan: 18000,
+        lifespanJitter: 6000,
+        // Squared detection / interaction ranges (px^2)
+        detectEnemyRangeSq: 10000, // 100px - spot/chase enemies
+        attackRangeSq: 900,        // 30px - melee range
+        arriveRangeSq: 400,        // 20px - "arrived at target"
+        // Feeding amounts
+        queenFeedAmount: 500,
+        larvaFeedAmount: 50,
+        // Energy thresholds
+        hungryThreshold: 200,       // critical: force HUNGRY state
+        foragingHungerThreshold: 600,// forager/patroller heads home to eat
+        nurseEatThreshold: 1000,    // nurse tops up energy from storage
+        restWakeThreshold: 500,     // wake from RESTING if below this
+        // Queen feeding thresholds
+        queenCriticalEnergy: 1500,  // feed queen first, urgently
+        queenMaintainEnergy: 1900,  // top queen up to here
+        queenHungryEnergy: 1800,    // nurse decides queen needs food
+    },
 
     // World Generation
     obstacleCount: 12,
