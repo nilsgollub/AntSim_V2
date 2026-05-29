@@ -104,17 +104,23 @@ export class Renderer {
     resize(logicalWidth: number, logicalHeight: number, scale: number) {
         this.width = logicalWidth;
         this.height = logicalHeight;
-        this.resolutionScale = scale;
 
-        // Physical size (pixels)
-        this.canvas.width = Math.floor(logicalWidth * scale);
-        this.canvas.height = Math.floor(logicalHeight * scale);
+        // Crispness on HiDPI/retina displays: multiply the backing store by the
+        // device pixel ratio (capped at 2 to bound cost on 3x phones). The CSS
+        // display size is unchanged, so the canvas just gets more real pixels.
+        const dpr = Math.min(typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1, 2);
+        // Total logical → backing-pixel factor (perf scale × dpr). Camera uses this.
+        const pixelScale = scale * dpr;
+        this.resolutionScale = pixelScale;
 
-        // Context Transform:
-        // We want draw ops at (100,100) to land on (100*scale, 100*scale).
-        // Camera transform is applied per-frame on top of this inside save/restore.
+        this.canvas.width = Math.floor(logicalWidth * pixelScale);
+        this.canvas.height = Math.floor(logicalHeight * pixelScale);
+
+        // Context transform: a draw op at logical (100,100) lands at
+        // (100*pixelScale, 100*pixelScale) in the backing store. The camera
+        // transform is applied per-frame on top of this inside save/restore.
         this.ctx.resetTransform();
-        this.ctx.scale(scale, scale);
+        this.ctx.scale(pixelScale, pixelScale);
         this.ctx.imageSmoothingEnabled = false;
     }
 
@@ -362,6 +368,8 @@ export class Renderer {
         ctx.restore();
 
         // Screen-space post-effects (no camera transform, drawn over everything).
+        // Day/night ambient tint — runs at every quality level (cheap fillRects).
+        this.drawLighting(world);
         if (PerformanceManager.level === QualityLevel.ULTRA) {
             this.drawGodRays();
             this.drawVignette();
