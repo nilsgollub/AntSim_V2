@@ -67,6 +67,7 @@
         </div>
         <!-- Parameter Tuner -->
         <div class="control-group">
+          <button id="slidersBtn" title="Live-Parameter-Regler">🎛 Params</button>
           <button id="analyzeBtn" title="Observe simulation and suggest parameter tuning">⚙ Analyse</button>
         </div>
       </div>
@@ -80,6 +81,17 @@
           <button id="tunerClose" style="font-size:10px;padding:2px 6px">✕</button>
         </div>
         <div id="tuner-content"></div>
+      </div>
+
+      <!-- Live parameter sliders panel -->
+      <div id="sliders-panel" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px">
+          <strong style="font-size:11px">Live-Parameter</strong>
+          <span style="flex:1"></span>
+          <button id="slidersReset" style="font-size:10px;padding:2px 6px" title="Auf Defaults zurücksetzen und neu laden">↺ Reset</button>
+          <button id="slidersClose" style="font-size:10px;padding:2px 6px">✕</button>
+        </div>
+        <div id="sliders-content"></div>
       </div>
     </div>
   </div>

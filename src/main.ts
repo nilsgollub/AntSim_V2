@@ -9,7 +9,7 @@ import { Ant } from './simulation/Ant';
 import { PerformanceManager, QualityLevel } from './PerformanceManager';
 import { applyTunerAction } from './simulation/SimObserver';
 import type { TunerSuggestion } from './simulation/SimObserver';
-import { loadOverrides, clearOverrides, hasOverrides } from './configStore';
+import { loadOverrides, clearOverrides, hasOverrides, getByPath, setOverride } from './configStore';
 
 // Apply persisted parameter overrides to CONFIG before anything reads it.
 loadOverrides();
@@ -333,12 +333,69 @@ analyzeBtn.addEventListener('click', () => {
 tunerClose.addEventListener('click', () => {
     tunerPanel.style.display = 'none';
 });
-tunerReset.addEventListener('click', () => {
-    // Clear persisted parameter overrides and reload to restore pristine defaults.
+tunerReset.addEventListener('click', resetAllToDefaults);
+
+// ── Live parameter sliders ───────────────────────────────────────────────────
+const slidersBtn     = document.getElementById('slidersBtn')     as HTMLButtonElement;
+const slidersPanel   = document.getElementById('sliders-panel')  as HTMLDivElement;
+const slidersContent = document.getElementById('sliders-content')as HTMLDivElement;
+const slidersClose   = document.getElementById('slidersClose')   as HTMLButtonElement;
+const slidersReset   = document.getElementById('slidersReset')   as HTMLButtonElement;
+
+interface SliderSpec { path: string; label: string; min: number; max: number; step: number; }
+
+// Only per-frame-read tunables (changing these takes effect immediately and safely).
+const SLIDER_SPECS: SliderSpec[] = [
+    { path: 'antSpeed',                 label: 'antSpeed',           min: 0.5, max: 6,    step: 0.1 },
+    { path: 'antEnergyDecay',           label: 'antEnergyDecay',     min: 0.05, max: 1,   step: 0.01 },
+    { path: 'queenLayInterval',         label: 'queenLayInterval',   min: 50,  max: 800,  step: 10 },
+    { path: 'eggCost',                  label: 'eggCost',            min: 5,   max: 60,   step: 1 },
+    { path: 'sugarValue',               label: 'sugarValue',         min: 1,   max: 40,   step: 1 },
+    { path: 'proteinValue',             label: 'proteinValue',       min: 1,   max: 30,   step: 1 },
+    { path: 'sugarEnergyValue',         label: 'sugarEnergyValue',   min: 20,  max: 300,  step: 10 },
+    { path: 'colonyUpkeep',             label: 'colonyUpkeep',       min: 0,   max: 0.01, step: 0.0005 },
+    { path: 'broodProteinUpkeep',       label: 'broodProteinUpkeep', min: 0,   max: 0.01, step: 0.0005 },
+    { path: 'pheromone.diffusionRate',  label: 'pheromone.diffusionRate', min: 0, max: 0.5, step: 0.01 },
+    { path: 'pheromone.decay',          label: 'pheromone.decay',    min: 0.9, max: 0.999, step: 0.001 },
+    { path: 'predatorSpawnRate',        label: 'predatorSpawnRate',  min: 0,   max: 0.005, step: 0.0001 },
+];
+
+// Render from current CONFIG values (reflects tuner-applied + persisted overrides).
+function renderSliders() {
+    slidersContent.innerHTML = SLIDER_SPECS.map((s, i) => {
+        const v = getByPath(s.path);
+        return `<div class="slider-row">
+          <label for="sl_${i}">${s.label}</label>
+          <span class="slider-val" id="slv_${i}">${v}</span>
+          <input type="range" id="sl_${i}" data-i="${i}" min="${s.min}" max="${s.max}" step="${s.step}" value="${v}">
+        </div>`;
+    }).join('');
+}
+
+slidersContent.addEventListener('input', (e) => {
+    const t = e.target as HTMLInputElement;
+    if (t.type !== 'range') return;
+    const spec = SLIDER_SPECS[Number(t.dataset.i)];
+    if (!spec) return;
+    setOverride(spec.path, parseFloat(t.value)); // applies live + persists
+    const valEl = document.getElementById('slv_' + t.dataset.i);
+    if (valEl) valEl.textContent = t.value;
+});
+
+slidersBtn.addEventListener('click', () => {
+    const show = slidersPanel.style.display === 'none';
+    if (show) renderSliders();
+    slidersPanel.style.display = show ? 'block' : 'none';
+});
+slidersClose.addEventListener('click', () => { slidersPanel.style.display = 'none'; });
+slidersReset.addEventListener('click', resetAllToDefaults);
+
+// Clear persisted parameter overrides + UI state and reload to pristine defaults.
+function resetAllToDefaults() {
     clearOverrides();
     try { localStorage.removeItem(UI_KEY); } catch { /* ignore */ }
     location.reload();
-});
+}
 
 // ── Restore persisted UI state ───────────────────────────────────────────────
 (function restoreUiState() {

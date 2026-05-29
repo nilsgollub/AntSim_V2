@@ -215,6 +215,34 @@ select {
 #tunerApplyAll:disabled { background: #333; color: #7a9a7a; cursor: default; }
 .tuner-hint { color: #888; font-size: 8px; margin-bottom: 6px; }
 
+/* Live parameter sliders panel */
+#sliders-panel {
+  position: absolute;
+  left: 6px;
+  top: 20px;
+  background: rgba(0, 0, 0, 0.90);
+  border: 1px solid #555;
+  border-radius: 5px;
+  padding: 8px 10px;
+  font-size: 10px;
+  color: #ccc;
+  width: calc(100% - 24px);
+  max-height: 75vh;
+  overflow-y: auto;
+  pointer-events: auto;
+  z-index: 200;
+}
+.slider-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 3px 0;
+}
+.slider-row label { font-family: monospace; font-size: 9px; color: #bbb; }
+.slider-row .slider-val { font-family: monospace; font-size: 9px; color: #ffe680; text-align: right; }
+.slider-row input[type=range] { grid-column: 1 / -1; width: 100%; }
+
 /* Responsive Layout */
 @media (orientation: portrait) {
   body {
