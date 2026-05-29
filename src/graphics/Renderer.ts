@@ -15,12 +15,6 @@ export class Renderer {
     pheroImageData!: ImageData;
     pheroBuf32!: Uint32Array;
 
-    // Nest Pheromone Rendering
-    nestPheromoneCanvas!: HTMLCanvasElement;
-    nestPheromoneCtx!: CanvasRenderingContext2D;
-    nestPheroImageData!: ImageData;
-    nestPheroBuf32!: Uint32Array;
-
     nestCanvas!: HTMLCanvasElement;
     nestCtx!: CanvasRenderingContext2D;
     showPheromones: boolean = false;
@@ -135,13 +129,8 @@ export class Renderer {
         this.pheroImageData = this.pheromoneCtx.createImageData(this.pheromoneCanvas.width, this.pheromoneCanvas.height);
         this.pheroBuf32 = new Uint32Array(this.pheroImageData.data.buffer);
 
-        // Nest Pheromone
-        this.nestPheromoneCanvas = document.createElement('canvas');
-        this.nestPheromoneCanvas.width = Math.ceil(CONFIG.nestWidth * scale);
-        this.nestPheromoneCanvas.height = Math.ceil(CONFIG.nestHeight * scale);
-        this.nestPheromoneCtx = this.nestPheromoneCanvas.getContext('2d', { alpha: false })!;
-        this.nestPheroImageData = this.nestPheromoneCtx.createImageData(this.nestPheromoneCanvas.width, this.nestPheromoneCanvas.height);
-        this.nestPheroBuf32 = new Uint32Array(this.nestPheroImageData.data.buffer);
+        // Note: nest pheromones are not rendered (see renderNest), so no nest
+        // pheromone buffers are allocated here.
     }
 
     updateSettings() {
@@ -403,56 +392,9 @@ export class Renderer {
         }
         ctx.drawImage(this.nestStructureCanvas, 0, 0);
 
-        // 2. Nest Pheromones (Overlay)
-        if (this.showPheromones) {
-            const toHome = world.nestGrid.toHome;
-            const toSugar = world.nestGrid.toSugar;
-            const toProtein = world.nestGrid.toProtein;
-            const toDanger = world.nestGrid.toDanger;
-
-            // Map each overlay-canvas pixel to its grid cell. The overlay canvas
-            // is sized by pheromoneResolutionScale while the grid is fixed at 0.25,
-            // so a direct 1:1 index is only correct at LOW quality. This explicit
-            // mapping keeps the overlay aligned at every quality level.
-            const canvasWidth = this.nestPheromoneCanvas.width;
-            const canvasHeight = this.nestPheromoneCanvas.height;
-            const gridWidth = world.nestGrid.width;
-            const gridHeight = world.nestGrid.height;
-
-            for (let y = 0; y < canvasHeight; y++) {
-                for (let x = 0; x < canvasWidth; x++) {
-                    const gridX = Math.floor(x * gridWidth / canvasWidth);
-                    const gridY = Math.floor(y * gridHeight / canvasHeight);
-                    const gridIdx = gridY * gridWidth + gridX;
-                    const canvasIdx = y * canvasWidth + x;
-
-                    const home = toHome[gridIdx] || 0;
-                    const sugar = toSugar[gridIdx] || 0;
-                    const protein = toProtein[gridIdx] || 0;
-                    const danger = toDanger[gridIdx] || 0;
-
-                    if (home > 0.01 || sugar > 0.01 || protein > 0.01 || danger > 0.01) {
-                        let r = protein + sugar + danger;
-                        let g = sugar;
-                        let b = home + danger;
-                        const rVal = Math.min(255, Math.floor(r * 255));
-                        const gVal = Math.min(255, Math.floor(g * 255));
-                        const bVal = Math.min(255, Math.floor(b * 255));
-                        this.nestPheroBuf32[canvasIdx] = (255 << 24) | (bVal << 16) | (gVal << 8) | rVal;
-                    } else {
-                        this.nestPheroBuf32[canvasIdx] = 0; // Transparent
-                    }
-                }
-            }
-            this.nestPheromoneCtx.putImageData(this.nestPheroImageData, 0, 0);
-
-            ctx.save();
-            ctx.globalCompositeOperation = 'overlay'; // Blend mode
-            ctx.imageSmoothingEnabled = true;
-            ctx.drawImage(this.nestPheromoneCanvas, 0, 0, w, h);
-            ctx.imageSmoothingEnabled = false;
-            ctx.restore();
-        }
+        // Nest pheromones are intentionally NOT drawn: in the cramped nest the
+        // overlay becomes a dense, muddy blob. The nestGrid still drives ant
+        // navigation underground — only its visualisation is suppressed.
 
         const storage = world.nest.chambers.find(c => c.type === 'STORAGE');
         if (storage) {
