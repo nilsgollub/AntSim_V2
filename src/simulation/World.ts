@@ -25,9 +25,11 @@ export class World {
 
     brood: Brood[];
 
-    // Resources
+    // Resources. Both stockpiles have real sinks: sugar fuels worker energy +
+    // queen regen + passive colony upkeep; protein fuels egg-laying, larva
+    // feeding + passive brood upkeep (see World.update / Queen / Ant).
     proteinStockpile: number = 500; // Start with a buffer
-    sugarStockpile: number = 2000; // Start with enough to keep Queen alive
+    sugarStockpile: number = 2000;  // Start with a buffer
 
     // Simulation Age
     age: number = 0;
@@ -390,6 +392,17 @@ export class World {
         // Respawn Sugar
         if (this.foods.filter(f => f.type === 'SUGAR').length < CONFIG.sugarSourceCount) {
             if (Math.random() < 0.05) this.spawnFood('SUGAR');
+        }
+
+        // Passive colony upkeep: the nest steadily burns resources proportional
+        // to its size, so stockpiles no longer only grow.
+        //  - Sugar (energy) scales with the worker population.
+        //  - Protein (growth) scales with the number of larvae being raised.
+        if (this.sugarStockpile > 0) {
+            this.sugarStockpile = Math.max(0, this.sugarStockpile - CONFIG.colonyUpkeep * this.ants.length);
+        }
+        if (this.proteinStockpile > 0) {
+            this.proteinStockpile = Math.max(0, this.proteinStockpile - CONFIG.broodProteinUpkeep * this.larvae);
         }
     }
 }

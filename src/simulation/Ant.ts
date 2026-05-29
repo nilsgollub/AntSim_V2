@@ -327,11 +327,7 @@ export class Ant {
                 const distSq = dx * dx + dy * dy;
 
                 if (distSq < CONFIG.ant.arriveRangeSq) {
-                    // Eat Sugar
-                    if (world.sugarStockpile > 0) {
-                        world.sugarStockpile = Math.max(0, world.sugarStockpile - 5);
-                        this.energy = CONFIG.antMaxEnergy;
-                    }
+                    this.eatFromStockpile(world);
                 } else {
                     // Move to storage
                     this.angle = Math.atan2(dy, dx);
@@ -1170,18 +1166,11 @@ export class Ant {
             const distSq = dx * dx + dy * dy;
 
             if (distSq < CONFIG.ant.arriveRangeSq) {
-                // Eat Sugar
-                if (world.sugarStockpile > 0) {
-                    world.sugarStockpile = Math.max(0, world.sugarStockpile - 5);
-                    this.energy = CONFIG.antMaxEnergy;
-                    // Done eating
-                    if (this.type === 'SOLDIER') this.state = 'PATROLLING';
-                    else this.state = 'FORAGING'; // Or IDLE
-                } else {
-                    // No food! Panic? Or just go back to work?
-                    if (this.type === 'SOLDIER') this.state = 'PATROLLING';
-                    else this.state = 'FORAGING';
-                }
+                // Eat (consumes sugar proportional to the energy restored). Whether
+                // or not sugar was available, leave the storage and resume work.
+                this.eatFromStockpile(world);
+                if (this.type === 'SOLDIER') this.state = 'PATROLLING';
+                else this.state = 'FORAGING';
             } else {
                 // Move to storage
                 const nextNode = world.nest.getNextNodeTowards(this.x, this.y, storage.x, storage.y);
@@ -1223,6 +1212,19 @@ export class Ant {
 
     wander() {
         this.angle += (Math.random() - 0.5) * 0.2;
+    }
+
+    // Refill energy from the colony's sugar stockpile. Sugar is consumed in
+    // proportion to the energy actually restored (CONFIG.sugarEnergyValue energy
+    // per unit), so a meal has a real cost and a low stockpile only partially
+    // refills the ant — instead of the old "5 sugar → full energy" freebie.
+    eatFromStockpile(world: World) {
+        const deficit = CONFIG.antMaxEnergy - this.energy;
+        if (deficit <= 0 || world.sugarStockpile <= 0) return;
+        const sugarNeeded = deficit / CONFIG.sugarEnergyValue;
+        const sugarEaten = Math.min(world.sugarStockpile, sugarNeeded);
+        world.sugarStockpile -= sugarEaten;
+        this.energy += sugarEaten * CONFIG.sugarEnergyValue;
     }
 
     move(world: World) {

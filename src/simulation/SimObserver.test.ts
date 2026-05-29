@@ -156,6 +156,21 @@ describe('SimObserver', () => {
         }
     });
 
+    it('flags a growing sugar surplus and offers an upkeep increase', () => {
+        const obs = new SimObserver();
+        const base = {
+            antCount: 50, soldiers: 8, foraging: 25, energy: 1400,
+            queenEnergy: 1800, brood: 25, larvae: 12, protein: 600,
+        };
+        obs.observe(fakeWorld(600,  { ...base, sugar: 1600 }));
+        obs.observe(fakeWorld(1200, { ...base, antCount: 51, sugar: 2200 }));
+        const result = obs.analyze();
+        const surplus = result.find(r => r.metric === 'Zucker-Überschuss');
+        expect(surplus).toBeDefined();
+        expect(surplus!.severity).toBe('info');
+        expect(surplus!.actions!.some(a => a.path === 'colonyUpkeep')).toBe(true);
+    });
+
     it('applyTunerAction mutates the live CONFIG (flat + nested paths)', () => {
         const flatBefore = CONFIG.antEnergyDecay;
         applyTunerAction({ path: 'antEnergyDecay', from: flatBefore, to: 0.24, label: 'x' });

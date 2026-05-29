@@ -32,6 +32,12 @@ export const CONFIG = {
     sugarValue: 10,
     proteinValue: 5,
 
+    // Resource economy (consumption sinks)
+    sugarEnergyValue: 100,    // energy restored per 1 unit of sugar eaten
+    colonyUpkeep: 0.001,      // sugar drained per ant per frame (passive nest metabolism)
+    queenSugarRegen: 0.3,     // energy/frame the queen regenerates by consuming sugar
+    broodProteinUpkeep: 0.0015, // protein drained per larva per frame (raising brood)
+
     // Ant Stats
     antSpeed: 2.5,
     antSensorAngle: Math.PI / 4, // 45 degrees

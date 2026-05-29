@@ -40,8 +40,15 @@ export class Queen {
                 break;
 
             case 'IDLE':
-                // Recover energy slowly
-                this.energy = Math.min(this.maxEnergy, this.energy + 0.1);
+                // Recover energy by consuming sugar from the colony stockpile.
+                // (Protein feeding by nurses tops her up separately.)
+                if (this.energy < this.maxEnergy && world.sugarStockpile > 0) {
+                    const regen = CONFIG.queenSugarRegen;
+                    const cost = regen / CONFIG.sugarEnergyValue;
+                    const spent = Math.min(world.sugarStockpile, cost);
+                    world.sugarStockpile -= spent;
+                    this.energy = Math.min(this.maxEnergy, this.energy + spent * CONFIG.sugarEnergyValue);
+                }
 
                 // Decide to lay eggs if healthy and fed
                 // FIX: Increased brood limit from 50 to 200 to support larger colony sizes

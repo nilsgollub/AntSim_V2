@@ -342,7 +342,7 @@ function loop(now: number) {
 
     // HUD stats
     popStat.innerText  = `Population: ${world.ants.length} (W:${world.ants.filter(a => a.type === 'WORKER').length} S:${world.ants.filter(a => a.type === 'SOLDIER').length})`;
-    foodStat.innerText = `Protein: ${world.proteinStockpile} | Sugar: ${world.sugarStockpile}`;
+    foodStat.innerText = `Protein: ${Math.floor(world.proteinStockpile)} | Sugar: ${Math.floor(world.sugarStockpile)}`;
 
     const ageSeconds = Math.floor(world.queen.age / 60);
     queenStat.innerText = `Queen Age: ${Math.floor(ageSeconds / 60)}m ${ageSeconds % 60}s`;

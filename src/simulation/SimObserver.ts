@@ -338,6 +338,33 @@ export class SimObserver {
             });
         }
 
+        // ── Resource surplus (runaway growth = unused oversupply) ─────────────
+        const sugarGrowth = latest.sugarStockpile - first.sugarStockpile;
+        if (sugarGrowth > 200 && latest.sugarStockpile > 1500) {
+            push({
+                metric: 'Zucker-Überschuss',
+                observed: `+${sugarGrowth.toFixed(0)} (jetzt ${latest.sugarStockpile.toFixed(0)})`,
+                target: 'stabil',
+                severity: 'info',
+                suggestion: 'Kolonie-Unterhalt erhöhen oder Zuckerertrag senken',
+                effect: 'Der Vorrat wächst ungenutzt. Höherer Unterhalt pro Ameise oder weniger Ertrag pro Lieferung bringt Angebot und Verbrauch ins Gleichgewicht.',
+                actions: [mkAction('colonyUpkeep', 1.5), mkAction('sugarValue', 0.8)],
+            });
+        }
+
+        const proteinGrowth = latest.proteinStockpile - first.proteinStockpile;
+        if (proteinGrowth > 100 && latest.proteinStockpile > 800) {
+            push({
+                metric: 'Protein-Überschuss',
+                observed: `+${proteinGrowth.toFixed(0)} (jetzt ${latest.proteinStockpile.toFixed(0)})`,
+                target: 'stabil',
+                severity: 'info',
+                suggestion: 'Brut-Unterhalt erhöhen oder Proteinertrag senken',
+                effect: 'Protein staut sich an. Mehr Verbrauch pro Larve oder weniger Ertrag pro Lieferung verhindert das Horten.',
+                actions: [mkAction('broodProteinUpkeep', 1.5), mkAction('proteinValue', 0.8)],
+            });
+        }
+
         // ── Nothing actionable ───────────────────────────────────────────────
         if (results.length === 0 || results.every(r => r.severity === 'good')) {
             push({
