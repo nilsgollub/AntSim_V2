@@ -36,7 +36,6 @@ export class Renderer {
     bgCanvas!: HTMLCanvasElement;
 
     // Nest Geometry Cache
-    private mediumDebugLogged = false;
     nestStructureCanvas!: HTMLCanvasElement;
     nestStructureCtx!: CanvasRenderingContext2D;
     lastNodeCount: number = -1;
@@ -863,18 +862,6 @@ export class Renderer {
         ctx.save();
         ctx.translate(ant.x, ant.y);
         ctx.rotate(ant.angle);
-
-
-        // DEBUG: Log on first ant render for MEDIUM
-        if (PerformanceManager.level === 'MEDIUM' && !this.mediumDebugLogged) {
-            console.log('[RENDERER] MEDIUM Quality Active:', {
-                simpleAnts: PerformanceManager.settings.simpleAnts,
-                resolutionScale: PerformanceManager.settings.resolutionScale,
-                maxAnts: PerformanceManager.settings.maxAnts,
-                pheromoneSkip: PerformanceManager.settings.pheromoneUpdateSkip
-            });
-            (this as any).mediumDebugLogged = true;
-        }
 
         if (PerformanceManager.settings.simpleAnts) {
             // OPTIMIZED (Body Only, No Legs, Flat Colors)

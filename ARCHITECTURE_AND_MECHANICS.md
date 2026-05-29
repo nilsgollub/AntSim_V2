@@ -61,7 +61,11 @@ Ants use a sensory-based steering algorithm:
 #### 3.2.3. Pheromones
 -   **Types:** `HOME` (Blue), `SUGAR` (Green), `PROTEIN` (Red), `DANGER` (Purple).
 -   **Deposition:** Ants drop pheromones based on their state (e.g., `RETURNING` drops `SUGAR` or `PROTEIN` trail; `FORAGING` drops `HOME` trail).
--   **Dynamics:** Pheromones diffuse (spread) and evaporate (decay) every frame in `PheromoneGrid`.
+-   **Dynamics:** Every type evaporates (exponential decay) each update. `HOME`/`SUGAR`/`PROTEIN`
+    additionally **diffuse** via a separable box blur so trails spread and soften over time;
+    `DANGER` is decay-only (kept sharp + decays faster) so warnings stay local and fade quickly.
+    Diffusion is gated behind `CONFIG.pheromone.diffusionEnabled` and the per-quality
+    `pheromoneDiffusion` flag (disabled at `ULTRA_LOW`/`LOW` for weak hardware).
 
 ### 3.3. Combat System
 -   **Enemies:** Spiders, Beetles, Predators (generic bugs).
@@ -99,33 +103,52 @@ nextY = y + sin(angle) * speed
 -   **Detection:** Circle-Circle intersection (Ant radius vs Obstacle radius).
 -   **Resolution:** If blocked, calculate the tangent angle of the obstacle and slide along it.
 
-### 4.3. Pheromone Diffusion (Box Blur)
+### 4.3. Pheromone Diffusion (Separable Box Blur)
+Implemented in `PheromoneGrid.diffuse()` as two passes (O(2N) instead of O(9N)) using a
+single reusable scratch buffer. Each pass blends a cell with its two neighbours:
 ```typescript
-grid[x][y] = (
-  grid[x-1][y] + grid[x+1][y] +
-  grid[x][y-1] + grid[x][y+1] +
-  grid[x-1][y-1] + ... // diagonals
-) / 9 * decayRate
+// Horizontal pass (grid -> temp), then vertical pass (temp -> grid):
+out = (1 - rate) * center + rate * (neighbourA + neighbourB) * 0.5
 ```
+Out-of-bounds neighbours reuse the centre value so edges don't bleed toward zero.
+`rate` = `CONFIG.pheromone.diffusionRate`.
 
 ---
 
 ## 5. Visuals (`Renderer.ts`)
 -   **Canvas API:** Uses `ctx.save()`, `ctx.translate()`, `ctx.rotate()` for sprite rendering.
 -   **Procedural Animation:** Legs are animated using `Math.sin(time)` to create a walking gait.
--   **Pheromone Visualization:** Renders the grid to an offscreen canvas, maps values to RGB colors, and draws it as a background layer.
+-   **Pheromone Visualization:** Renders the grid to an offscreen canvas, maps values to RGB colors, and draws it as a world-space overlay (inside the camera transform, so it lines up with entities at any zoom).
+-   **Camera (`Camera.ts`):** Applied on top of the resolution-scale transform inside `renderWorld()`. Only the world canvas is transformed — the nest canvas is never camera-transformed. Screen-space effects (god rays, vignette) draw after the camera block.
 
-## 6. Configuration (`config.ts`)
-Key parameters to tune the simulation:
+## 5.1. Interaction (`main.ts`)
+-   **Camera control:** Mouse-drag to pan, wheel to zoom-to-cursor (`Camera.zoomTo`). A movement threshold distinguishes a drag from a click.
+-   **Inspect:** In SELECT mode a click hit-tests ants via `SpatialGrid.getNearby` and shows a live DOM inspector (state/energy/health/age/cargo).
+-   **Sandbox tools:** Place sugar/protein (`World.placeFood`) or spawn an enemy (`World.spawnEnemyAt`) by clicking.
+-   **Playback:** Pause (Space) freezes `world.update()` while rendering continues; single-step advances one tick.
+
+## 5.2. Parameter Tuner (`SimObserver.ts`)
+-   Samples colony metrics every ~600 frames (cheap, O(1) per tick) into a rolling window.
+-   `analyze()` compares metrics (population trend, energy, foraging ratio, combat pressure, queen health/stress, brood pipeline, soldier ratio, stockpile) against realism targets and returns severity-tagged suggestions, each naming a concrete `CONFIG.*` key and explaining the effect.
+
+## 6. Testing
+-   **Runner:** Vitest (`npm run test`), `node` environment (no DOM).
+-   **Coverage:** Pure simulation modules — `PheromoneGrid` (decay/diffusion), `Brood` (lifecycle/starvation), `SpatialGrid`, `Food`, `SimObserver` (tuner logic).
+-   `config.ts` guards `window.*` reads so it imports cleanly under Node.
+
+## 7. Configuration (`config.ts`)
+Key parameters to tune the simulation (flat keys + grouped sub-objects):
 -   `antSpeed`: Base movement speed.
 -   `antSensorAngle`: Field of view (e.g., 45 degrees).
 -   `antSensorDist`: How far ahead they see (e.g., 40px).
 -   `antTurnSpeed`: How fast they steer.
--   `decayRate`: How fast trails vanish.
+-   `CONFIG.pheromone.*`: `decay`, `diffusionRate`, deposit amounts, `trailRadius`.
+-   `CONFIG.ant.*`: detection ranges, energy thresholds, feeding amounts, `lifespan`.
+-   `CONFIG.brood.*`: lifecycle durations, starvation limit, hunger rate.
 
 ---
 
-## 7. Reconstruction Guide
+## 8. Reconstruction Guide
 To rebuild this simulation:
 1.  **Setup:** Initialize a Vite project with TypeScript.
 2.  **Grid:** Implement `PheromoneGrid` (Float32Array) with diffusion loop.
