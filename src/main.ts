@@ -397,6 +397,70 @@ function resetAllToDefaults() {
     location.reload();
 }
 
+// ── Live stats graph ─────────────────────────────────────────────────────────
+const statsBtn    = document.getElementById('statsBtn')    as HTMLButtonElement;
+const statsPanel  = document.getElementById('stats-graph-panel') as HTMLDivElement;
+const statsCanvas = document.getElementById('statsCanvas') as HTMLCanvasElement;
+const statsClose  = document.getElementById('statsClose')  as HTMLButtonElement;
+const statsLegend = document.getElementById('stats-legend')as HTMLDivElement;
+const statsCtx    = statsCanvas.getContext('2d')!;
+
+const STATS_SERIES = [
+    { key: 'population' as const, color: '#dddddd', label: 'Pop',     fixedMax: 0 },
+    { key: 'sugar'      as const, color: '#6fdf6f', label: 'Zucker',  fixedMax: 0 },
+    { key: 'protein'    as const, color: '#df6f6f', label: 'Protein', fixedMax: 0 },
+    { key: 'energyPct'  as const, color: '#6fb0df', label: 'Energie', fixedMax: 1 },
+];
+
+statsBtn.addEventListener('click', () => {
+    statsPanel.style.display = statsPanel.style.display === 'none' ? 'block' : 'none';
+});
+statsClose.addEventListener('click', () => { statsPanel.style.display = 'none'; });
+
+function drawStats() {
+    const W = statsCanvas.width, H = statsCanvas.height, pad = 4;
+    statsCtx.clearRect(0, 0, W, H);
+    const hist = world.observer.getHistory();
+
+    if (hist.length < 2) {
+        statsCtx.fillStyle = '#777';
+        statsCtx.font = '11px monospace';
+        statsCtx.fillText('sammelt Daten…', 8, H / 2);
+        statsLegend.innerHTML = '';
+        return;
+    }
+
+    // Baseline grid
+    statsCtx.strokeStyle = 'rgba(255,255,255,0.08)';
+    statsCtx.lineWidth = 1;
+    for (let g = 0; g <= 4; g++) {
+        const y = pad + g * (H - 2 * pad) / 4;
+        statsCtx.beginPath(); statsCtx.moveTo(pad, y); statsCtx.lineTo(W - pad, y); statsCtx.stroke();
+    }
+
+    const latest = hist[hist.length - 1];
+    const legendParts: string[] = [];
+
+    for (const s of STATS_SERIES) {
+        const max = s.fixedMax || Math.max(1, ...hist.map(p => p[s.key]));
+        statsCtx.beginPath();
+        statsCtx.strokeStyle = s.color;
+        statsCtx.lineWidth = 1.5;
+        hist.forEach((p, i) => {
+            const x = pad + i * (W - 2 * pad) / (hist.length - 1);
+            const y = (H - pad) - (p[s.key] / max) * (H - 2 * pad);
+            if (i === 0) statsCtx.moveTo(x, y); else statsCtx.lineTo(x, y);
+        });
+        statsCtx.stroke();
+
+        const cur = s.key === 'energyPct'
+            ? `${Math.round(latest.energyPct * 100)}%`
+            : `${Math.round(latest[s.key])}`;
+        legendParts.push(`<span style="color:${s.color}">${s.label}: ${cur}</span>`);
+    }
+    statsLegend.innerHTML = legendParts.join('');
+}
+
 // ── Restore persisted UI state ───────────────────────────────────────────────
 (function restoreUiState() {
     let saved: { quality?: string; pheromones?: boolean; speed?: number } | null = null;
@@ -472,6 +536,11 @@ function loop(now: number) {
 
     // Inspector live update
     updateInspector();
+
+    // Stats graph (only when visible, throttled to ~4 Hz to stay cheap)
+    if (statsPanel.style.display !== 'none' && frames % 15 === 0) {
+        drawStats();
+    }
 
     // Render (always, even when paused)
     renderer.render(world);

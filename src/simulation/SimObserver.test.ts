@@ -66,6 +66,24 @@ describe('SimObserver', () => {
         expect(result[0].metric).toBe('Datenmenge');
     });
 
+    it('records graph history at the fine (~1s) cadence', () => {
+        const obs = new SimObserver();
+        for (let i = 1; i <= 5; i++) {
+            obs.observe(fakeWorld(i * 60, { antCount: 10 + i, sugar: 100 * i, protein: 50 * i, energy: 1000 }));
+        }
+        const h = obs.getHistory();
+        expect(h.length).toBe(5);
+        expect(h[h.length - 1].population).toBe(15);
+        expect(h[0].sugar).toBe(100);
+        expect(h[h.length - 1].energyPct).toBeCloseTo(0.5, 2); // 1000 / antMaxEnergy(2000)
+    });
+
+    it('caps graph history at the window size', () => {
+        const obs = new SimObserver();
+        for (let i = 1; i <= 200; i++) obs.observe(fakeWorld(i * 60, { antCount: 10 }));
+        expect(obs.getHistory().length).toBeLessThanOrEqual(180);
+    });
+
     it('only samples once per interval', () => {
         const obs = new SimObserver();
         obs.observe(fakeWorld(600, { antCount: 50 }));

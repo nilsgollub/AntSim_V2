@@ -67,6 +67,7 @@
         </div>
         <!-- Parameter Tuner -->
         <div class="control-group">
+          <button id="statsBtn" title="Verlaufs-Graphen">📈 Stats</button>
           <button id="slidersBtn" title="Live-Parameter-Regler">🎛 Params</button>
           <button id="analyzeBtn" title="Observe simulation and suggest parameter tuning">⚙ Analyse</button>
         </div>
@@ -92,6 +93,17 @@
           <button id="slidersClose" style="font-size:10px;padding:2px 6px">✕</button>
         </div>
         <div id="sliders-content"></div>
+      </div>
+
+      <!-- Live stats graph panel -->
+      <div id="stats-graph-panel" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px">
+          <strong style="font-size:11px">Verlauf</strong>
+          <span style="flex:1"></span>
+          <button id="statsClose" style="font-size:10px;padding:2px 6px">✕</button>
+        </div>
+        <canvas id="statsCanvas" width="280" height="130"></canvas>
+        <div id="stats-legend"></div>
       </div>
     </div>
   </div>

@@ -243,6 +243,37 @@ select {
 .slider-row .slider-val { font-family: monospace; font-size: 9px; color: #ffe680; text-align: right; }
 .slider-row input[type=range] { grid-column: 1 / -1; width: 100%; }
 
+/* Live stats graph panel */
+#stats-graph-panel {
+  position: absolute;
+  left: 6px;
+  top: 20px;
+  background: rgba(0, 0, 0, 0.90);
+  border: 1px solid #555;
+  border-radius: 5px;
+  padding: 8px 10px;
+  pointer-events: auto;
+  z-index: 200;
+}
+#statsCanvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #0b0b0b;
+  border-radius: 3px;
+}
+#stats-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 9px;
+  font-family: monospace;
+}
+#stats-legend span::before {
+  content: '■ ';
+}
+
 /* Responsive Layout */
 @media (orientation: portrait) {
   body {

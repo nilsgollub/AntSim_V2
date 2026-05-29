@@ -32,6 +32,7 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
 - [x] Tuner-Vorschläge **per Knopf anwendbar** (konkrete CONFIG-Aktionen)
 - [x] **Persistenz** (localStorage): Tuner-Anpassungen + Quality/Pheromon/Speed überleben Reload; Reset-Button
 - [x] **Live-Parameter-Slider** für alle Hot-Tunables
+- [x] **Statistik-Graphen** (Verlauf: Population / Zucker / Protein / Energie)
 
 ### Grafik & UX
 - [x] HUD/Control-Panel-Shell, Inspector-Panel, Tuner-/Slider-Panels
@@ -39,8 +40,7 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
 - [x] Nest-Pheromon-Overlay-Mapping gefixt → **dann komplett ausgeblendet** (im Nest zu dicht)
 
 ## 🔜 In Arbeit
-- [ ] **Statistik-Graphen** (Schritt 3/3 des UI-Blocks): Verlaufskurven für
-  Population / Energie / Zucker / Protein (nutzt SimObserver-Snapshots)
+- [ ] Optische Politur (siehe unten)
 
 ## 🧭 Geplant / Stretch
 - [ ] Rivalisierende Kolonie + Krieg (`colonyId`, 2. Nest/Königin) — großer struktureller Eingriff

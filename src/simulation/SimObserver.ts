@@ -65,12 +65,44 @@ const SAMPLE_INTERVAL = 600;
 // How many snapshots to keep (~2 minutes of history at 60 fps).
 const WINDOW_SIZE = 12;
 
+// Finer-grained history for the live stats graph (~1 s cadence, ~3 min window).
+const GRAPH_INTERVAL = 60;
+const GRAPH_SIZE = 180;
+
+/** One point on the live stats graph. */
+export interface GraphPoint {
+    population: number;
+    sugar: number;
+    protein: number;
+    energyPct: number; // average ant energy as 0..1 of max
+}
+
 export class SimObserver {
     private snapshots: Snapshot[] = [];
     private lastSampleAge = -1;
 
-    /** Call once per world.update() tick — O(1), extremely cheap. */
+    private history: GraphPoint[] = [];
+    private lastGraphAge = -1;
+
+    /** Rolling history for the live graph (oldest → newest). */
+    getHistory(): readonly GraphPoint[] { return this.history; }
+
+    /** Call once per world.update() tick — O(1)/O(n) amortised, very cheap. */
     observe(world: World) {
+        // Fine-grained graph sampling (independent of the analysis cadence).
+        if (world.age - this.lastGraphAge >= GRAPH_INTERVAL) {
+            this.lastGraphAge = world.age;
+            const n = world.ants.length;
+            const avg = n > 0 ? world.ants.reduce((s, a) => s + a.energy, 0) / n : 0;
+            this.history.push({
+                population: n,
+                sugar: world.sugarStockpile,
+                protein: world.proteinStockpile,
+                energyPct: avg / CONFIG.antMaxEnergy,
+            });
+            if (this.history.length > GRAPH_SIZE) this.history.shift();
+        }
+
         if (world.age - this.lastSampleAge < SAMPLE_INTERVAL) return;
         this.lastSampleAge = world.age;
 
