@@ -252,18 +252,23 @@ export class Renderer {
             // Put data to offscreen canvas
             this.pheromoneCtx.putImageData(this.pheroImageData, 0, 0);
 
-            // Draw pheromone overlay in logical world-space so it lines up with
-            // entities under any camera zoom/pan (no resetTransform).
+            // Draw the overlay in logical world-space (lines up with entities under
+            // any camera zoom/pan). Additive blending + a soft blur turn the trails
+            // into glowing "scent clouds" instead of hard pixel patches.
+            ctx.save();
             ctx.imageSmoothingEnabled = true;
-            ctx.globalAlpha = 0.6;
-            if (PerformanceManager.level === QualityLevel.ULTRA || PerformanceManager.level === QualityLevel.HIGH) {
-                ctx.filter = 'blur(4px)';
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = 0.55;
+            const lvl = PerformanceManager.level;
+            if (lvl === QualityLevel.ULTRA || lvl === QualityLevel.HIGH) {
+                ctx.filter = 'blur(5px)';
+            } else if (lvl === QualityLevel.MEDIUM) {
+                ctx.filter = 'blur(3px)'; // cheap softening; off on LOW/ULTRA_LOW
             }
             ctx.drawImage(this.pheromoneCanvas, 0, 0, this.width, this.height);
             ctx.filter = 'none';
-            ctx.globalAlpha = 1.0;
+            ctx.restore();
             ctx.imageSmoothingEnabled = false;
-            ctx.shadowBlur = 0;
         }
 
 
