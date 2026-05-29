@@ -61,10 +61,12 @@ export const CONFIG = {
 
     // Grouped pheromone tuning (used by PheromoneGrid + Ant trail deposits)
     pheromone: {
-        decay: 0.990,          // per-update decay for HOME/SUGAR/PROTEIN
+        decay: 0.990,          // per-update decay for the HOME field
+        foodDecay: 0.994,      // SUGAR/PROTEIN trails fade slower → roads persist + get reinforced
         dangerDecay: 0.95,     // DANGER fades faster
         minThreshold: 0.001,   // values below this are clamped to 0
         diffusionEnabled: true,// master switch for spatial diffusion
+        diffuseFood: false,    // keep SUGAR/PROTEIN sharp (roads); only the HOME field diffuses
         diffusionRate: 0.12,   // 0..1 share of a cell that bleeds into neighbours
         depositTrail: 0.5,     // amount dropped on a normal trail (HOME / DANGER)
         depositFood: 1.0,      // amount dropped while carrying food
@@ -101,13 +103,18 @@ export const CONFIG = {
         queenCriticalEnergy: 1500,  // feed queen first, urgently
         queenMaintainEnergy: 1900,  // top queen up to here
         queenHungryEnergy: 1800,    // nurse decides queen needs food
+        // Exploration dispersal: trail-less foragers within this radius of the
+        // entrance get pushed radially outward, so activity spreads across the
+        // map instead of clogging the nest door.
+        dispersalRadius: 280,
+        dispersalStrength: 0.10,
     },
 
     // World Generation
     obstacleCount: 12,
 
     // Ecosystem
-    sugarSourceCount: 2, // Reduced from 3
+    sugarSourceCount: 4, // More, spread-out sources → activity fans out across the map
     maxPrey: 7,          // Reduced from 10
     preySpawnRate: 0.005, // Reduced to 0.5%
 

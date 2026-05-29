@@ -1005,11 +1005,33 @@ export class Ant {
         const foundFood = this.senseAndSteer(world, targetPheromone);
 
         if (!foundFood) {
-            // this.senseAndAvoid(world, 'HOME');
-            this.wander();
+            // No trail to follow: push out of the congested nest zone, then wander.
+            if (!this.disperseFromNest(world)) this.wander();
         }
 
         world.grid.depositCircle(this.x, this.y, 'HOME', CONFIG.pheromone.depositTrail, CONFIG.pheromone.trailRadius);
+    }
+
+    // Steer a trail-less explorer radially away from the nest entrance while it
+    // is still inside the dispersal radius. Returns true if a bias was applied.
+    // This breaks the random-walk's tendency to loiter at the nest door and
+    // spreads foraging activity across the whole map.
+    disperseFromNest(world: World): boolean {
+        const isLandscape = world.nest.height > world.nest.width;
+        const ex = isLandscape ? CONFIG.width : CONFIG.width / 2;
+        const ey = isLandscape ? CONFIG.height / 2 : CONFIG.height;
+        const dx = this.x - ex;
+        const dy = this.y - ey;
+        const distSq = dx * dx + dy * dy;
+        const r = CONFIG.ant.dispersalRadius;
+        if (distSq > r * r || distSq < 1) return false; // far enough out → free wander
+
+        const outward = Math.atan2(dy, dx);
+        let diff = outward - this.angle;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        this.angle += diff * CONFIG.ant.dispersalStrength + (Math.random() - 0.5) * 0.3;
+        return true;
     }
 
 

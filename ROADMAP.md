@@ -21,6 +21,9 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
   - Essen kostet Zucker anteilig zur Energie (`sugarEnergyValue`)
   - Passiver Kolonie-Unterhalt (Zucker/Ameise, Protein/Larve)
 - [x] Eierlege-Intervall config-getrieben + verlangsamt (Wachstums-Balance)
+- [x] „Weitläufigkeit" & Straßenbildung: scharfe/langlebige Futter-Spuren
+  (keine Diffusion auf SUGAR/PROTEIN), Auswärts-Dispersion der Explorer,
+  mehr Futterquellen — alles per Slider tunebar
 
 ### Interaktivität & Tools
 - [x] **Kamera**: Pan (Drag) + Zoom-to-Cursor (Maus)

@@ -34,14 +34,16 @@ export class PheromoneGrid {
 
     update() {
         const decay = CONFIG.pheromone.decay;
+        const foodDecay = CONFIG.pheromone.foodDecay;
         const dangerDecay = CONFIG.pheromone.dangerDecay;
         const min = CONFIG.pheromone.minThreshold;
 
-        // Exponential evaporation
+        // Exponential evaporation. Food trails fade slower so recruitment "roads"
+        // persist long enough to be reinforced by following ants.
         for (let i = 0; i < this.toHome.length; i++) {
             this.toHome[i] *= decay;
-            this.toSugar[i] *= decay;
-            this.toProtein[i] *= decay;
+            this.toSugar[i] *= foodDecay;
+            this.toProtein[i] *= foodDecay;
             this.toDanger[i] *= dangerDecay; // Danger decays faster
 
             if (this.toHome[i] < min) this.toHome[i] = 0;
@@ -50,16 +52,17 @@ export class PheromoneGrid {
             if (this.toDanger[i] < min) this.toDanger[i] = 0;
         }
 
-        // Spatial diffusion: trails spread and soften over time. Gated behind a
-        // config flag, the per-quality profile, and an instance flag so it can be
-        // disabled on weak hardware (and in unit tests when not needed).
+        // Spatial diffusion: smooths the HOME homing field. SUGAR/PROTEIN are kept
+        // sharp by default (CONFIG.pheromone.diffuseFood = false) so trails read as
+        // crisp roads rather than blurry clouds. DANGER never diffuses (local warning).
         const profileAllows = PerformanceManager.settings.pheromoneDiffusion !== false;
         if (this.diffusionEnabled && CONFIG.pheromone.diffusionEnabled && profileAllows) {
             const rate = CONFIG.pheromone.diffusionRate;
-            // Danger stays sharp (sudden, local warning), so it is not diffused.
             this.diffuse(this.toHome, rate);
-            this.diffuse(this.toSugar, rate);
-            this.diffuse(this.toProtein, rate);
+            if (CONFIG.pheromone.diffuseFood) {
+                this.diffuse(this.toSugar, rate);
+                this.diffuse(this.toProtein, rate);
+            }
         }
     }
 
