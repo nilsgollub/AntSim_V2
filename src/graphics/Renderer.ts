@@ -405,29 +405,43 @@ export class Renderer {
 
         // 2. Nest Pheromones (Overlay)
         if (this.showPheromones) {
-            // Update logic (simplified/copied from previous)
             const toHome = world.nestGrid.toHome;
             const toSugar = world.nestGrid.toSugar;
             const toProtein = world.nestGrid.toProtein;
             const toDanger = world.nestGrid.toDanger;
 
-            for (let i = 0; i < this.nestPheroBuf32.length; i++) {
-                const home = toHome[i];
-                const sugar = toSugar[i];
-                const protein = toProtein[i];
-                const danger = toDanger[i];
+            // Map each overlay-canvas pixel to its grid cell. The overlay canvas
+            // is sized by pheromoneResolutionScale while the grid is fixed at 0.25,
+            // so a direct 1:1 index is only correct at LOW quality. This explicit
+            // mapping keeps the overlay aligned at every quality level.
+            const canvasWidth = this.nestPheromoneCanvas.width;
+            const canvasHeight = this.nestPheromoneCanvas.height;
+            const gridWidth = world.nestGrid.width;
+            const gridHeight = world.nestGrid.height;
 
-                if (home > 0.01 || sugar > 0.01 || protein > 0.01 || danger > 0.01) {
-                    let r = protein + sugar + danger;
-                    let g = sugar;
-                    let b = home + danger;
-                    const rVal = Math.min(255, Math.floor(r * 255));
-                    const gVal = Math.min(255, Math.floor(g * 255));
-                    const bVal = Math.min(255, Math.floor(b * 255));
-                    // Alpha hack
-                    this.nestPheroBuf32[i] = (255 << 24) | (bVal << 16) | (gVal << 8) | rVal;
-                } else {
-                    this.nestPheroBuf32[i] = 0; // Transparent
+            for (let y = 0; y < canvasHeight; y++) {
+                for (let x = 0; x < canvasWidth; x++) {
+                    const gridX = Math.floor(x * gridWidth / canvasWidth);
+                    const gridY = Math.floor(y * gridHeight / canvasHeight);
+                    const gridIdx = gridY * gridWidth + gridX;
+                    const canvasIdx = y * canvasWidth + x;
+
+                    const home = toHome[gridIdx] || 0;
+                    const sugar = toSugar[gridIdx] || 0;
+                    const protein = toProtein[gridIdx] || 0;
+                    const danger = toDanger[gridIdx] || 0;
+
+                    if (home > 0.01 || sugar > 0.01 || protein > 0.01 || danger > 0.01) {
+                        let r = protein + sugar + danger;
+                        let g = sugar;
+                        let b = home + danger;
+                        const rVal = Math.min(255, Math.floor(r * 255));
+                        const gVal = Math.min(255, Math.floor(g * 255));
+                        const bVal = Math.min(255, Math.floor(b * 255));
+                        this.nestPheroBuf32[canvasIdx] = (255 << 24) | (bVal << 16) | (gVal << 8) | rVal;
+                    } else {
+                        this.nestPheroBuf32[canvasIdx] = 0; // Transparent
+                    }
                 }
             }
             this.nestPheromoneCtx.putImageData(this.nestPheroImageData, 0, 0);
