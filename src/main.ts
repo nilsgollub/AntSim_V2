@@ -7,6 +7,7 @@ import { Camera } from './graphics/Camera';
 import { Food } from './simulation/Food';
 import { Ant } from './simulation/Ant';
 import { PerformanceManager, QualityLevel } from './PerformanceManager';
+import { applyTunerAction } from './simulation/SimObserver';
 import type { TunerSuggestion } from './simulation/SimObserver';
 
 // ── Canvas setup ────────────────────────────────────────────────────────────
@@ -236,18 +237,68 @@ function severityIcon(s: TunerSuggestion['severity']): string {
     return { good: '✅', info: 'ℹ️', warn: '⚠️', critical: '🚨' }[s];
 }
 
+// Keeps the suggestions currently shown so the delegated click handler can
+// resolve which action a button refers to.
+let currentSuggestions: TunerSuggestion[] = [];
+
 function renderTunerSuggestions(suggestions: TunerSuggestion[]) {
-    tunerContent.innerHTML = suggestions.map(s =>
-        `<div class="tuner-row">
+    currentSuggestions = suggestions;
+    const anyActions = suggestions.some(s => s.actions && s.actions.length > 0);
+
+    const rows = suggestions.map((s, si) => {
+        const actionsHtml = (s.actions ?? []).map((a, ai) =>
+            `<button class="tuner-apply" data-si="${si}" data-ai="${ai}" title="Übernehmen">${a.label}</button>`
+        ).join('');
+        return `<div class="tuner-row">
           <div class="tuner-metric tuner-${s.severity}">
             ${severityIcon(s.severity)} ${s.metric}
-            <span style="font-weight:normal;color:#888;font-size:9px"> — Beobachtet: ${s.observed} (Ziel: ${s.target})</span>
+            <span style="font-weight:normal;color:#888;font-size:9px"> — ${s.observed} (Ziel: ${s.target})</span>
           </div>
           <div class="tuner-suggestion">💡 ${s.suggestion}</div>
           <div class="tuner-effect">→ ${s.effect}</div>
-        </div>`
-    ).join('');
+          ${actionsHtml ? `<div class="tuner-actions">${actionsHtml}</div>` : ''}
+        </div>`;
+    }).join('');
+
+    const header = anyActions
+        ? `<button id="tunerApplyAll">✓ Alle übernehmen</button>
+           <div class="tuner-hint">Werte greifen sofort (live). Restart setzt nichts zurück.</div>`
+        : '';
+    tunerContent.innerHTML = header + rows;
 }
+
+function markApplied(btn: HTMLButtonElement) {
+    btn.classList.add('applied');
+    btn.disabled = true;
+    btn.textContent = '✓ ' + btn.textContent;
+}
+
+// Delegated handler for apply buttons (per-action and "apply all").
+tunerContent.addEventListener('click', (e) => {
+    const t = e.target as HTMLElement;
+
+    if (t.id === 'tunerApplyAll') {
+        for (const s of currentSuggestions) {
+            for (const a of s.actions ?? []) applyTunerAction(a);
+        }
+        tunerContent.querySelectorAll<HTMLButtonElement>('.tuner-apply').forEach(b => {
+            if (!b.disabled) markApplied(b);
+        });
+        (t as HTMLButtonElement).disabled = true;
+        t.textContent = '✓ Alle übernommen';
+        return;
+    }
+
+    if (t.classList.contains('tuner-apply')) {
+        const si = Number(t.dataset.si);
+        const ai = Number(t.dataset.ai);
+        const action = currentSuggestions[si]?.actions?.[ai];
+        if (action) {
+            applyTunerAction(action);
+            markApplied(t as HTMLButtonElement);
+        }
+    }
+});
 
 analyzeBtn.addEventListener('click', () => {
     const suggestions = world.observer.analyze();

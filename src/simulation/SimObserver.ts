@@ -1,14 +1,55 @@
 import type { World } from './World';
+import { CONFIG } from '../config';
 
 export type SeverityLevel = 'good' | 'info' | 'warn' | 'critical';
+
+/** A concrete, machine-applicable parameter change. */
+export interface TunerAction {
+    path: string;   // dot-path into CONFIG, e.g. 'antEnergyDecay' or 'ant.queenFeedAmount'
+    label: string;  // e.g. "antEnergyDecay: 0.3 → 0.24"
+    from: number;
+    to: number;
+}
 
 export interface TunerSuggestion {
     metric: string;
     observed: string;
     target: string;
     severity: SeverityLevel;
-    suggestion: string;  // which config key / what to change
-    effect: string;      // human-readable consequence
+    suggestion: string;        // human-readable description of what to change
+    effect: string;            // human-readable consequence
+    actions?: TunerAction[];   // applyable changes (empty/undefined = nothing to apply)
+}
+
+// ── CONFIG path helpers ──────────────────────────────────────────────────────
+function getCfg(path: string): number {
+    return path.split('.').reduce((o: any, k) => (o == null ? o : o[k]), CONFIG) as number;
+}
+
+function setCfg(path: string, value: number) {
+    const keys = path.split('.');
+    const last = keys.pop()!;
+    const obj = keys.reduce((o: any, k) => o[k], CONFIG);
+    if (obj) obj[last] = value;
+}
+
+// Round a nudged value sensibly: integer-typed configs stay integers, small
+// rates/decimals keep three significant figures.
+function nudgeValue(current: number, factor: number): number {
+    const v = current * factor;
+    if (Number.isInteger(current) && Math.abs(current) >= 1) return Math.round(v);
+    return Number(v.toPrecision(3));
+}
+
+function mkAction(path: string, factor: number): TunerAction {
+    const from = getCfg(path);
+    const to = nudgeValue(from, factor);
+    return { path, from, to, label: `${path}: ${from} → ${to}` };
+}
+
+/** Apply a single tuner action by mutating the live CONFIG object. */
+export function applyTunerAction(a: TunerAction) {
+    setCfg(a.path, a.to);
 }
 
 interface Snapshot {
@@ -79,7 +120,7 @@ export class SimObserver {
         if (this.snapshots.length > WINDOW_SIZE) this.snapshots.shift();
     }
 
-    /** Call on user request. Returns typed suggestions with explanation of effect. */
+    /** Call on user request. Returns typed suggestions with explanation + applyable actions. */
     analyze(): TunerSuggestion[] {
         if (this.snapshots.length < 2) {
             return [{
@@ -107,8 +148,9 @@ export class SimObserver {
                 observed: `${(growthRate * 100).toFixed(0)} % Rückgang`,
                 target: '≥ 0 % (stabil)',
                 severity: 'critical',
-                suggestion: 'CONFIG.antEnergyDecay senken (aktuell 0.30) oder CONFIG.sugarValue erhöhen (aktuell 10)',
+                suggestion: 'Energieverbrauch senken oder Zuckerertrag erhöhen',
                 effect: 'Weniger Energieverbrauch pro Frame → Ameisen überleben länger; mehr Zucker pro Ernte → Nahrungsversorgung wird besser.',
+                actions: [mkAction('antEnergyDecay', 0.8), mkAction('sugarValue', 1.3)],
             });
         } else if (growthRate < -0.05) {
             push({
@@ -116,8 +158,9 @@ export class SimObserver {
                 observed: `${(growthRate * 100).toFixed(0)} % Rückgang`,
                 target: '> −5 %',
                 severity: 'warn',
-                suggestion: 'CONFIG.antEnergyDecay leicht senken oder CONFIG.eggCost verringern (aktuell 20)',
+                suggestion: 'Energieverbrauch leicht senken oder Eiproduktion verbilligen',
                 effect: 'Geringerer Energieverbrauch oder günstigere Eiproduktion stabilisiert die Kolonie.',
+                actions: [mkAction('antEnergyDecay', 0.9), mkAction('eggCost', 0.8)],
             });
         } else if (growthRate > 0.05) {
             push({
@@ -131,15 +174,16 @@ export class SimObserver {
         }
 
         // ── Energy health ────────────────────────────────────────────────────
-        const avgEnergyRatio = latest.avgEnergy / 2000; // antMaxEnergy = 2000
+        const avgEnergyRatio = latest.avgEnergy / CONFIG.antMaxEnergy;
         if (avgEnergyRatio < 0.3) {
             push({
                 metric: 'Durchschnittliche Energie',
                 observed: `${(avgEnergyRatio * 100).toFixed(0)} % von Max`,
                 target: '> 50 %',
                 severity: 'critical',
-                suggestion: 'CONFIG.antEnergyDecay senken (< 0.30) oder CONFIG.sugarSourceCount erhöhen (aktuell 2)',
+                suggestion: 'Energieverbrauch senken oder mehr Nahrungsquellen',
                 effect: 'Ameisen verbrennen Energie schneller als sie tanken können. Mehr Nahrungsquellen oder geringerer Verbrauch hält die Kolonie lebensfähig.',
+                actions: [mkAction('antEnergyDecay', 0.8), mkAction('sugarSourceCount', 1.5)],
             });
         } else if (avgEnergyRatio < 0.5) {
             push({
@@ -147,8 +191,9 @@ export class SimObserver {
                 observed: `${(avgEnergyRatio * 100).toFixed(0)} % von Max`,
                 target: '> 50 %',
                 severity: 'warn',
-                suggestion: 'CONFIG.sugarValue erhöhen (aktuell 10) oder CONFIG.antEnergyDecay leicht senken',
+                suggestion: 'Zuckerertrag erhöhen oder Verbrauch leicht senken',
                 effect: 'Energiepuffer der Ameisen ist knapp. Etwas mehr Nahrungsertrag verhindert Massensterben bei plötzlichem Angriff.',
+                actions: [mkAction('sugarValue', 1.3), mkAction('antEnergyDecay', 0.9)],
             });
         } else if (avgEnergyRatio > 0.85) {
             push({
@@ -156,8 +201,9 @@ export class SimObserver {
                 observed: `${(avgEnergyRatio * 100).toFixed(0)} % von Max`,
                 target: '50–85 %',
                 severity: 'info',
-                suggestion: 'CONFIG.antEnergyDecay erhöhen (> 0.30) für mehr Herausforderung',
+                suggestion: 'Energieverbrauch erhöhen für mehr Herausforderung',
                 effect: 'Ameisen haben zu viel Reserve — das Spiel verliert Spannung. Mehr Verbrauch erzwingt aktiveres Sammeln.',
+                actions: [mkAction('antEnergyDecay', 1.15)],
             });
         }
 
@@ -171,8 +217,9 @@ export class SimObserver {
                 observed: `${(activeFrac * 100).toFixed(0)} % der Worker sammeln`,
                 target: '40–75 %',
                 severity: 'warn',
-                suggestion: 'CONFIG.sugarValue erhöhen (aktuell 10) oder CONFIG.sugarSourceCount erhöhen',
+                suggestion: 'Zuckerertrag oder Anzahl Nahrungsquellen erhöhen',
                 effect: 'Fast alle Worker müssen sammeln — ein Zeichen für Nahrungsknappheit. Mehr Ertragsquellen reduzieren den Stress der Kolonie.',
+                actions: [mkAction('sugarValue', 1.3), mkAction('sugarSourceCount', 1.5)],
             });
         } else if (activeFrac < 0.2 && latest.antCount > 20) {
             push({
@@ -180,8 +227,9 @@ export class SimObserver {
                 observed: `${(activeFrac * 100).toFixed(0)} % der Worker sammeln`,
                 target: '40–75 %',
                 severity: 'info',
-                suggestion: 'CONFIG.antEnergyDecay erhöhen (> 0.30) oder CONFIG.sugarValue senken',
+                suggestion: 'Energieverbrauch erhöhen, damit Worker aktiver werden',
                 effect: 'Kolonie ist zu gut versorgt, Worker rasten zu viel. Ein höherer Energieverbrauch belebt die Simulation.',
+                actions: [mkAction('antEnergyDecay', 1.15)],
             });
         }
 
@@ -195,8 +243,9 @@ export class SimObserver {
                 observed: `${(combatRatio * 100).toFixed(0)} % kämpfen/fliehen`,
                 target: '< 25 %',
                 severity: 'critical',
-                suggestion: 'CONFIG.predatorSpawnRate senken (aktuell 0.0005) oder CONFIG.gracePeriod erhöhen (aktuell 4000)',
+                suggestion: 'Feind-Spawnrate senken oder Schonzeit verlängern',
                 effect: 'Zu viele Feinde überlasten die Kolonie. Längere Schonzeit oder langsamere Spawn-Rate gibt der Kolonie Zeit sich zu entwickeln.',
+                actions: [mkAction('predatorSpawnRate', 0.6), mkAction('gracePeriod', 1.5)],
             });
         } else if (combatRatio < 0.02 && latest.antCount > 30 && span >= 6) {
             push({
@@ -204,21 +253,23 @@ export class SimObserver {
                 observed: `${(combatRatio * 100).toFixed(0)} % kämpfen/fliehen`,
                 target: '2–25 %',
                 severity: 'info',
-                suggestion: 'CONFIG.predatorSpawnRate erhöhen (aktuell 0.0005) oder CONFIG.maxPredators erhöhen (aktuell 2)',
+                suggestion: 'Feind-Spawnrate oder Feind-Obergrenze erhöhen',
                 effect: 'Keine Bedrohung — die Simulation wirkt langweilig. Mehr Feinde erzeugen spannende Verteidigungsreaktionen.',
+                actions: [mkAction('predatorSpawnRate', 1.5), mkAction('maxPredators', 1.5)],
             });
         }
 
         // ── Queen health ─────────────────────────────────────────────────────
-        const queenRatio = latest.queenEnergy / 2000; // queen max energy
+        const queenRatio = latest.queenEnergy / CONFIG.antMaxEnergy;
         if (queenRatio < 0.3) {
             push({
                 metric: 'Königinnen-Energie',
                 observed: `${(queenRatio * 100).toFixed(0)} % von Max`,
                 target: '> 50 %',
                 severity: 'critical',
-                suggestion: 'CONFIG.ant.queenFeedAmount erhöhen (aktuell 500) oder CONFIG.proteinValue erhöhen (aktuell 5)',
+                suggestion: 'Pflege-Protein-Menge oder Proteinwert erhöhen',
                 effect: 'Königin ist unterernährt und kann keine Eier legen. Mehr Protein pro Pflegeakt oder höherer Proteinwert pro Nahrungsquelle hilft.',
+                actions: [mkAction('ant.queenFeedAmount', 1.3), mkAction('proteinValue', 1.4)],
             });
         }
         if (latest.queenStress > 20) {
@@ -227,8 +278,9 @@ export class SimObserver {
                 observed: `Stress: ${latest.queenStress.toFixed(1)}`,
                 target: '< 15',
                 severity: 'warn',
-                suggestion: 'CONFIG.predatorSpawnRate senken oder CONFIG.soldierHealth erhöhen (aktuell 60)',
+                suggestion: 'Feind-Spawnrate senken oder Soldaten stärken',
                 effect: 'Feinde dringen nah an das Nest heran. Stärkere Soldaten oder weniger Feinde schützen die Königin besser.',
+                actions: [mkAction('predatorSpawnRate', 0.7), mkAction('soldierHealth', 1.25)],
             });
         }
 
@@ -240,8 +292,9 @@ export class SimObserver {
                 observed: `${broodRatio.toFixed(2)}× Koloniengröße`,
                 target: '> 0.3×',
                 severity: 'warn',
-                suggestion: 'CONFIG.eggCost senken (aktuell 20) oder CONFIG.ant.queenCriticalEnergy senken',
+                suggestion: 'Eiproduktion verbilligen oder Königin früher füttern',
                 effect: 'Königin legt zu wenige Eier. Günstigere Eiproduktion oder niedrigerer Hungerschwellenwert der Königin füllt die Pipeline.',
+                actions: [mkAction('eggCost', 0.8), mkAction('ant.queenCriticalEnergy', 0.9)],
             });
         }
 
@@ -255,8 +308,9 @@ export class SimObserver {
                 observed: `${(soldierFrac * 100).toFixed(0)} %`,
                 target: '10–30 %',
                 severity: 'info',
-                suggestion: 'CONFIG.soldierUnlockThreshold erhöhen (aktuell 30)',
+                suggestion: 'Soldaten-Schwellenwert erhöhen',
                 effect: 'Zu viele Soldaten reduzieren die Sammelkapazität. Höherer Schwellenwert für Soldaten-Produktion balanciert die Kolonie.',
+                actions: [mkAction('soldierUnlockThreshold', 1.3)],
             });
         } else if (soldierFrac < 0.05 && latest.antCount > 40) {
             push({
@@ -264,8 +318,9 @@ export class SimObserver {
                 observed: `${(soldierFrac * 100).toFixed(0)} %`,
                 target: '10–30 %',
                 severity: 'info',
-                suggestion: 'CONFIG.soldierUnlockThreshold senken (aktuell 30)',
+                suggestion: 'Soldaten-Schwellenwert senken',
                 effect: 'Keine Soldaten → Kolonie ist schutzlos. Niedrigerer Schwellenwert für frühere Soldaten-Produktion.',
+                actions: [mkAction('soldierUnlockThreshold', 0.7)],
             });
         }
 
@@ -277,8 +332,9 @@ export class SimObserver {
                 observed: `${sugarPerAnt.toFixed(1)} Einheiten`,
                 target: '> 10',
                 severity: 'warn',
-                suggestion: 'CONFIG.sugarValue erhöhen (aktuell 10) oder CONFIG.sugarSourceCount erhöhen (aktuell 2)',
+                suggestion: 'Zuckerertrag oder Anzahl Nahrungsquellen erhöhen',
                 effect: 'Vorrat reicht kaum für Notfälle. Mehr Ernte pro Quelle oder mehrere Quellen schafft einen Puffer.',
+                actions: [mkAction('sugarValue', 1.3), mkAction('sugarSourceCount', 1.5)],
             });
         }
 

@@ -183,8 +183,37 @@ select {
 .tuner-info    { color: #6fb0df; }
 .tuner-warn    { color: #dfb06f; }
 .tuner-critical{ color: #df5f5f; }
-.tuner-suggestion { color: #ffe680; font-family: monospace; font-size: 9px; }
+.tuner-suggestion { color: #ffe680; font-size: 9px; }
 .tuner-effect  { color: #aaa; font-size: 9px; font-style: italic; }
+.tuner-actions { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; }
+.tuner-apply {
+  font-family: monospace;
+  font-size: 9px;
+  padding: 2px 6px;
+  background: #2d4a2d;
+  border: 1px solid #4d804d;
+  color: #cfe9cf;
+}
+.tuner-apply:hover { background: #3d6a3d; }
+.tuner-apply.applied {
+  background: #333;
+  border-color: #555;
+  color: #7a9a7a;
+  cursor: default;
+}
+#tunerApplyAll {
+  display: block;
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 5px;
+  background: #4d804d;
+  color: #fff;
+  font-weight: bold;
+  font-size: 10px;
+}
+#tunerApplyAll:hover { background: #5d9a5d; }
+#tunerApplyAll:disabled { background: #333; color: #7a9a7a; cursor: default; }
+.tuner-hint { color: #888; font-size: 8px; margin-bottom: 6px; }
 
 /* Responsive Layout */
 @media (orientation: portrait) {

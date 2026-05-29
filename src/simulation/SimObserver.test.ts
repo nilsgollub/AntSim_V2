@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { SimObserver } from './SimObserver';
+import { SimObserver, applyTunerAction } from './SimObserver';
+import { CONFIG } from '../config';
 import type { World } from './World';
 
 // Minimal fake world covering only what SimObserver.observe() reads.
@@ -82,8 +83,9 @@ describe('SimObserver', () => {
         const pop = result.find(r => r.metric === 'Populationstrend');
         expect(pop).toBeDefined();
         expect(pop!.severity).toBe('critical');
-        // The suggestion must name a concrete config key and explain the effect
-        expect(pop!.suggestion).toContain('CONFIG.');
+        // Must carry a concrete applyable action and an explanation of the effect
+        expect(pop!.actions && pop!.actions.length).toBeGreaterThan(0);
+        expect(pop!.actions!.some(a => a.path === 'antEnergyDecay')).toBe(true);
         expect(pop!.effect.length).toBeGreaterThan(10);
     });
 
@@ -133,5 +135,36 @@ describe('SimObserver', () => {
             expect(r.effect).toBeTruthy();
             expect(['good', 'info', 'warn', 'critical']).toContain(r.severity);
         }
+    });
+
+    it('non-good suggestions carry applyable actions with valid from/to', () => {
+        const obs = new SimObserver();
+        obs.observe(fakeWorld(600,  { antCount: 100, energy: 400 }));
+        obs.observe(fakeWorld(1200, { antCount: 60,  energy: 300 }));
+        const result = obs.analyze();
+        const actionable = result.filter(r => r.severity !== 'good');
+        expect(actionable.length).toBeGreaterThan(0);
+        for (const r of actionable) {
+            expect(r.actions && r.actions.length).toBeGreaterThan(0);
+            for (const a of r.actions!) {
+                expect(typeof a.path).toBe('string');
+                expect(Number.isFinite(a.from)).toBe(true);
+                expect(Number.isFinite(a.to)).toBe(true);
+                expect(a.to).not.toBe(a.from); // a real change
+                expect(a.label).toContain('→');
+            }
+        }
+    });
+
+    it('applyTunerAction mutates the live CONFIG (flat + nested paths)', () => {
+        const flatBefore = CONFIG.antEnergyDecay;
+        applyTunerAction({ path: 'antEnergyDecay', from: flatBefore, to: 0.24, label: 'x' });
+        expect(CONFIG.antEnergyDecay).toBe(0.24);
+        CONFIG.antEnergyDecay = flatBefore; // restore
+
+        const nestedBefore = CONFIG.ant.queenFeedAmount;
+        applyTunerAction({ path: 'ant.queenFeedAmount', from: nestedBefore, to: 650, label: 'x' });
+        expect(CONFIG.ant.queenFeedAmount).toBe(650);
+        CONFIG.ant.queenFeedAmount = nestedBefore; // restore
     });
 });
