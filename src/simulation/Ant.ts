@@ -18,6 +18,10 @@ export class Ant {
     age: number = 0;
     maxAge: number;
 
+    // Cosmetic per-ant variety (set once, purely visual).
+    sizeVar: number = 0.85 + Math.random() * 0.3; // 0.85–1.15× draw scale
+    shade: number = Math.floor(Math.random() * 4); // cached-sprite brightness variant
+
     // Pathfinding/Movement
     obstacleTimer: number = 0;
     exitTimer: number = 0;

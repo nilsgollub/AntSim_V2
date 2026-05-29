@@ -39,8 +39,11 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
 - [x] Pheromon-Overlay deckungsgleich unter Kamera (Logik-Space-Rework)
 - [x] Nest-Pheromon-Overlay-Mapping gefixt → **dann komplett ausgeblendet** (im Nest zu dicht)
 
-## 🔜 In Arbeit
-- [ ] Optische Politur (siehe unten)
+### Optische Politur
+- [x] Tag/Nacht-Beleuchtung sichtbar (drawLighting verdrahtet, alle Stufen)
+- [x] HiDPI-Schärfe (Rendering auf devicePixelRatio, gedeckelt bei 2)
+- [x] Pheromon-Trails als weiche Duftwolken (additives Blending + Blur)
+- [x] Ameisen-Varianz (Größe + Helligkeit gegen den „Klon-Look")
 
 ## 🧭 Geplant / Stretch
 - [ ] Rivalisierende Kolonie + Krieg (`colonyId`, 2. Nest/Königin) — großer struktureller Eingriff

@@ -750,10 +750,28 @@ export class Renderer {
     }
 
     // Cache for static ants (Medium Quality)
-    private antSprites: Partial<Record<'WORKER' | 'SOLDIER', HTMLCanvasElement>> = {};
+    // Cached ant sprites keyed by `${type}_${variant}`. Variants are brightness
+    // tweaks so the MEDIUM-quality crowd isn't a field of identical clones.
+    private antSprites: Record<string, HTMLCanvasElement> = {};
+    private static readonly ANT_SHADES = [1.0, 0.85, 1.13, 0.93];
 
-    private getCachedAnt(type: 'WORKER' | 'SOLDIER'): HTMLCanvasElement {
-        if (this.antSprites[type]) return this.antSprites[type]!;
+    private getCachedAnt(type: 'WORKER' | 'SOLDIER', variant: number = 0): HTMLCanvasElement {
+        const v = ((variant % Renderer.ANT_SHADES.length) + Renderer.ANT_SHADES.length) % Renderer.ANT_SHADES.length;
+        const key = `${type}_${v}`;
+        if (this.antSprites[key]) return this.antSprites[key];
+
+        // Variants other than the base are brightness-shifted copies of the base.
+        if (v !== 0) {
+            const base = this.getCachedAnt(type, 0);
+            const tinted = document.createElement('canvas');
+            tinted.width = base.width;
+            tinted.height = base.height;
+            const tctx = tinted.getContext('2d')!;
+            tctx.filter = `brightness(${Renderer.ANT_SHADES[v]})`;
+            tctx.drawImage(base, 0, 0);
+            this.antSprites[key] = tinted;
+            return tinted;
+        }
 
         const canvas = document.createElement('canvas');
         canvas.width = 30; // Sufficient size
@@ -823,7 +841,7 @@ export class Renderer {
             ctx.beginPath(); ctx.ellipse(-3, 0, 2.5, 1.5, 0, 0, Math.PI * 2); ctx.fill();
         }
 
-        this.antSprites[type] = canvas;
+        this.antSprites[`${type}_0`] = canvas;
         return canvas;
     }
 
@@ -831,6 +849,10 @@ export class Renderer {
         ctx.save();
         ctx.translate(ant.x, ant.y);
         ctx.rotate(ant.angle);
+
+        // Subtle per-ant size variance so the colony isn't uniform.
+        const sv = ant.sizeVar || 1;
+        if (sv !== 1) ctx.scale(sv, sv);
 
         if (PerformanceManager.settings.simpleAnts) {
             // OPTIMIZED (Body Only, No Legs, Flat Colors)
@@ -875,7 +897,7 @@ export class Renderer {
 
         // Optimization for MEDIUM: Use Cached Sprite if legs are static
         if (!PerformanceManager.settings.legAnimation && (ant.type === 'WORKER' || ant.type === 'SOLDIER')) {
-            const sprite = this.getCachedAnt(ant.type);
+            const sprite = this.getCachedAnt(ant.type, ant.shade || 0);
             ctx.drawImage(sprite, -15, -15);
 
             // Draw Carrying Item on top
