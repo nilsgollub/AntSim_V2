@@ -1,5 +1,6 @@
 import type { World } from './World';
 import { CONFIG } from '../config';
+import { getByPath, setOverride } from '../configStore';
 
 export type SeverityLevel = 'good' | 'info' | 'warn' | 'critical';
 
@@ -21,18 +22,6 @@ export interface TunerSuggestion {
     actions?: TunerAction[];   // applyable changes (empty/undefined = nothing to apply)
 }
 
-// ── CONFIG path helpers ──────────────────────────────────────────────────────
-function getCfg(path: string): number {
-    return path.split('.').reduce((o: any, k) => (o == null ? o : o[k]), CONFIG) as number;
-}
-
-function setCfg(path: string, value: number) {
-    const keys = path.split('.');
-    const last = keys.pop()!;
-    const obj = keys.reduce((o: any, k) => o[k], CONFIG);
-    if (obj) obj[last] = value;
-}
-
 // Round a nudged value sensibly: integer-typed configs stay integers, small
 // rates/decimals keep three significant figures.
 function nudgeValue(current: number, factor: number): number {
@@ -42,14 +31,14 @@ function nudgeValue(current: number, factor: number): number {
 }
 
 function mkAction(path: string, factor: number): TunerAction {
-    const from = getCfg(path);
+    const from = getByPath(path);
     const to = nudgeValue(from, factor);
     return { path, from, to, label: `${path}: ${from} → ${to}` };
 }
 
-/** Apply a single tuner action by mutating the live CONFIG object. */
+/** Apply a single tuner action: mutate live CONFIG and persist the override. */
 export function applyTunerAction(a: TunerAction) {
-    setCfg(a.path, a.to);
+    setOverride(a.path, a.to);
 }
 
 interface Snapshot {

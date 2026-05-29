@@ -9,6 +9,10 @@ import { Ant } from './simulation/Ant';
 import { PerformanceManager, QualityLevel } from './PerformanceManager';
 import { applyTunerAction } from './simulation/SimObserver';
 import type { TunerSuggestion } from './simulation/SimObserver';
+import { loadOverrides, clearOverrides, hasOverrides } from './configStore';
+
+// Apply persisted parameter overrides to CONFIG before anything reads it.
+loadOverrides();
 
 // ── Canvas setup ────────────────────────────────────────────────────────────
 const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
@@ -71,6 +75,7 @@ const analyzeBtn    = document.getElementById('analyzeBtn')   as HTMLButtonEleme
 const tunerPanel    = document.getElementById('tuner-panel')  as HTMLDivElement;
 const tunerContent  = document.getElementById('tuner-content')as HTMLDivElement;
 const tunerClose    = document.getElementById('tunerClose')   as HTMLButtonElement;
+const tunerReset    = document.getElementById('tunerReset')   as HTMLButtonElement;
 
 // ── Tool mode ───────────────────────────────────────────────────────────────
 type ToolMode = 'SELECT' | 'PLACE_SUGAR' | 'PLACE_PROTEIN' | 'SPAWN_ENEMY';
@@ -136,20 +141,40 @@ document.addEventListener('keydown', e => {
 });
 cameraResetBtn.addEventListener('click', () => camera.reset());
 
+// ── UI-state persistence (quality / pheromones / speed) ──────────────────────
+const UI_KEY = 'antsim.ui.v1';
+function saveUiState() {
+    try {
+        localStorage.setItem(UI_KEY, JSON.stringify({
+            quality: PerformanceManager.level,
+            pheromones: renderer.showPheromones,
+            speed: simSpeed,
+        }));
+    } catch { /* storage unavailable */ }
+}
+
+function applyQuality(level: QualityLevel) {
+    PerformanceManager.setQuality(level);
+    qualitySelect.value = level;
+    world.rebuildPheromoneGrids(); // keep grid resolution in sync with the new quality
+    renderer.resize(CONFIG.width, CONFIG.height, PerformanceManager.settings.resolutionScale);
+    renderer.updateSettings();
+}
+
 // ── Speed / pheromone / quality ──────────────────────────────────────────────
 speedRange.addEventListener('input', () => {
     simSpeed = parseFloat(speedRange.value);
     speedVal.innerText = simSpeed + 'x';
+    saveUiState();
 });
 pheromoneToggle.addEventListener('change', () => {
     renderer.showPheromones = pheromoneToggle.checked;
+    saveUiState();
 });
 qualitySelect.addEventListener('change', () => {
     const val = qualitySelect.value as keyof typeof QualityLevel;
-    PerformanceManager.setQuality(QualityLevel[val]);
-    world.rebuildPheromoneGrids(); // keep grid resolution in sync with the new quality
-    renderer.resize(CONFIG.width, CONFIG.height, PerformanceManager.settings.resolutionScale);
-    renderer.updateSettings();
+    applyQuality(QualityLevel[val]);
+    saveUiState();
 });
 restartBtn.addEventListener('click', () => {
     world = new World();
@@ -308,6 +333,40 @@ analyzeBtn.addEventListener('click', () => {
 tunerClose.addEventListener('click', () => {
     tunerPanel.style.display = 'none';
 });
+tunerReset.addEventListener('click', () => {
+    // Clear persisted parameter overrides and reload to restore pristine defaults.
+    clearOverrides();
+    try { localStorage.removeItem(UI_KEY); } catch { /* ignore */ }
+    location.reload();
+});
+
+// ── Restore persisted UI state ───────────────────────────────────────────────
+(function restoreUiState() {
+    let saved: { quality?: string; pheromones?: boolean; speed?: number } | null = null;
+    try {
+        const raw = localStorage.getItem(UI_KEY);
+        if (raw) saved = JSON.parse(raw);
+    } catch { saved = null; }
+    if (!saved) return;
+
+    if (saved.quality && saved.quality in QualityLevel) {
+        applyQuality(QualityLevel[saved.quality as keyof typeof QualityLevel]);
+    }
+    if (typeof saved.pheromones === 'boolean') {
+        renderer.showPheromones = saved.pheromones;
+        pheromoneToggle.checked = saved.pheromones;
+    }
+    if (typeof saved.speed === 'number' && Number.isFinite(saved.speed)) {
+        simSpeed = saved.speed;
+        speedRange.value = String(saved.speed);
+        speedVal.innerText = saved.speed + 'x';
+    }
+})();
+
+// Surface that custom parameters are active (so a "weird" sim isn't a mystery).
+if (hasOverrides()) {
+    buildInfo.innerText += ' · custom params';
+}
 
 // ── Main game loop ───────────────────────────────────────────────────────────
 let lastTime   = performance.now();
