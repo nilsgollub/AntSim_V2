@@ -53,6 +53,7 @@ export const CONFIG = {
     // Queen
     queenPosition: { x: logicalWidth / 2, y: logicalHeight / 2 },
     eggCost: 20,
+    queenLayInterval: 300, // frames between egg-laying attempts (higher = slower colony growth)
 
     // Pheromones
     pheromoneDecay: 0.990,

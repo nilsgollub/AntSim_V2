@@ -54,7 +54,7 @@ export class Queen {
                 // FIX: Increased brood limit from 50 to 200 to support larger colony sizes
                 if (this.energy > 500 && this.stress < 20 && world.brood.length < 200) {
                     this.state = 'LAYING';
-                    this.layTimer = 100;
+                    this.layTimer = CONFIG.queenLayInterval;
                 }
                 break;
 

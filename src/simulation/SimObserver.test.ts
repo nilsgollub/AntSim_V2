@@ -156,6 +156,18 @@ describe('SimObserver', () => {
         }
     });
 
+    it('flags runaway growth and offers a slower lay interval', () => {
+        const obs = new SimObserver();
+        const base = { soldiers: 4, energy: 1400, queenEnergy: 1800, brood: 20, larvae: 10, sugar: 800, protein: 400 };
+        obs.observe(fakeWorld(600,  { ...base, antCount: 20, foraging: 10 }));
+        obs.observe(fakeWorld(1200, { ...base, antCount: 50, foraging: 25 })); // +150 %
+        const result = obs.analyze();
+        const pop = result.find(r => r.metric === 'Populationstrend');
+        expect(pop).toBeDefined();
+        expect(pop!.severity).toBe('info');
+        expect(pop!.actions!.some(a => a.path === 'queenLayInterval')).toBe(true);
+    });
+
     it('flags a growing sugar surplus and offers an upkeep increase', () => {
         const obs = new SimObserver();
         const base = {

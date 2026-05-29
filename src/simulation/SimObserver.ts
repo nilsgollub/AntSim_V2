@@ -162,6 +162,16 @@ export class SimObserver {
                 effect: 'Geringerer Energieverbrauch oder günstigere Eiproduktion stabilisiert die Kolonie.',
                 actions: [mkAction('antEnergyDecay', 0.9), mkAction('eggCost', 0.8)],
             });
+        } else if (growthRate > 0.5) {
+            push({
+                metric: 'Populationstrend',
+                observed: `+${(growthRate * 100).toFixed(0)} % Wachstum (sehr schnell)`,
+                target: '< 50 % pro Fenster',
+                severity: 'info',
+                suggestion: 'Lege-Intervall der Königin erhöhen oder Ei-Kosten anheben',
+                effect: 'Die Kolonie wächst sehr schnell. Ein größeres Lege-Intervall (oder teurere Eier) bremst die Geburtenrate auf ein angenehmeres Tempo.',
+                actions: [mkAction('queenLayInterval', 1.5), mkAction('eggCost', 1.3)],
+            });
         } else if (growthRate > 0.05) {
             push({
                 metric: 'Populationstrend',
