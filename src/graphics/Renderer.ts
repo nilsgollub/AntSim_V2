@@ -1,6 +1,7 @@
 import { CONFIG } from '../config';
 import { World } from '../simulation/World';
 import { PerformanceManager, QualityLevel } from '../PerformanceManager';
+import { Camera } from './Camera';
 
 export class Renderer {
     canvas!: HTMLCanvasElement;
@@ -23,6 +24,13 @@ export class Renderer {
     nestCanvas!: HTMLCanvasElement;
     nestCtx!: CanvasRenderingContext2D;
     showPheromones: boolean = false;
+
+    // Camera — set from main.ts before calling render().
+    camera: Camera | null = null;
+    // Currently selected entity for highlight ring (set from main.ts).
+    selectedEntity: { x: number; y: number } | null = null;
+    // Current resolution scale (kept for Camera.screenToWorld).
+    resolutionScale: number = 1.0;
 
     // Background Texture
     bgCanvas!: HTMLCanvasElement;
@@ -103,13 +111,15 @@ export class Renderer {
     resize(logicalWidth: number, logicalHeight: number, scale: number) {
         this.width = logicalWidth;
         this.height = logicalHeight;
+        this.resolutionScale = scale;
 
         // Physical size (pixels)
         this.canvas.width = Math.floor(logicalWidth * scale);
         this.canvas.height = Math.floor(logicalHeight * scale);
 
-        // Context Transform: 
-        // We want draw ops at (100,100) to land on (100*scale, 100*scale)
+        // Context Transform:
+        // We want draw ops at (100,100) to land on (100*scale, 100*scale).
+        // Camera transform is applied per-frame on top of this inside save/restore.
         this.ctx.resetTransform();
         this.ctx.scale(scale, scale);
         this.ctx.imageSmoothingEnabled = false;
@@ -186,9 +196,18 @@ export class Renderer {
     }
 
     renderWorld(world: World) {
-        // 0. Background (Texture)
-        // Draw to fill the simulation bounds
-        this.ctx.drawImage(this.bgCanvas, 0, 0, this.width, this.height);
+        const ctx = this.ctx;
+
+        // Apply camera transform for the entire world scene.  All world-space
+        // drawing happens inside this block; screen-space effects (god rays,
+        // vignette, lighting) are applied afterwards without the camera.
+        ctx.save();
+        if (this.camera) {
+            this.camera.applyTo(ctx, this.width, this.height);
+        }
+
+        // 0. Background (Texture) — scrolls with camera
+        ctx.drawImage(this.bgCanvas, 0, 0, this.width, this.height);
 
         // 1. Pheromones (Overlay)
         if (this.showPheromones) {
@@ -239,29 +258,18 @@ export class Renderer {
             // Put data to offscreen canvas
             this.pheromoneCtx.putImageData(this.pheroImageData, 0, 0);
 
-            // Draw scaled up to main canvas
-            this.ctx.imageSmoothingEnabled = true;
-
-
-
-            this.ctx.globalAlpha = 0.6; // Slight transparency for pheromones
-
-            // Apply blur to simulate smoke/diffusion (HIGH/ULTRA only)
+            // Draw pheromone overlay in logical world-space so it lines up with
+            // entities under any camera zoom/pan (no resetTransform).
+            ctx.imageSmoothingEnabled = true;
+            ctx.globalAlpha = 0.6;
             if (PerformanceManager.level === QualityLevel.ULTRA || PerformanceManager.level === QualityLevel.HIGH) {
-                this.ctx.filter = 'blur(4px)';
+                ctx.filter = 'blur(4px)';
             }
-            // Save and reset transform to draw at physical canvas size
-            this.ctx.save();
-            this.ctx.resetTransform();
-            this.ctx.drawImage(this.pheromoneCanvas, 0, 0, this.canvas.width, this.canvas.height);
-            this.ctx.restore();
-            this.ctx.filter = 'none'; // Reset filter
-
-            // Reset shadow
-            this.ctx.shadowBlur = 0;
-
-            this.ctx.globalAlpha = 1.0;
-            this.ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(this.pheromoneCanvas, 0, 0, this.width, this.height);
+            ctx.filter = 'none';
+            ctx.globalAlpha = 1.0;
+            ctx.imageSmoothingEnabled = false;
+            ctx.shadowBlur = 0;
         }
 
 
@@ -348,7 +356,24 @@ export class Renderer {
         // 7. Particles
         this.drawParticles(world);
 
-        // ULTRA EFFECTS
+        // 8. Selection highlight ring (drawn in world space so it moves with camera)
+        if (this.selectedEntity) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 255, 100, 0.85)';
+            ctx.lineWidth = 1.5 / (this.camera?.zoom ?? 1);
+            const pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.006);
+            ctx.globalAlpha = 0.5 + 0.5 * pulse;
+            ctx.beginPath();
+            ctx.arc(this.selectedEntity.x, this.selectedEntity.y, 8, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.globalAlpha = 1.0;
+            ctx.restore();
+        }
+
+        // End of camera-transformed world scene.
+        ctx.restore();
+
+        // Screen-space post-effects (no camera transform, drawn over everything).
         if (PerformanceManager.level === QualityLevel.ULTRA) {
             this.drawGodRays();
             this.drawVignette();

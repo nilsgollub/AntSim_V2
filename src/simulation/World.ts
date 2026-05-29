@@ -10,6 +10,7 @@ import { Brood } from './Brood';
 import { PerformanceManager } from '../PerformanceManager';
 
 import { Nest } from './Nest';
+import { SimObserver } from './SimObserver';
 
 export class World {
     ants: Ant[];
@@ -43,6 +44,9 @@ export class World {
 
     // Vegetation
     grass: { x: number, y: number, size: number, angle: number }[] = [];
+
+    // Performance observer / parameter tuner
+    observer: SimObserver = new SimObserver();
 
     constructor() {
         this.terrain = new Terrain();
@@ -160,6 +164,18 @@ export class World {
             amount = 100 + Math.floor(Math.random() * 200);
         }
         this.foods.push(new Food(x, y, type, amount));
+    }
+
+    placeFood(x: number, y: number, type: 'SUGAR' | 'PROTEIN') {
+        if (!this.terrain.isBlocked(x, y)) {
+            this.foods.push(new Food(x, y, type, type === 'SUGAR' ? 200 : 150));
+        }
+    }
+
+    spawnEnemyAt(x: number, y: number, type: 'PREDATOR' | 'SPIDER' | 'BEETLE') {
+        if (!this.terrain.isBlocked(x, y)) {
+            this.insects.push(new Insect(x, y, type));
+        }
     }
 
     getSafePosition(): { x: number, y: number } {
@@ -352,6 +368,9 @@ export class World {
                 this.insects.splice(i, 1);
             }
         }
+
+        // Non-intrusively sample metrics for the parameter tuner (~every 10s).
+        this.observer.observe(this);
 
         // Update Food
         for (let i = this.foods.length - 1; i >= 0; i--) {

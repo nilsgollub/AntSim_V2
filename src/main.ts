@@ -3,139 +3,317 @@ import './style.css';
 import { CONFIG } from './config';
 import { World } from './simulation/World';
 import { Renderer } from './graphics/Renderer';
+import { Camera } from './graphics/Camera';
+import { Food } from './simulation/Food';
+import { Ant } from './simulation/Ant';
 import { PerformanceManager, QualityLevel } from './PerformanceManager';
+import type { TunerSuggestion } from './simulation/SimObserver';
 
+// ── Canvas setup ────────────────────────────────────────────────────────────
 const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
 
-// DEBUG: Catch global errors
 window.onerror = function (msg, _url, lineNo, _columnNo, _error) {
-  const div = document.createElement('div');
-  div.style.position = 'fixed';
-  div.style.top = '0';
-  div.style.left = '0';
-  div.style.width = '100%';
-  div.style.background = '#AA0000';
-  div.style.color = 'white';
-  div.style.padding = '10px';
-  div.style.zIndex = '99999';
-  div.style.fontSize = '14px';
-  div.style.fontFamily = 'monospace';
-  div.innerText = `ERROR: ${msg}\nLine: ${lineNo}`;
-  document.body.appendChild(div);
-  return false;
+    const div = document.createElement('div');
+    div.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:#AA0000;color:white;padding:10px;z-index:99999;font-size:14px;font-family:monospace';
+    div.innerText = `ERROR: ${msg}\nLine: ${lineNo}`;
+    document.body.appendChild(div);
+    return false;
 };
-// Canvas size is now managed by Renderer for resolution scaling
 
 const nestCanvas = document.getElementById('nestCanvas') as HTMLCanvasElement;
-nestCanvas.width = CONFIG.nestWidth;
+nestCanvas.width  = CONFIG.nestWidth;
 nestCanvas.height = CONFIG.nestHeight;
 
 let world = new World();
 const renderer = new Renderer(canvas);
+const camera   = new Camera(CONFIG.width, CONFIG.height);
+renderer.camera = camera;
 
-// Build Info Overlay
+// ── Build info ──────────────────────────────────────────────────────────────
 const buildInfo = document.createElement('div');
-buildInfo.style.position = 'absolute';
-buildInfo.style.bottom = '5px';
-buildInfo.style.right = '5px';
-buildInfo.style.color = 'rgba(255, 255, 255, 0.5)';
-buildInfo.style.fontFamily = 'monospace';
-buildInfo.style.fontSize = '12px';
-buildInfo.style.pointerEvents = 'none';
-buildInfo.innerText = 'Build: 2025-12-17 21:00 - RELEASE 1.0 (MEDIUM + AUTO)';
+buildInfo.style.cssText = 'position:absolute;bottom:5px;right:5px;color:rgba(255,255,255,0.5);font-family:monospace;font-size:12px;pointer-events:none';
+buildInfo.innerText = 'Build: 2025-12-17 21:00 - RELEASE 2.0';
 document.body.appendChild(buildInfo);
 
+// ── Simulation state ────────────────────────────────────────────────────────
+let simSpeed  = 1;
+let paused    = false;
 
-// Controls
-let simSpeed = 1;
-const speedRange = document.getElementById('speedRange') as HTMLInputElement;
-const speedVal = document.getElementById('speedVal') as HTMLElement;
-const restartBtn = document.getElementById('restartBtn') as HTMLButtonElement;
-const fpsDisplay = document.getElementById('fps') as HTMLElement;
-const popStat = document.getElementById('popStat') as HTMLElement;
-const foodStat = document.getElementById('foodStat') as HTMLElement;
-const queenStat = document.getElementById('queenStat') as HTMLElement;
+// ── UI elements ─────────────────────────────────────────────────────────────
+const speedRange     = document.getElementById('speedRange')     as HTMLInputElement;
+const speedVal       = document.getElementById('speedVal')       as HTMLElement;
+const restartBtn     = document.getElementById('restartBtn')     as HTMLButtonElement;
+const fpsDisplay     = document.getElementById('fps')            as HTMLElement;
+const popStat        = document.getElementById('popStat')        as HTMLElement;
+const foodStat       = document.getElementById('foodStat')       as HTMLElement;
+const queenStat      = document.getElementById('queenStat')      as HTMLElement;
+const pauseBtn       = document.getElementById('pauseBtn')       as HTMLButtonElement;
+const stepBtn        = document.getElementById('stepBtn')        as HTMLButtonElement;
+const cameraResetBtn = document.getElementById('cameraResetBtn') as HTMLButtonElement;
+const pheromoneToggle= document.getElementById('pheromoneToggle')as HTMLInputElement;
+const qualitySelect  = document.getElementById('qualitySelect')  as HTMLSelectElement;
 
+// Tool buttons
+const toolSelectBtn  = document.getElementById('toolSelect')     as HTMLButtonElement;
+const toolFoodBtn    = document.getElementById('toolFood')       as HTMLButtonElement;
+const toolProteinBtn = document.getElementById('toolProtein')    as HTMLButtonElement;
+const toolEnemyBtn   = document.getElementById('toolEnemy')      as HTMLButtonElement;
+const toolBtns       = [toolSelectBtn, toolFoodBtn, toolProteinBtn, toolEnemyBtn];
+
+// Inspector
+const inspectorDiv     = document.getElementById('inspector')      as HTMLDivElement;
+const inspectorContent = document.getElementById('inspector-content') as HTMLDivElement;
+const inspectorClose   = document.getElementById('inspectorClose') as HTMLButtonElement;
+
+// Tuner
+const analyzeBtn    = document.getElementById('analyzeBtn')   as HTMLButtonElement;
+const tunerPanel    = document.getElementById('tuner-panel')  as HTMLDivElement;
+const tunerContent  = document.getElementById('tuner-content')as HTMLDivElement;
+const tunerClose    = document.getElementById('tunerClose')   as HTMLButtonElement;
+
+// ── Tool mode ───────────────────────────────────────────────────────────────
+type ToolMode = 'SELECT' | 'PLACE_SUGAR' | 'PLACE_PROTEIN' | 'SPAWN_ENEMY';
+let toolMode: ToolMode = 'SELECT';
+
+function setTool(mode: ToolMode) {
+    toolMode = mode;
+    toolBtns.forEach(b => b.classList.remove('active'));
+    const map: Record<ToolMode, HTMLButtonElement> = {
+        SELECT:        toolSelectBtn,
+        PLACE_SUGAR:   toolFoodBtn,
+        PLACE_PROTEIN: toolProteinBtn,
+        SPAWN_ENEMY:   toolEnemyBtn,
+    };
+    map[mode].classList.add('active');
+}
+toolSelectBtn.addEventListener('click',  () => setTool('SELECT'));
+toolFoodBtn.addEventListener('click',    () => setTool('PLACE_SUGAR'));
+toolProteinBtn.addEventListener('click', () => setTool('PLACE_PROTEIN'));
+toolEnemyBtn.addEventListener('click',   () => setTool('SPAWN_ENEMY'));
+
+// ── Selected entity for inspect ─────────────────────────────────────────────
+let selectedAnt: Ant | null = null;
+
+function clearSelection() {
+    selectedAnt = null;
+    renderer.selectedEntity = null;
+    inspectorDiv.style.display = 'none';
+}
+
+inspectorClose.addEventListener('click', clearSelection);
+
+function updateInspector() {
+    if (!selectedAnt) return;
+    if (!world.ants.includes(selectedAnt)) { clearSelection(); return; }
+    inspectorDiv.style.display = 'block';
+    renderer.selectedEntity = selectedAnt;
+    const a = selectedAnt;
+    const ageRatio = (a.age / a.maxAge * 100).toFixed(0);
+    const energyPct = (a.energy / CONFIG.antMaxEnergy * 100).toFixed(0);
+    inspectorContent.innerHTML =
+        `<strong>${a.type}</strong><br>` +
+        `State: ${a.state}<br>` +
+        `Health: ${a.health.toFixed(0)}<br>` +
+        `Energy: ${energyPct}%<br>` +
+        `Age: ${ageRatio}% of lifespan<br>` +
+        `Carrying: ${a.carrying}<br>` +
+        `Location: ${a.location}`;
+}
+
+// ── Playback controls ────────────────────────────────────────────────────────
+pauseBtn.addEventListener('click', () => {
+    paused = !paused;
+    pauseBtn.textContent = paused ? '▶' : '⏸';
+    pauseBtn.title = paused ? 'Resume (Space)' : 'Pause (Space)';
+});
+stepBtn.addEventListener('click', () => { if (paused) world.update(); });
+document.addEventListener('keydown', e => {
+    if (e.code === 'Space' && (e.target as HTMLElement).tagName !== 'INPUT') {
+        e.preventDefault();
+        pauseBtn.click();
+    }
+});
+cameraResetBtn.addEventListener('click', () => camera.reset());
+
+// ── Speed / pheromone / quality ──────────────────────────────────────────────
 speedRange.addEventListener('input', () => {
-  simSpeed = parseFloat(speedRange.value);
-  speedVal.innerText = simSpeed + 'x';
+    simSpeed = parseFloat(speedRange.value);
+    speedVal.innerText = simSpeed + 'x';
 });
-
-const pheromoneToggle = document.getElementById('pheromoneToggle') as HTMLInputElement;
 pheromoneToggle.addEventListener('change', () => {
-  renderer.showPheromones = pheromoneToggle.checked;
+    renderer.showPheromones = pheromoneToggle.checked;
 });
-
-const qualitySelect = document.getElementById('qualitySelect') as HTMLSelectElement;
 qualitySelect.addEventListener('change', () => {
-  const val = qualitySelect.value as keyof typeof QualityLevel;
-  PerformanceManager.setQuality(QualityLevel[val]);
-  renderer.resize(CONFIG.width, CONFIG.height, PerformanceManager.settings.resolutionScale);
-  renderer.updateSettings();
-});
-
-restartBtn.addEventListener('click', () => {
-  world = new World();
-});
-
-// Loop
-let lastTime = performance.now();
-let frames = 0;
-let lastFpsTime = lastTime;
-let lastQuality = PerformanceManager.level;
-
-
-function loop(now: number) {
-  requestAnimationFrame(loop);
-
-
-  const delta = now - lastTime;
-  lastTime = now;
-  const instantFps = 1000 / (delta || 16); // Avoid infinity on first frame
-  PerformanceManager.monitorFPS(instantFps);
-
-  // Check for auto-downgrade driven by PerformanceManager
-  if (PerformanceManager.level !== lastQuality) {
-    lastQuality = PerformanceManager.level;
-    qualitySelect.value = PerformanceManager.level;
+    const val = qualitySelect.value as keyof typeof QualityLevel;
+    PerformanceManager.setQuality(QualityLevel[val]);
     renderer.resize(CONFIG.width, CONFIG.height, PerformanceManager.settings.resolutionScale);
     renderer.updateSettings();
-    console.log('Applied Quality Downgrade via Main Loop');
-  }
+});
+restartBtn.addEventListener('click', () => {
+    world = new World();
+    clearSelection();
+    camera.reset();
+});
 
-  // FPS
-  frames++;
-  if (now - lastFpsTime >= 1000) {
-    fpsDisplay.innerText = `FPS: ${frames}`;
-    frames = 0;
-    lastFpsTime = now;
-  }
+// ── Camera mouse input ───────────────────────────────────────────────────────
+let isDragging   = false;
+let dragStartX   = 0;
+let dragStartY   = 0;
+let lastMouseX   = 0;
+let lastMouseY   = 0;
+const DRAG_THRESHOLD_PX = 5;  // CSS pixels before a click becomes a drag
 
-  popStat.innerText = `Population: ${world.ants.length} (W:${world.ants.filter(a => a.type === 'WORKER').length} S:${world.ants.filter(a => a.type === 'SOLDIER').length})`;
-  foodStat.innerText = `Protein: ${world.proteinStockpile} | Sugar: ${world.sugarStockpile}`;
+canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+    const anchor = camera.screenToWorld(e.clientX, e.clientY, canvas, renderer.resolutionScale);
+    camera.zoomTo(factor, anchor.x, anchor.y);
+}, { passive: false });
 
-  const ageSeconds = Math.floor(world.queen.age / 60);
-  const minutes = Math.floor(ageSeconds / 60);
-  const seconds = ageSeconds % 60;
-  queenStat.innerText = `Queen Age: ${minutes}m ${seconds}s`;
+canvas.addEventListener('mousedown', (e) => {
+    isDragging  = false;
+    dragStartX  = e.clientX;
+    dragStartY  = e.clientY;
+    lastMouseX  = e.clientX;
+    lastMouseY  = e.clientY;
+});
+canvas.addEventListener('mousemove', (e) => {
+    if (e.buttons !== 1) return;
+    const dx = e.clientX - lastMouseX;
+    const dy = e.clientY - lastMouseY;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+    const moved = Math.hypot(e.clientX - dragStartX, e.clientY - dragStartY);
+    if (moved > DRAG_THRESHOLD_PX) {
+        isDragging = true;
+        camera.pan(dx, dy, renderer.resolutionScale);
+    }
+});
+canvas.addEventListener('mouseup', (e) => {
+    if (isDragging) { isDragging = false; return; }
+    // Click without drag → tool action
+    const wp = camera.screenToWorld(e.clientX, e.clientY, canvas, renderer.resolutionScale);
+    handleCanvasClick(wp.x, wp.y);
+});
 
-  // Update
-  // If speed is high, we might need multiple updates per frame for stability
-  // For now, we just scale the delta or run multiple steps
-  const steps = Math.floor(simSpeed);
-  const remainder = simSpeed - steps;
+// Cursor hint
+canvas.addEventListener('mousemove', (e) => {
+    const cursors: Record<ToolMode, string> = {
+        SELECT:        'default',
+        PLACE_SUGAR:   'crosshair',
+        PLACE_PROTEIN: 'crosshair',
+        SPAWN_ENEMY:   'crosshair',
+    };
+    canvas.style.cursor = e.buttons === 1 && isDragging ? 'grabbing' : cursors[toolMode];
+});
 
-  for (let i = 0; i < steps; i++) {
-    world.update();
-  }
-  // Probabilistic update for remainder? Or just skip. 
-  // For simplicity, let's just run integer steps + 1 with probability
-  if (Math.random() < remainder) {
-    world.update();
-  }
+function handleCanvasClick(worldX: number, worldY: number) {
+    if (toolMode === 'SELECT') {
+        // Hit-test ants using the spatial grid (pre-built each frame)
+        const candidates = world.spatialGrid.getNearby(worldX, worldY, 15);
+        let best: Ant | null = null;
+        let bestDist = Infinity;
+        for (const ant of candidates) {
+            if (ant.location !== 'WORLD') continue;
+            const d = Math.hypot(ant.x - worldX, ant.y - worldY);
+            if (d < 12 && d < bestDist) { best = ant; bestDist = d; }
+        }
+        selectedAnt = best;
+        renderer.selectedEntity = best;
+        inspectorDiv.style.display = best ? 'block' : 'none';
+    } else if (toolMode === 'PLACE_SUGAR') {
+        world.placeFood(worldX, worldY, 'SUGAR');
+    } else if (toolMode === 'PLACE_PROTEIN') {
+        world.placeFood(worldX, worldY, 'PROTEIN');
+    } else if (toolMode === 'SPAWN_ENEMY') {
+        world.spawnEnemyAt(worldX, worldY, 'PREDATOR');
+    }
+}
 
-  // Render
-  renderer.render(world);
+// ── Parameter Tuner ──────────────────────────────────────────────────────────
+function severityIcon(s: TunerSuggestion['severity']): string {
+    return { good: '✅', info: 'ℹ️', warn: '⚠️', critical: '🚨' }[s];
+}
+
+function renderTunerSuggestions(suggestions: TunerSuggestion[]) {
+    tunerContent.innerHTML = suggestions.map(s =>
+        `<div class="tuner-row">
+          <div class="tuner-metric tuner-${s.severity}">
+            ${severityIcon(s.severity)} ${s.metric}
+            <span style="font-weight:normal;color:#888;font-size:9px"> — Beobachtet: ${s.observed} (Ziel: ${s.target})</span>
+          </div>
+          <div class="tuner-suggestion">💡 ${s.suggestion}</div>
+          <div class="tuner-effect">→ ${s.effect}</div>
+        </div>`
+    ).join('');
+}
+
+analyzeBtn.addEventListener('click', () => {
+    const suggestions = world.observer.analyze();
+    renderTunerSuggestions(suggestions);
+    tunerPanel.style.display = 'block';
+});
+tunerClose.addEventListener('click', () => {
+    tunerPanel.style.display = 'none';
+});
+
+// ── Main game loop ───────────────────────────────────────────────────────────
+let lastTime   = performance.now();
+let frames     = 0;
+let lastFpsTime= lastTime;
+let lastQuality= PerformanceManager.level;
+
+function loop(now: number) {
+    requestAnimationFrame(loop);
+
+    const delta = now - lastTime;
+    lastTime = now;
+    const instantFps = 1000 / (delta || 16);
+    PerformanceManager.monitorFPS(instantFps);
+
+    // Auto quality downgrade (Pi 4: will settle at a comfortable level automatically)
+    if (PerformanceManager.level !== lastQuality) {
+        lastQuality = PerformanceManager.level;
+        qualitySelect.value = PerformanceManager.level;
+        renderer.resize(CONFIG.width, CONFIG.height, PerformanceManager.settings.resolutionScale);
+        renderer.updateSettings();
+    }
+
+    // FPS counter
+    frames++;
+    if (now - lastFpsTime >= 1000) {
+        fpsDisplay.innerText = `FPS: ${frames}`;
+        frames = 0;
+        lastFpsTime = now;
+    }
+
+    // HUD stats
+    popStat.innerText  = `Population: ${world.ants.length} (W:${world.ants.filter(a => a.type === 'WORKER').length} S:${world.ants.filter(a => a.type === 'SOLDIER').length})`;
+    foodStat.innerText = `Protein: ${world.proteinStockpile} | Sugar: ${world.sugarStockpile}`;
+
+    const ageSeconds = Math.floor(world.queen.age / 60);
+    queenStat.innerText = `Queen Age: ${Math.floor(ageSeconds / 60)}m ${ageSeconds % 60}s`;
+
+    // Simulation update (skipped while paused; render always runs so pan/zoom/inspect work)
+    if (!paused) {
+        const steps = Math.floor(simSpeed);
+        for (let i = 0; i < steps; i++) world.update();
+        if (Math.random() < simSpeed - steps) world.update();
+    }
+
+    // Inspector live update
+    updateInspector();
+
+    // Render (always, even when paused)
+    renderer.render(world);
 }
 
 requestAnimationFrame(loop);
+
+// Expose world/camera for quick browser-console debugging
+(window as unknown as Record<string, unknown>)._world  = world;
+(window as unknown as Record<string, unknown>)._camera = camera;
+(window as unknown as Record<string, unknown>)._config = CONFIG;
+
+// Prevent the Food import from being tree-shaken (used at runtime via World.placeFood)
+void Food;

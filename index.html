@@ -32,6 +32,24 @@
           <input type="checkbox" id="pheromoneToggle">
           <label for="pheromoneToggle" style="cursor: pointer;">Pheromones</label>
         </div>
+        <div class="control-group" id="playback-controls">
+          <button id="pauseBtn" title="Pause/Resume (Space)">⏸</button>
+          <button id="stepBtn"  title="Single Step">⏭</button>
+          <button id="cameraResetBtn" title="Reset Camera">⌖</button>
+        </div>
+        <div class="control-group" id="tool-controls">
+          <span style="font-size:10px;opacity:0.7">Tool:</span>
+          <button id="toolSelect"  class="tool-btn active" title="Inspect (click entity)">🔍</button>
+          <button id="toolFood"    class="tool-btn" title="Place Sugar">🍬</button>
+          <button id="toolProtein" class="tool-btn" title="Place Protein">🥩</button>
+          <button id="toolEnemy"   class="tool-btn" title="Spawn Enemy">☠</button>
+        </div>
+      </div>
+
+      <!-- Inspector panel — updated each frame when an entity is selected -->
+      <div id="inspector" style="display:none">
+        <div id="inspector-content"></div>
+        <button id="inspectorClose" style="float:right;margin-top:4px;font-size:10px">✕</button>
       </div>
 
       <div id="controls-bottom">
@@ -47,6 +65,19 @@
         <div class="control-group">
           <button id="restartBtn">Restart</button>
         </div>
+        <!-- Parameter Tuner -->
+        <div class="control-group">
+          <button id="analyzeBtn" title="Observe simulation and suggest parameter tuning">⚙ Analyse</button>
+        </div>
+      </div>
+
+      <!-- Tuner output panel -->
+      <div id="tuner-panel" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <strong style="font-size:11px">Parameter-Tuner</strong>
+          <button id="tunerClose" style="font-size:10px;padding:2px 6px">✕</button>
+        </div>
+        <div id="tuner-content"></div>
       </div>
     </div>
   </div>
