@@ -3,15 +3,22 @@ import { PheromoneGrid } from './PheromoneGrid';
 import { CONFIG } from '../config';
 
 describe('PheromoneGrid', () => {
-    it('scales the grid down by the resolution factor', () => {
-        const g = new PheromoneGrid(100, 100);
+    it('scales the grid down by the given resolution factor', () => {
+        const g = new PheromoneGrid(100, 100, 0.25);
         expect(g.scale).toBe(0.25);
         expect(g.width).toBe(25);
         expect(g.height).toBe(25);
     });
 
+    it('honours a custom scale (matches the renderer overlay resolution)', () => {
+        const g = new PheromoneGrid(100, 100, 0.5);
+        expect(g.scale).toBe(0.5);
+        expect(g.width).toBe(50);
+        expect(g.height).toBe(50);
+    });
+
     it('round-trips deposit -> get at the same location', () => {
-        const g = new PheromoneGrid(100, 100);
+        const g = new PheromoneGrid(100, 100, 0.25);
         g.deposit(40, 40, 'HOME', 0.5);
         expect(g.get(40, 40, 'HOME')).toBeCloseTo(0.5, 5);
         // Other channels untouched
@@ -19,14 +26,14 @@ describe('PheromoneGrid', () => {
     });
 
     it('ignores out-of-bounds deposits and reads', () => {
-        const g = new PheromoneGrid(100, 100);
+        const g = new PheromoneGrid(100, 100, 0.25);
         expect(() => g.deposit(-10, -10, 'HOME', 1)).not.toThrow();
         expect(g.get(-10, -10, 'HOME')).toBe(0);
         expect(g.get(99999, 99999, 'HOME')).toBe(0);
     });
 
     it('decays values by the configured factor', () => {
-        const g = new PheromoneGrid(100, 100);
+        const g = new PheromoneGrid(100, 100, 0.25);
         g.diffusionEnabled = false; // isolate decay from diffusion
         g.deposit(40, 40, 'HOME', 0.5);
         g.update();
@@ -34,7 +41,7 @@ describe('PheromoneGrid', () => {
     });
 
     it('clamps tiny values to zero', () => {
-        const g = new PheromoneGrid(100, 100);
+        const g = new PheromoneGrid(100, 100, 0.25);
         g.diffusionEnabled = false;
         g.deposit(40, 40, 'HOME', CONFIG.pheromone.minThreshold * 0.5);
         g.update();
@@ -42,7 +49,7 @@ describe('PheromoneGrid', () => {
     });
 
     it('diffuses a spike into neighbouring cells', () => {
-        const g = new PheromoneGrid(100, 100);
+        const g = new PheromoneGrid(100, 100, 0.25);
         g.diffusionEnabled = true;
         // Deposit into a single interior cell (cell coords 10,10 -> world ~40,40)
         g.deposit(40, 40, 'HOME', 1.0);
@@ -58,7 +65,7 @@ describe('PheromoneGrid', () => {
     });
 
     it('does not diffuse the DANGER channel (stays local)', () => {
-        const g = new PheromoneGrid(100, 100);
+        const g = new PheromoneGrid(100, 100, 0.25);
         g.diffusionEnabled = true;
         g.deposit(40, 40, 'DANGER', 1.0);
         g.update();

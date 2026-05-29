@@ -17,8 +17,11 @@ export class PheromoneGrid {
     // Allow tests / callers to opt out of the PerformanceManager dependency.
     diffusionEnabled: boolean = true;
 
-    constructor(width: number, height: number) {
-        this.scale = 0.25; // 1/4 resolution (Optimized for Pi)
+    // `scale` defaults to the active quality's pheromone resolution so the grid
+    // and the renderer's pheromone overlay canvas (which uses the same setting)
+    // are sized identically. Pass an explicit value in tests for determinism.
+    constructor(width: number, height: number, scale: number = PerformanceManager.settings.pheromoneResolutionScale) {
+        this.scale = scale;
         this.width = Math.ceil(width * this.scale);
         this.height = Math.ceil(height * this.scale);
         const size = this.width * this.height;

@@ -66,6 +66,14 @@ export class World {
         this.init();
     }
 
+    // Recreate the pheromone grids at the current quality's resolution. Called on
+    // quality change so the grid scale stays in sync with the renderer's overlay
+    // canvas. Transient trail state is intentionally discarded.
+    rebuildPheromoneGrids() {
+        this.grid = new PheromoneGrid(CONFIG.width, CONFIG.height);
+        this.nestGrid = new PheromoneGrid(CONFIG.nestWidth, CONFIG.nestHeight);
+    }
+
     init() {
         // Generate Grass
         for (let i = 0; i < 200; i++) {

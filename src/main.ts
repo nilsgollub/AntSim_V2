@@ -146,6 +146,7 @@ pheromoneToggle.addEventListener('change', () => {
 qualitySelect.addEventListener('change', () => {
     const val = qualitySelect.value as keyof typeof QualityLevel;
     PerformanceManager.setQuality(QualityLevel[val]);
+    world.rebuildPheromoneGrids(); // keep grid resolution in sync with the new quality
     renderer.resize(CONFIG.width, CONFIG.height, PerformanceManager.settings.resolutionScale);
     renderer.updateSettings();
 });
@@ -275,6 +276,7 @@ function loop(now: number) {
     if (PerformanceManager.level !== lastQuality) {
         lastQuality = PerformanceManager.level;
         qualitySelect.value = PerformanceManager.level;
+        world.rebuildPheromoneGrids(); // keep grid resolution in sync with the new quality
         renderer.resize(CONFIG.width, CONFIG.height, PerformanceManager.settings.resolutionScale);
         renderer.updateSettings();
     }
