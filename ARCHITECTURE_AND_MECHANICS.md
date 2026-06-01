@@ -67,14 +67,20 @@ Ants use a sensory-based steering algorithm:
     Diffusion is gated behind `CONFIG.pheromone.diffusionEnabled` and the per-quality
     `pheromoneDiffusion` flag (disabled at `ULTRA_LOW`/`LOW` for weak hardware).
 
-### 3.3. Combat System
+### 3.3. Combat, Alarm & Defence (`CONFIG.combat`)
 -   **Enemies:** Spiders, Beetles, Predators (generic bugs).
--   **Logic:**
-    -   Ants detect enemies visually (distance check).
-    -   **Attack:** If in range, they stop and deal damage.
-    -   **Panic:** If `DANGER` pheromone is high and allies are few, ants flee.
-    -   **Courage:** Workers fight only in groups. Soldiers fight alone.
--   **Death:** Dead insects spawn food (Protein) at their location.
+-   **Alarm pheromone:** fleeing ants drop a `DANGER` trail (sharp, fast-decaying).
+-   **Soldier recruitment:** a patrolling soldier that senses `DANGER` above
+    `alarmThreshold` switches to ATTACK and follows the danger gradient *to the
+    alarm source* — so soldiers are pulled toward a threat, not just patrolling.
+-   **Local numerical superiority:** a worker mobs an enemy only with enough local
+    allies (`mobMinAllies`) and roughly `mobSuperiority`× more allies than enemies
+    nearby (`countNearbyAllies` vs `countNearbyEnemies`); otherwise it flees and
+    spreads the alarm. Soldiers fight regardless.
+-   **Attack:** in melee range the ant stops and deals `worker/soldierDamage`.
+-   **Grappling/swarming:** an enemy is slowed by `grappleSlowPerAnt` for every ant
+    within `grappleRadius` (capped at `grappleMaxSlow`) — a swarm pins it down.
+-   **Death:** dead insects drop Protein at their location.
 
 ### 3.4. Nest Logic (`Nest.ts`)
 -   **Structure:** A graph of **Nodes** (rooms/junctions) connected by **Tunnels**.

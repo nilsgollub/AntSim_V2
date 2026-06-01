@@ -483,4 +483,20 @@ export class Ant {
         }
         return count;
     }
+
+    // Count dangerous enemies (predators/spiders/beetles) within radius — used to
+    // judge local numerical superiority for mobbing vs fleeing.
+    countNearbyEnemies(world: World, radius: number): number {
+        if (this.location === 'NEST') return 0;
+        const r2 = radius * radius;
+        let count = 0;
+        for (const ins of world.insects) {
+            if (ins.type === 'PREDATOR' || ins.type === 'SPIDER' || ins.type === 'BEETLE') {
+                const dx = ins.x - this.x;
+                const dy = ins.y - this.y;
+                if (dx * dx + dy * dy < r2) count++;
+            }
+        }
+        return count;
+    }
 }

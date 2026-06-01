@@ -331,6 +331,12 @@ export function handlePatrolling(ant: Ant, world: World) {
                 }
             }
         }
+        // Alarm response: rally toward a DANGER trail even without a visible enemy
+        // (ATTACKING then follows the danger gradient to the alarm source).
+        if (world.grid.get(ant.x, ant.y, 'DANGER') > CONFIG.combat.alarmThreshold) {
+            ant.state = 'ATTACKING';
+            return;
+        }
     }
 
     if (ant.energy < CONFIG.ant.foragingHungerThreshold) {
@@ -481,18 +487,16 @@ export function handleFleeing(ant: Ant, world: World) {
 export function handleCombat(ant: Ant, world: World) {
     ant.speedMultiplier = 1.5; // Combat adrenaline
 
-    // 0. Check for Overwhelming Danger (Panic)
-    const dangerLevel = world.grid.get(ant.x, ant.y, 'DANGER');
-    if (dangerLevel > 0.5) { // High danger area
+    // 0. Panic check — workers flee when they lack local numerical superiority.
+    if (ant.type !== 'SOLDIER') {
         const allies = ant.countNearbyAllies(world, 100);
-        if (allies < 3) { // Run if outnumbered/overwhelmed
-            // Soldiers NEVER flee
-            if (ant.type !== 'SOLDIER') {
-                ant.state = 'FLEEING';
-                ant.fleeTimer = 60;
-                ant.angle += Math.PI + (rand() - 0.5);
-                return;
-            }
+        const enemies = ant.countNearbyEnemies(world, 100);
+        const outmatched = allies < Math.max(CONFIG.combat.mobMinAllies, enemies * CONFIG.combat.mobSuperiority);
+        if (outmatched) {
+            ant.state = 'FLEEING';
+            ant.fleeTimer = 60;
+            ant.angle += Math.PI + (rand() - 0.5);
+            return;
         }
     }
 
@@ -515,22 +519,7 @@ export function handleCombat(ant: Ant, world: World) {
     }
 
     if (nearestEnemy && minDist < CONFIG.ant.detectEnemyRangeSq) { // 100px chase range
-
-        // Cowardice Check for Workers
-        if (ant.type === 'WORKER' && ant.attackCooldown % 10 === 0) {
-            const isDangerous = nearestEnemy.type === 'PREDATOR' || nearestEnemy.type === 'SPIDER' || nearestEnemy.type === 'BEETLE';
-
-            if (isDangerous) {
-                const allies = ant.countNearbyAllies(world, 100);
-                if (allies < 3) { // Need 3 friends to be brave against bosses
-                    ant.state = 'FLEEING';
-                    ant.fleeTimer = 60;
-                    ant.angle += Math.PI;
-                    return;
-                }
-            }
-        }
-
+        // (Cowardice handled by the local-superiority panic check above.)
         const dx = nearestEnemy.x - ant.x;
         const dy = nearestEnemy.y - ant.y;
 
@@ -737,12 +726,19 @@ export function handleForaging(ant: Ant, world: World) {
     } else {
         ant.thinkTimer = 3 + Math.floor(rand() * 3);
 
-        // 0. Check for DANGER
+        // 0. Alarm response: graduated. With local numerical superiority, a forager
+        // joins the defence (mob); otherwise it flees and spreads the alarm.
         const dangerLevel = world.grid.get(ant.x, ant.y, 'DANGER');
-        if (dangerLevel > 0.05) {
-            ant.state = 'FLEEING';
-            ant.fleeTimer = 30;
-            ant.angle += Math.PI;
+        if (dangerLevel > CONFIG.combat.alarmThreshold) {
+            const allies = ant.countNearbyAllies(world, 100);
+            const enemies = ant.countNearbyEnemies(world, 100);
+            if (allies >= CONFIG.combat.mobMinAllies && allies >= Math.max(1, enemies) * CONFIG.combat.mobSuperiority) {
+                ant.state = 'ATTACKING'; // rally to the threat
+            } else {
+                ant.state = 'FLEEING';
+                ant.fleeTimer = 30;
+                ant.angle += Math.PI;
+            }
             return;
         }
 

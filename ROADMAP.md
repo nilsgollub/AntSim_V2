@@ -54,12 +54,12 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
 - [x] **Temporale Polyethie**: alters-gewichtete Idle-Transition via `Ant.forageUrge()`
   (jung → Nursing, alt → Foraging); `CONFIG.ant.nurse/forageAgeFraction` + Slider.
 
-- [ ] **Kampf / Flucht / Alarm / Soldaten-Rekrutierung überarbeiten** *(Realismus fehlt)*:
-  Gesamtreview von `handleCombat`/`handleFleeing` + Danger-Pheromon + Notfall-Soldaten.
-  Ideen: gestaffelte Alarmstufen (mehr Danger → mehr Verteidiger, nicht binär), Soldaten
-  werden gezielt zum Alarmherd gerufen (statt nur Patrouille), realistischere Flucht-/
-  Mob-Schwellen (Übermacht zählt lokal), Rekruten-Pheromon, Rückzug-Sammelpunkt, Beißen/
-  Greifen statt nur Distanz-Schaden. Mit Headless-Harness verifizierbar (Kampfquote-Metrik).
+- [x] **Kampf / Flucht / Alarm / Soldaten-Rekrutierung** (Realismus, `CONFIG.combat`):
+  Soldaten folgen jetzt dem DANGER-Gradienten **zum Alarmherd** (statt nur Patrouille);
+  Worker mobben/fliehen nach **lokaler Übermacht** (`countNearbyAllies` vs `countNearbyEnemies`)
+  statt fester Zahl; Feinde werden beim **Schwärmen verlangsamt** (Grapple, `Insect.grappleSlow`).
+  Harness-verifiziert: Kolonie übersteht Angriffe (seed7 @30k ≈ 152 Ameisen, ~30 % Soldaten).
+  *Offen/Ideen:* Rekruten-Pheromon, Rückzug-Sammelpunkt, Beißen-über-Zeit statt Instant-Schaden.
 
 - [ ] **Trophallaxis / Sozialer Magen**: Ameisen tragen Crop-Inhalt (`cropSugar: number`);
   beim Passieren einer hungrigen Nestgenossin oder Larve wird Nahrung direkt mund-zu-mund

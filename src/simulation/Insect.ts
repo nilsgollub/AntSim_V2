@@ -1,4 +1,5 @@
 import { rand } from '../rng';
+import { CONFIG } from '../config';
 
 import { World } from './World';
 import { Ant } from './Ant';
@@ -118,9 +119,10 @@ export class Insect {
         const turnSpeed = 0.15;
         this.angle += Math.max(-turnSpeed, Math.min(turnSpeed, diff));
 
-        // Move
-        const nextX = this.x + Math.cos(this.angle) * this.speed;
-        const nextY = this.y + Math.sin(this.angle) * this.speed;
+        // Move — slowed (pinned) when ants are biting/holding it.
+        const speed = this.speed * (1 - this.grappleSlow(world));
+        const nextX = this.x + Math.cos(this.angle) * speed;
+        const nextY = this.y + Math.sin(this.angle) * speed;
 
         if (!world.terrain.isBlocked(nextX, nextY)) {
             this.x = nextX;
@@ -130,6 +132,22 @@ export class Insect {
             this.angle += Math.PI; // Bounce
             this.pickRandomTarget();
         }
+    }
+
+    // Fraction of speed lost to ants biting/holding this insect (0..grappleMaxSlow).
+    // Aphids are farmed, not attacked, so they're never grappled.
+    grappleSlow(world: World): number {
+        if (this.type === 'APHID') return 0;
+        const r = CONFIG.combat.grappleRadius;
+        const r2 = r * r;
+        let holders = 0;
+        for (const ant of world.spatialGrid.getNearby(this.x, this.y, r)) {
+            if (ant.location !== 'WORLD') continue;
+            const dx = ant.x - this.x;
+            const dy = ant.y - this.y;
+            if (dx * dx + dy * dy < r2) holders++;
+        }
+        return Math.min(CONFIG.combat.grappleMaxSlow, holders * CONFIG.combat.grappleSlowPerAnt);
     }
 
     pickRandomTarget() {
