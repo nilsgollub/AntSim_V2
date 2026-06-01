@@ -97,6 +97,44 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
 - [ ] Screenshot-/Export-Funktion
 - [ ] WebWorker für den Sim-Step (Render entkoppeln)
 
+## 🏗 Architektur & Technische Schuld (Refactors)
+„Was würde ich anders machen, wenn ich neu anfinge" — geerdet an den Schmerzpunkten
+dieser Session (Balance-Whiplash, Navigations-Hänger, blindes Tunen). **Kein Rewrite** —
+gezielte Nachrüstung. Nach Hebelwirkung sortiert.
+
+- [ ] **Deterministische Simulation (seeded PRNG)** *(höchste Priorität)*: `Math.random()`
+  überall ersetzen durch einen injizierten, seed-baren Zufallsgenerator. Ermöglicht
+  reproduzierbare Runs, Save/Replay und — entscheidend — automatisierte Verhaltens-Tests.
+
+- [ ] **Headless Metrik-Harness für emergentes Verhalten**: Sim N Frames ohne DOM laufen
+  lassen und auf Aggregate asserten (Population pendelt in [x,y], Straße bildet sich, kein
+  Vorrat bleibt bei 0). Hätte jede Balance-Regression dieser Session automatisch gefangen.
+  Macht Tuning *verifizierbar* statt „im Browser nachschauen".
+
+- [ ] **Explizites Balance-Modell statt reaktivem Tunen**: Vitalraten (Geburt/Tod/Ertrag/
+  Verbrauch) dokumentieren; Parameter aus Zielwerten ableiten (z.B. Pop ≈ lifespan/layInterval)
+  statt Magic Numbers zu raten. Teilweise vorhanden (config-Gruppen + Tuner), aber nicht als Modell.
+
+- [ ] **Sim-Fidelity von Render-Quality entkoppeln**: Pheromon-Grid-Auflösung/Diffusion hängen
+  aktuell an den Quality-Presets → Verhalten ändert sich je Grafikstufe. Sim sollte
+  quality-unabhängig & deterministisch sein, nur das Rendering skaliert.
+
+- [ ] **`Ant.ts` (FSM) entflechten**: 1350-Zeilen-Gott-Klasse; 12 Zustände + implizite,
+  sich gegenseitig mutierende Übergänge (Quelle der „target loss"-Fehlerklasse). In diskrete
+  State-Handler aufteilen, Perzeption/Steuerung/Entscheidung trennen. Reine Mechanik, kein
+  Verhaltensänderung. (`Renderer.ts` analog in Layer aufteilen.)
+
+- [ ] **Robuste Nest-Navigation**: Kreis-Union + Greedy-Pfadsuche war die Wurzel des Hängens.
+  Ersetzbar durch Raum-Graph mit expliziten Kanten + A* (robust by design). Teil-entschärft
+  durch Stern-Topologie + Wall-Sliding auf `feature/dynamic-nest`.
+
+- [ ] **Daten-orientiert für Skalierung (ECS / Structure-of-Arrays)**: Objekt-pro-Ameise ist
+  GC-/Cache-unfreundlich; für >500 Ameisen oder Kolonienkrieg deutlich schneller in SoA/ECS.
+  Erst angehen, wenn die Performance-Grenze real erreicht wird.
+
+- [ ] **Einheitlicher Spatial-Index für alle Entitäten**: `SpatialGrid` indiziert nur Ameisen;
+  Food/Insekten werden brute-force durchsucht. Vereinheitlichen.
+
 ## Hinweise für Mitarbeitende
 - Build: `npm run build` (strenges `tsc`) · Dev: `npm run dev` · Tests: `npm run test`
 - Tunable-Parameter zentral in `src/config.ts`; Laufzeit-Overrides via `src/configStore.ts`
