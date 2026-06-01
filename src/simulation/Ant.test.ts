@@ -52,3 +52,26 @@ describe('site fidelity (steerToMemory)', () => {
         expect(a.foodMemoryX).toBe(-1);
     });
 });
+
+describe('trail strength ∝ food quality', () => {
+    function harvestFrom(amount: number): Ant {
+        const a = new Ant(0, 0, 'WORKER');
+        a.harvestTimer = 0;
+        a.carryingInstance = {
+            amount, maxAmount: amount, type: 'SUGAR', x: 50, y: 50,
+            harvest() { this.amount -= 1; },
+        };
+        a.handleHarvesting();
+        return a;
+    }
+
+    it('a rich source yields a full-strength trail', () => {
+        const a = harvestFrom(CONFIG.pheromone.qualityRef + 50);
+        expect(a.carryingQuality).toBeCloseTo(1, 5);
+    });
+
+    it('a nearly-empty source yields the minimum trail', () => {
+        const a = harvestFrom(5);
+        expect(a.carryingQuality).toBeCloseTo(CONFIG.pheromone.minQuality, 5);
+    });
+});

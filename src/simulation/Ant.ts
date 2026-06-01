@@ -22,6 +22,9 @@ export class Ant {
     foodMemoryX: number = -1;
     foodMemoryY: number = -1;
 
+    // Trail strength to lay on the way home, set from the source's richness (0..1).
+    carryingQuality: number = 1;
+
     // Cosmetic per-ant variety (set once, purely visual).
     sizeVar: number = 0.85 + Math.random() * 0.3; // 0.85–1.15× draw scale
     shade: number = Math.floor(Math.random() * 4); // cached-sprite brightness variant
@@ -1081,6 +1084,11 @@ export class Ant {
                 // Site fidelity: remember this productive source to return to later.
                 this.foodMemoryX = food.x;
                 this.foodMemoryY = food.y;
+                // Trail quality ∝ how rich the source still is.
+                this.carryingQuality = Math.max(
+                    CONFIG.pheromone.minQuality,
+                    Math.min(1, food.amount / CONFIG.pheromone.qualityRef),
+                );
                 this.carryingInstance = null;
             } else {
                 // Food gone?
@@ -1142,10 +1150,11 @@ export class Ant {
 
         const grid = this.location === 'NEST' ? world.nestGrid : world.grid;
 
+        const trail = CONFIG.pheromone.depositFood * this.carryingQuality;
         if (this.carrying === 'SUGAR') {
-            grid.depositCircle(this.x, this.y, 'SUGAR', CONFIG.pheromone.depositFood, CONFIG.pheromone.trailRadius);
+            grid.depositCircle(this.x, this.y, 'SUGAR', trail, CONFIG.pheromone.trailRadius);
         } else if (this.carrying === 'PROTEIN') {
-            grid.depositCircle(this.x, this.y, 'PROTEIN', CONFIG.pheromone.depositFood, CONFIG.pheromone.trailRadius);
+            grid.depositCircle(this.x, this.y, 'PROTEIN', trail, CONFIG.pheromone.trailRadius);
         }
 
         if (this.location === 'WORLD') {
@@ -1258,6 +1267,7 @@ export class Ant {
             // Milking Complete
             this.carrying = 'SUGAR';
             this.carryingAmount = 200;
+            this.carryingQuality = 0.7; // aphid honeydew: a steady, moderate trail
             this.state = 'RETURNING';
             this.energy = CONFIG.antMaxEnergy;
             this.angle += Math.PI;

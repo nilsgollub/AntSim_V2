@@ -51,11 +51,8 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
 ## 🧭 Geplant / Stretch
 
 ### Realismus — Ameisenbiologie
-- [ ] **Temporale Polyethie** *(empfohlen als nächster Schritt)*: Aufgabenverteilung nach Alter —
-  jung (≤20 % lifespan) → NURSING-Bias, mittelalt → Lagerhaltung/MILKING,
-  alt (≥70 % lifespan) → FORAGING/PATROLLING. Implementierung: `Ant.getPreferredRole()` prüft
-  `this.age / this.maxAge`; `World.assignIdleRole()` bevorzugt passende Rollen.
-  Keine neuen Zustände nötig, nur Gewichtung in der FSM-Idle-Transition.
+- [x] **Temporale Polyethie**: alters-gewichtete Idle-Transition via `Ant.forageUrge()`
+  (jung → Nursing, alt → Foraging); `CONFIG.ant.nurse/forageAgeFraction` + Slider.
 
 - [ ] **Trophallaxis / Sozialer Magen**: Ameisen tragen Crop-Inhalt (`cropSugar: number`);
   beim Passieren einer hungrigen Nestgenossin oder Larve wird Nahrung direkt mund-zu-mund
@@ -76,13 +73,13 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
   (Zellen-Freischalten + Tunnel-Partikel). Visuell: neue Bereiche hellen sich auf.
   Großer struktureller Eingriff (neuer State in FSM + NestLayout-Klasse).
 
-- [ ] **Sammler-Gedächtnis / Site Fidelity**: Forager merkt sich zuletzt erfolgreich besuchte
-  Futterquelle (`privateTargetX/Y`); kehrt bevorzugt dorthin zurück (statt reinem Pheromon-
-  Folgen). Macht Straßen-Entstehung realistischer und stabiler.
+- [x] **Sammler-Gedächtnis / Site Fidelity**: `Ant.foodMemoryX/Y` + `steerToMemory()`;
+  Forager kehrt zur letzten erfolgreichen Quelle zurück (Fallback hinter Pheromon-Spur),
+  vergisst sie bei Erschöpfung. `CONFIG.ant.memoryBias` + Slider.
 
-- [ ] **Trail-Stärke ∝ Futterqualität**: `Food.amount` (oder ein `quality`-Feld) skaliert
-  `depositFood`-Menge beim Heimtragen. Reiche Quellen ziehen mehr Ameisen an; erschöpfte
-  Quellen verlieren automatisch ihren Trail.
+- [x] **Trail-Stärke ∝ Futterqualität**: `Ant.carryingQuality` aus `food.amount` skaliert
+  den `depositFood`-Trail. Reiche Quellen → starke Roads, erschöpfte → verblassen.
+  `CONFIG.pheromone.qualityRef/minQuality`.
 
 ### Umwelt & Dynamik
 - [ ] **Nachtaktivität** (Geschwindigkeit an `timeOfDay` koppeln): Ameisen reduzieren Speed

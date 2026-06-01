@@ -69,8 +69,13 @@ export const CONFIG = {
         diffuseFood: false,    // keep SUGAR/PROTEIN sharp (roads); only the HOME field diffuses
         diffusionRate: 0.12,   // 0..1 share of a cell that bleeds into neighbours
         depositTrail: 0.5,     // amount dropped on a normal trail (HOME / DANGER)
-        depositFood: 1.0,      // amount dropped while carrying food
+        depositFood: 1.0,      // amount dropped while carrying food (× source quality)
         trailRadius: 3,        // radius (logical px) of a deposited trail blob
+        // Trail strength scales with source richness: a source holding `qualityRef`
+        // units lays a full-strength trail; poorer/depleting sources lay fainter
+        // ones (so rich finds recruit more and exhausted ones lose their road).
+        qualityRef: 300,
+        minQuality: 0.2,
     },
 
     // Brood lifecycle (frames)
