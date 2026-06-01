@@ -68,10 +68,11 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
   höherer Unterhalt; Arbeiter (sizeVar ≤ 0.9) → schneller, günstiger. Konsistent mit
   `CONFIG.ant.*`-Multiplikatoren.
 
-- [ ] **Dynamischer Nestausbau / Excavation**: Kolonie-Wachstum über eine Schwelle löst
-  DIGGING-Zustand aus — Ameisen „graben" neue Kammern auf `nestCanvas`
-  (Zellen-Freischalten + Tunnel-Partikel). Visuell: neue Bereiche hellen sich auf.
-  Großer struktureller Eingriff (neuer State in FSM + NestLayout-Klasse).
+- [x] **Dynamischer Nestausbau / Excavation (v1)**: Start mit einer Gründungskammer
+  (alle Rollen), die sich mit Koloniewachstum differenziert — `Nest.growStage()`
+  gräbt nach und nach Nursery/Granary/Erweiterungen aus (Stern-Topologie, in Grenzen,
+  Excavation-Staub). Rollen-Modell `getChamber(role)` statt fixem Typ. Navigation
+  gehärtet (Wall-Sliding). *Offen:* per-Ameise `DIGGING`-Zustand (Ameisen graben physisch).
 
 - [x] **Sammler-Gedächtnis / Site Fidelity**: `Ant.foodMemoryX/Y` + `steerToMemory()`;
   Forager kehrt zur letzten erfolgreichen Quelle zurück (Fallback hinter Pheromon-Spur),
@@ -126,7 +127,7 @@ gezielte Nachrüstung. Nach Hebelwirkung sortiert.
 
 - [ ] **Robuste Nest-Navigation**: Kreis-Union + Greedy-Pfadsuche war die Wurzel des Hängens.
   Ersetzbar durch Raum-Graph mit expliziten Kanten + A* (robust by design). Teil-entschärft
-  durch Stern-Topologie + Wall-Sliding auf `feature/dynamic-nest`.
+  (Stern-Topologie + Wall-Sliding, bereits im Hauptbranch); eine echte Graph-Pfadsuche steht aus.
 
 - [ ] **Daten-orientiert für Skalierung (ECS / Structure-of-Arrays)**: Objekt-pro-Ameise ist
   GC-/Cache-unfreundlich; für >500 Ameisen oder Kolonienkrieg deutlich schneller in SoA/ECS.
