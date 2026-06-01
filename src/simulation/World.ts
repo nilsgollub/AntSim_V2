@@ -44,6 +44,9 @@ export class World {
     // Particles
     particles: { x: number, y: number, vx: number, vy: number, life: number, color: string, type: 'DEFAULT' | 'BLOOD' | 'DUST' }[] = [];
 
+    // Excavation dust, drawn on the nest canvas (nest-local coordinates).
+    nestParticles: { x: number, y: number, vx: number, vy: number, life: number }[] = [];
+
     // Vegetation
     grass: { x: number, y: number, size: number, angle: number }[] = [];
 
@@ -264,6 +267,17 @@ export class World {
             if (p.life <= 0) this.particles.splice(i, 1);
         }
 
+        // Update nest excavation dust
+        for (let i = this.nestParticles.length - 1; i >= 0; i--) {
+            const p = this.nestParticles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vx *= 0.92;
+            p.vy *= 0.92;
+            p.life -= 0.02;
+            if (p.life <= 0) this.nestParticles.splice(i, 1);
+        }
+
         // Update Ants
         for (let i = this.ants.length - 1; i >= 0; i--) {
             const ant = this.ants[i];
@@ -403,6 +417,35 @@ export class World {
         }
         if (this.proteinStockpile > 0) {
             this.proteinStockpile = Math.max(0, this.proteinStockpile - CONFIG.broodProteinUpkeep * this.larvae);
+        }
+
+        // Dynamic nest excavation: as the colony grows, dig extra satellite
+        // chambers. Renderer + navigation pick up the new nodes automatically.
+        const targetExtra = Math.min(
+            CONFIG.nest.maxExtraChambers,
+            Math.floor(this.ants.length / CONFIG.nest.excavateEvery),
+        );
+        while (this.nest.extraChambers < targetExtra) {
+            if (!this.nest.excavate()) break;
+            this.spawnNestDust();
+        }
+    }
+
+    // A short burst of dust particles at the most recently dug chamber, drawn on
+    // the nest canvas, as visual feedback for excavation.
+    spawnNestDust() {
+        const c = this.nest.chambers[this.nest.chambers.length - 1];
+        if (!c) return;
+        for (let i = 0; i < 14; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const sp = Math.random() * 1.5;
+            this.nestParticles.push({
+                x: c.x + (Math.random() - 0.5) * c.radius,
+                y: c.y + (Math.random() - 0.5) * c.radius,
+                vx: Math.cos(a) * sp,
+                vy: Math.sin(a) * sp,
+                life: 1.0,
+            });
         }
     }
 }

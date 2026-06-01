@@ -14,6 +14,9 @@ export class Nest {
 
     entrances: { x: number, y: number }[] = [];
 
+    // Count of dynamically excavated satellite chambers (beyond the core three).
+    extraChambers: number = 0;
+
     constructor() {
         this.width = CONFIG.nestWidth;
         this.height = CONFIG.nestHeight;
@@ -114,6 +117,46 @@ export class Nest {
     addChamber(x: number, y: number, radius: number, type: 'QUEEN' | 'BROOD' | 'STORAGE') {
         this.nodes.push({ x, y, radius, type: 'CHAMBER' });
         this.chambers.push({ x, y, radius, type });
+    }
+
+    // Dig one new satellite chamber branching off an existing chamber, connected
+    // by an organic tunnel. Returns false if no valid spot was found (keeps the
+    // chamber inside the nest bounds and from burying an existing one).
+    // Existing navigation (isInside / getNextNodeTowards) and the renderer's
+    // node-count-based cache pick up the new nodes automatically.
+    excavate(): boolean {
+        const minDim = Math.min(this.width, this.height);
+        const rScale = minDim / 300;
+        const newR = (45 + Math.random() * 25) * rScale;
+        const gap = 15 * rScale;
+
+        for (let attempt = 0; attempt < 16; attempt++) {
+            const parent = this.chambers[Math.floor(Math.random() * this.chambers.length)];
+            const angle = Math.random() * Math.PI * 2;
+            const d = parent.radius + newR + gap;
+            const nx = parent.x + Math.cos(angle) * d;
+            const ny = parent.y + Math.sin(angle) * d;
+
+            // Keep fully inside the nest canvas.
+            if (nx < newR + 4 || nx > this.width - newR - 4) continue;
+            if (ny < newR + 4 || ny > this.height - newR - 4) continue;
+
+            // Don't bury the new chamber inside an existing one.
+            let tooClose = false;
+            for (const c of this.chambers) {
+                const ddx = nx - c.x;
+                const ddy = ny - c.y;
+                const minSep = c.radius + newR * 0.4;
+                if (ddx * ddx + ddy * ddy < minSep * minSep) { tooClose = true; break; }
+            }
+            if (tooClose) continue;
+
+            this.addChamber(nx, ny, newR, 'STORAGE');
+            this.createOrganicTunnel(parent.x, parent.y, parent.radius, nx, ny, newR, 22 * rScale);
+            this.extraChambers++;
+            return true;
+        }
+        return false;
     }
 
     addNode(x: number, y: number, radius: number, type: 'TUNNEL' | 'CHAMBER') {

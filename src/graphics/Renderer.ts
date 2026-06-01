@@ -428,6 +428,17 @@ export class Renderer {
                 this.drawAnt(ant, ctx);
             }
         }
+
+        // Excavation dust
+        if (world.nestParticles.length > 0) {
+            ctx.save();
+            for (const p of world.nestParticles) {
+                ctx.globalAlpha = Math.max(0, p.life) * 0.6;
+                ctx.fillStyle = '#b89a78';
+                ctx.fillRect(p.x, p.y, 2, 2);
+            }
+            ctx.restore();
+        }
     }
 
     renderNestStructure(world: World) {
