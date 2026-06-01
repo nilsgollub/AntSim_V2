@@ -9,6 +9,7 @@
 
 
 <body>
+  <canvas id="glCanvas"></canvas>
   <canvas id="gameCanvas"></canvas>
 
   <div id="nest-container">
@@ -31,6 +32,10 @@
         <div class="control-group">
           <input type="checkbox" id="pheromoneToggle">
           <label for="pheromoneToggle" style="cursor: pointer;">Pheromones</label>
+        </div>
+        <div class="control-group">
+          <input type="checkbox" id="webglToggle">
+          <label for="webglToggle" style="cursor: pointer;">WebGL (experimentell)</label>
         </div>
         <div class="control-group" id="playback-controls">
           <button id="pauseBtn" title="Pause/Resume (Space)">⏸</button>

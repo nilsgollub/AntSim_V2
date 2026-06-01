@@ -25,6 +25,9 @@ export class Renderer {
     selectedEntity: { x: number; y: number } | null = null;
     // Current resolution scale (kept for Camera.screenToWorld).
     resolutionScale: number = 1.0;
+    // When false, the WebGL backdrop draws the dirt + pheromones, so the 2D
+    // canvas stays transparent and only draws entities/effects on top.
+    drawBackdrop: boolean = true;
 
     // Background Texture
     bgCanvas!: HTMLCanvasElement;
@@ -192,6 +195,15 @@ export class Renderer {
     renderWorld(world: World) {
         const ctx = this.ctx;
 
+        // In WebGL-backdrop mode the 2D canvas is transparent (the Pixi layer
+        // behind shows the dirt + pheromones); clear it each frame.
+        if (!this.drawBackdrop) {
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            ctx.restore();
+        }
+
         // Apply camera transform for the entire world scene.  All world-space
         // drawing happens inside this block; screen-space effects (god rays,
         // vignette, lighting) are applied afterwards without the camera.
@@ -201,14 +213,16 @@ export class Renderer {
         }
 
         // 0. Background (Texture) — scrolls with camera
-        ctx.drawImage(this.bgCanvas, 0, 0, this.width, this.height);
+        if (this.drawBackdrop) {
+            ctx.drawImage(this.bgCanvas, 0, 0, this.width, this.height);
+        }
 
         // 1. Pheromones (Overlay). The offscreen image is the SAME resolution as
         //    the grid, so we index it directly (1:1, no per-pixel remap). It only
         //    changes when the grid updates, so we rebuild the image on that cadence
         //    and reuse the cached canvas on the frames in between — a big saving in
         //    a large world (the per-frame cost is otherwise O(world area) in JS).
-        if (this.showPheromones) {
+        if (this.drawBackdrop && this.showPheromones) {
             // Rebuild the overlay image at most every 3 frames (it changes slowly),
             // independent of the grid cadence — so it stays cheap even at ULTRA
             // where the grid updates every frame.

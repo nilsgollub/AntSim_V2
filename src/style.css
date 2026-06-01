@@ -13,6 +13,19 @@ body {
   display: block;
   width: 74vw;
   height: 100dvh;
+  position: relative;
+  z-index: 1; /* entities/effects, transparent over the WebGL backdrop */
+}
+
+/* WebGL backdrop (Pixi) — stacked behind the game canvas, shown only in WebGL mode */
+#glCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 74vw;
+  height: 100dvh;
+  z-index: 0;
+  display: none;
 }
 
 /* Nest Container - Holds Canvas and UI */
@@ -281,6 +294,11 @@ select {
   }
 
   #gameCanvas {
+    width: 100vw;
+    height: 74dvh;
+  }
+
+  #glCanvas {
     width: 100vw;
     height: 74dvh;
   }

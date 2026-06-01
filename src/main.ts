@@ -3,6 +3,7 @@ import './style.css';
 import { CONFIG } from './config';
 import { World } from './simulation/World';
 import { Renderer } from './graphics/Renderer';
+import { PixiBackdrop } from './graphics/PixiBackdrop';
 import { Camera } from './graphics/Camera';
 import { Food } from './simulation/Food';
 import { Ant } from './simulation/Ant';
@@ -40,6 +41,34 @@ let world = new World();
 const renderer = new Renderer(canvas);
 const camera   = new Camera(CONFIG.width, CONFIG.height);
 renderer.camera = camera;
+
+// ── WebGL backdrop (experimental, opt-in) ────────────────────────────────────
+// Renders the dirt + pheromone field on the GPU behind the 2D entity canvas.
+// Falls back silently to pure canvas-2D when WebGL is unavailable (Pi-safe).
+const glCanvas = document.getElementById('glCanvas') as HTMLCanvasElement;
+let backdrop: PixiBackdrop | null = null;
+
+function webglAvailable(): boolean {
+    try {
+        const c = document.createElement('canvas');
+        return !!(c.getContext('webgl2') || c.getContext('webgl'));
+    } catch { return false; }
+}
+
+async function enableWebGL() {
+    if (backdrop || !webglAvailable()) return;
+    glCanvas.style.display = 'block';
+    const b = new PixiBackdrop();
+    await b.init(glCanvas, renderer.bgCanvas, CONFIG.width, CONFIG.height, renderer.resolutionScale);
+    backdrop = b;
+    renderer.drawBackdrop = false; // 2D layer goes transparent; Pixi draws the backdrop
+}
+
+function disableWebGL() {
+    renderer.drawBackdrop = true;
+    glCanvas.style.display = 'none';
+    if (backdrop) { backdrop.destroy(); backdrop = null; }
+}
 
 // ── Build info ──────────────────────────────────────────────────────────────
 const buildInfo = document.createElement('div');
@@ -166,6 +195,7 @@ function applyQuality(level: QualityLevel) {
     world.rebuildPheromoneGrids(); // keep grid resolution in sync with the new quality
     renderer.resize(CONFIG.width, CONFIG.height, PerformanceManager.settings.resolutionScale);
     renderer.updateSettings();
+    backdrop?.resize(CONFIG.width, CONFIG.height, PerformanceManager.settings.resolutionScale);
 }
 
 // ── Speed / pheromone / quality ──────────────────────────────────────────────
@@ -177,6 +207,15 @@ speedRange.addEventListener('input', () => {
 pheromoneToggle.addEventListener('change', () => {
     renderer.showPheromones = pheromoneToggle.checked;
     saveUiState();
+});
+
+const webglToggle = document.getElementById('webglToggle') as HTMLInputElement;
+if (!webglAvailable()) {
+    webglToggle.disabled = true;
+    webglToggle.parentElement!.title = 'WebGL nicht verfügbar';
+}
+webglToggle.addEventListener('change', () => {
+    if (webglToggle.checked) enableWebGL(); else disableWebGL();
 });
 qualitySelect.addEventListener('change', () => {
     const val = qualitySelect.value as keyof typeof QualityLevel;
@@ -528,6 +567,7 @@ function loop(now: number) {
         world.rebuildPheromoneGrids(); // keep grid resolution in sync with the new quality
         renderer.resize(CONFIG.width, CONFIG.height, PerformanceManager.settings.resolutionScale);
         renderer.updateSettings();
+        backdrop?.resize(CONFIG.width, CONFIG.height, PerformanceManager.settings.resolutionScale);
     }
 
     // FPS counter
@@ -562,6 +602,7 @@ function loop(now: number) {
 
     // Render (always, even when paused)
     renderer.render(world);
+    if (backdrop) backdrop.render(world, camera, renderer.showPheromones);
 }
 
 requestAnimationFrame(loop);
