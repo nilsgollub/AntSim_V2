@@ -348,7 +348,8 @@ interface SliderSpec { path: string; label: string; min: number; max: number; st
 const SLIDER_SPECS: SliderSpec[] = [
     { path: 'antSpeed',                 label: 'antSpeed',           min: 0.5, max: 6,    step: 0.1 },
     { path: 'antEnergyDecay',           label: 'antEnergyDecay',     min: 0.05, max: 1,   step: 0.01 },
-    { path: 'queenLayInterval',         label: 'queenLayInterval',   min: 50,  max: 800,  step: 10 },
+    { path: 'queenLayInterval',         label: 'queenLayInterval (Pop ↑)', min: 50,  max: 800,  step: 10 },
+    { path: 'ant.lifespan',             label: 'ant.lifespan (Pop ↑)', min: 6000, max: 80000, step: 2000 },
     { path: 'eggCost',                  label: 'eggCost',            min: 5,   max: 60,   step: 1 },
     { path: 'sugarValue',               label: 'sugarValue',         min: 1,   max: 40,   step: 1 },
     { path: 'proteinValue',             label: 'proteinValue',       min: 1,   max: 30,   step: 1 },

@@ -57,7 +57,7 @@ export const CONFIG = {
     // Queen
     queenPosition: { x: logicalWidth / 2, y: logicalHeight / 2 },
     eggCost: 20,
-    queenLayInterval: 300, // frames between egg-laying attempts (higher = slower colony growth)
+    queenLayInterval: 180, // frames between egg-laying attempts. Equilibrium pop ≈ ant.lifespan / this.
 
     // Pheromones
     pheromoneDecay: 0.990,
@@ -93,9 +93,10 @@ export const CONFIG = {
 
     // Ant behaviour tuning (extracted magic numbers; values unchanged)
     ant: {
-        // Natural ageing / lifespan (frames). ~5min base at 60fps.
-        lifespan: 18000,
-        lifespanJitter: 6000,
+        // Natural ageing / lifespan (frames). Longer-lived ants raise the
+        // equilibrium population (≈ lifespan / queenLayInterval).
+        lifespan: 38000,
+        lifespanJitter: 12000,
         // Squared detection / interaction ranges (px^2)
         detectEnemyRangeSq: 10000, // 100px - spot/chase enemies
         attackRangeSq: 900,        // 30px - melee range

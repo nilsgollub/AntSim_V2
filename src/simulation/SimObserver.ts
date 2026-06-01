@@ -169,9 +169,9 @@ export class SimObserver {
                 observed: `${(growthRate * 100).toFixed(0)} % Rückgang`,
                 target: '≥ 0 % (stabil)',
                 severity: 'critical',
-                suggestion: 'Energieverbrauch senken oder Zuckerertrag erhöhen',
-                effect: 'Weniger Energieverbrauch pro Frame → Ameisen überleben länger; mehr Zucker pro Ernte → Nahrungsversorgung wird besser.',
-                actions: [mkAction('antEnergyDecay', 0.8), mkAction('sugarValue', 1.3)],
+                suggestion: 'Schneller legen + länger leben (Pop ≈ lifespan/layInterval); bei Hunger Energieverbrauch senken',
+                effect: 'Kürzeres Lege-Intervall und höhere Lebensspanne heben das Populations-Gleichgewicht. Geringerer Energieverbrauch hilft nur, wenn die Vorräte knapp sind.',
+                actions: [mkAction('queenLayInterval', 0.7), mkAction('ant.lifespan', 1.3), mkAction('antEnergyDecay', 0.85)],
             });
         } else if (growthRate < -0.05) {
             push({
@@ -179,9 +179,9 @@ export class SimObserver {
                 observed: `${(growthRate * 100).toFixed(0)} % Rückgang`,
                 target: '> −5 %',
                 severity: 'warn',
-                suggestion: 'Energieverbrauch leicht senken oder Eiproduktion verbilligen',
-                effect: 'Geringerer Energieverbrauch oder günstigere Eiproduktion stabilisiert die Kolonie.',
-                actions: [mkAction('antEnergyDecay', 0.9), mkAction('eggCost', 0.8)],
+                suggestion: 'Etwas schneller legen oder Ameisen länger leben lassen',
+                effect: 'Kürzeres Lege-Intervall oder höhere Lebensspanne hebt das Populations-Gleichgewicht (≈ lifespan/layInterval).',
+                actions: [mkAction('queenLayInterval', 0.85), mkAction('ant.lifespan', 1.2)],
             });
         } else if (growthRate > 0.5) {
             push({
