@@ -16,6 +16,27 @@ describe('headless harness — determinism', () => {
     });
 });
 
+describe('headless harness — golden (behaviour pinned)', () => {
+    // Exact metrics for a fixed seed. Any unintended behaviour change — from a
+    // refactor or an accidental bug — shifts these numbers and fails the test.
+    // Update deliberately (and in the commit message) when a change is intended.
+    it('matches the pinned snapshot at 1000 ticks', () => {
+        expect(runHeadless(12345, 1000)).toEqual({
+            ticks: 1000, population: 19, workers: 18, soldiers: 1,
+            brood: 25, larvae: 15, sugar: 673, protein: 213,
+            queenEnergy: 2201, extraChambers: 1, peakPopulation: 19, minPopulation: 16,
+        });
+    });
+
+    it('matches the pinned snapshot at 2500 ticks', () => {
+        expect(runHeadless(12345, 2500)).toEqual({
+            ticks: 2500, population: 24, workers: 23, soldiers: 1,
+            brood: 28, larvae: 15, sugar: 700, protein: 150,
+            queenEnergy: 2242, extraChambers: 1, peakPopulation: 24, minPopulation: 16,
+        });
+    });
+});
+
 describe('headless harness — colony viability (soak)', () => {
     // A longer run that would catch gross balance regressions: a colony that
     // collapses to zero, explodes past the cap, or starves a resource to a
