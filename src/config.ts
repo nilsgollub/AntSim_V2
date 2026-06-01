@@ -130,6 +130,9 @@ export const CONFIG = {
         // (kept above 0 so the colony maintains a buffer instead of bottoming out).
         forageEmergencySugar: 200,
         forageEmergencyProtein: 40,
+        // Fraction of foragers that fetch protein (brood food) when both resources
+        // are short — stops protein collapsing and capping the population.
+        proteinForagerShare: 0.4,
     },
 
     // Dynamic nest excavation: the colony digs extra satellite chambers as it grows.

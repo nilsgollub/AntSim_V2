@@ -25,6 +25,10 @@ export class Ant {
     // Trail strength to lay on the way home, set from the source's richness (0..1).
     carryingQuality: number = 1;
 
+    // Stable per-ant value (0..1) used to split the workforce between sugar and
+    // protein foraging when both are needed, without per-frame flicker.
+    forageSeed: number = Math.random();
+
     // Cosmetic per-ant variety (set once, purely visual).
     sizeVar: number = 0.85 + Math.random() * 0.3; // 0.85–1.15× draw scale
     shade: number = Math.floor(Math.random() * 4); // cached-sprite brightness variant
@@ -886,12 +890,18 @@ export class Ant {
         if (this.type === 'SOLDIER') {
             prioritizeProtein = true;
         } else {
-            if (proteinLow && !sugarLow) {
+            const share = CONFIG.ant.proteinForagerShare; // stable per-ant split (forageSeed)
+            if (proteinLow && sugarLow) {
+                // Both short: split the workforce so protein (brood food) doesn't
+                // collapse while everyone chases sugar.
+                prioritizeProtein = this.forageSeed < share;
+            } else if (proteinLow) {
                 prioritizeProtein = true;
             } else if (sugarLow) {
                 prioritizeProtein = false;
             } else {
-                prioritizeProtein = false;
+                // Both fine: a minority keeps topping up protein for the brood.
+                prioritizeProtein = this.forageSeed < share * 0.6;
             }
         }
 
