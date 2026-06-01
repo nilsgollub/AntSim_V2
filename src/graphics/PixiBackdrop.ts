@@ -1,4 +1,4 @@
-import { Application, Container, Sprite, Texture, BlurFilter } from 'pixi.js';
+import { Application, Container, Sprite, Texture } from 'pixi.js';
 import type { World } from '../simulation/World';
 import type { Camera } from './Camera';
 import type { Renderer } from './Renderer';
@@ -117,8 +117,10 @@ export class PixiBackdrop {
     private foodTex: Record<string, Texture> = {};
     private discTex!: Texture;
 
-    private pheroCanvas!: HTMLCanvasElement;
+    private pheroCanvas!: HTMLCanvasElement;     // blurred result → texture source
     private pheroCtx!: CanvasRenderingContext2D;
+    private pheroRawCanvas!: HTMLCanvasElement;   // raw RGBA from the grid
+    private pheroRawCtx!: CanvasRenderingContext2D;
     private pheroImage!: ImageData;
     private pheroBuf!: Uint32Array;
     private pheroTex!: Texture;
@@ -160,17 +162,21 @@ export class PixiBackdrop {
         this.bgSprite.height = logicalH;
         this.world.addChild(this.bgSprite);
 
-        // Pheromone field → soft glowing trails.
+        // Pheromone field → soft glowing trails. Blurred in a 2D canvas (which
+        // fades cleanly to transparent), then drawn additively. No Pixi filter —
+        // that bled the transparent black into the edges ("fade to black").
         this.pheroCanvas = document.createElement('canvas');
         this.pheroCanvas.width = 1; this.pheroCanvas.height = 1;
         this.pheroCtx = this.pheroCanvas.getContext('2d')!;
+        this.pheroRawCanvas = document.createElement('canvas');
+        this.pheroRawCanvas.width = 1; this.pheroRawCanvas.height = 1;
+        this.pheroRawCtx = this.pheroRawCanvas.getContext('2d')!;
         this.pheroTex = Texture.from(this.pheroCanvas);
         this.pheroSprite = new Sprite(this.pheroTex);
         this.pheroSprite.width = logicalW;
         this.pheroSprite.height = logicalH;
         this.pheroSprite.blendMode = 'add';
-        this.pheroSprite.alpha = 0.7;
-        this.pheroSprite.filters = [new BlurFilter({ strength: 4, quality: 3 })];
+        this.pheroSprite.alpha = 0.75;
         this.world.addChild(this.pheroSprite);
 
         // Static decoration (rocks, grass, entrance) baked once at world resolution,
@@ -194,7 +200,9 @@ export class PixiBackdrop {
         if (this.pheroCanvas.width === gw && this.pheroCanvas.height === gh) return;
         this.pheroCanvas.width = gw;
         this.pheroCanvas.height = gh;
-        this.pheroImage = this.pheroCtx.createImageData(gw, gh);
+        this.pheroRawCanvas.width = gw;
+        this.pheroRawCanvas.height = gh;
+        this.pheroImage = this.pheroRawCtx.createImageData(gw, gh);
         this.pheroBuf = new Uint32Array(this.pheroImage.data.buffer);
         // The canvas changed size → rebuild the GPU texture so its source matches
         // (otherwise it stays at its initial 1×1 size and the field is invisible).
@@ -258,7 +266,12 @@ export class PixiBackdrop {
                         buf[i] = (255 << 24) | (b << 16) | (g << 8) | r;
                     } else buf[i] = 0;
                 }
-                this.pheroCtx.putImageData(this.pheroImage, 0, 0);
+                this.pheroRawCtx.putImageData(this.pheroImage, 0, 0);
+                // Soft glow via a 2D blur (premultiplied → fades to transparent).
+                this.pheroCtx.clearRect(0, 0, this.pheroCanvas.width, this.pheroCanvas.height);
+                this.pheroCtx.filter = 'blur(1.5px)';
+                this.pheroCtx.drawImage(this.pheroRawCanvas, 0, 0);
+                this.pheroCtx.filter = 'none';
                 this.pheroTex.source.update();
             }
         }
