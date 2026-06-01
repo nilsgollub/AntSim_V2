@@ -59,7 +59,7 @@ async function enableWebGL() {
     if (backdrop || !webglAvailable()) return;
     glCanvas.style.display = 'block';
     const b = new PixiBackdrop();
-    await b.init(glCanvas, renderer.bgCanvas, CONFIG.width, CONFIG.height, renderer.resolutionScale);
+    await b.init(glCanvas, renderer, world, CONFIG.width, CONFIG.height, renderer.resolutionScale);
     backdrop = b;
     // 2D layer keeps only lighting/effects/selection; Pixi draws backdrop + entities.
     renderer.drawBackdrop = false;

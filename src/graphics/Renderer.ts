@@ -301,49 +301,7 @@ export class Renderer {
         }
 
         // 4. Nest Entrance (Visual Marker)
-        const isLandscape = CONFIG.width > CONFIG.height;
-
-        if (isLandscape) {
-            // Right edge
-            const entranceY = this.height / 2;
-            const entranceX = CONFIG.width - 15;
-
-            // Dirt Mound (Gradient)
-            const moundGrad = this.ctx.createRadialGradient(entranceX, entranceY, 10, entranceX, entranceY, 40);
-            moundGrad.addColorStop(0, '#3a2a1a'); // Dark Earth
-            moundGrad.addColorStop(1, 'rgba(58, 42, 26, 0)'); // Fade out
-            this.ctx.fillStyle = moundGrad;
-            this.ctx.beginPath();
-            this.ctx.arc(entranceX, entranceY, 40, 0, Math.PI * 2);
-            this.ctx.fill();
-
-            // The Hole (Dark Tunnel)
-            this.ctx.fillStyle = '#050505'; // Almost black
-            this.ctx.beginPath();
-            this.ctx.ellipse(entranceX + 5, entranceY, 15, 25, 0, 0, Math.PI * 2);
-            this.ctx.fill();
-
-        } else {
-            // Bottom edge (Portrait)
-            const entranceX = this.width / 2;
-            const entranceY = CONFIG.height - 15;
-
-            // Dirt Mound
-            const moundGrad = this.ctx.createRadialGradient(entranceX, entranceY, 10, entranceX, entranceY, 40);
-            moundGrad.addColorStop(0, '#3a2a1a');
-            moundGrad.addColorStop(1, 'rgba(58, 42, 26, 0)');
-            this.ctx.fillStyle = moundGrad;
-            this.ctx.beginPath();
-            this.ctx.arc(entranceX, entranceY, 40, 0, Math.PI * 2);
-            this.ctx.fill();
-
-            // The Hole
-            this.ctx.fillStyle = '#050505';
-            this.ctx.beginPath();
-            this.ctx.ellipse(entranceX, entranceY + 5, 25, 15, 0, 0, Math.PI * 2);
-            this.ctx.fill();
-            this.ctx.fill();
-        }
+        this.drawEntrance();
 
         // 4.5 Vegetation (Grass)
         // Draw on MEDIUM, HIGH, ULTRA
@@ -1443,6 +1401,67 @@ export class Renderer {
         ctx.stroke();
 
         ctx.restore();
+    }
+
+    drawEntrance() {
+        const isLandscape = CONFIG.width > CONFIG.height;
+        const entranceX = isLandscape ? CONFIG.width - 15 : this.width / 2;
+        const entranceY = isLandscape ? this.height / 2 : CONFIG.height - 15;
+        const moundGrad = this.ctx.createRadialGradient(entranceX, entranceY, 10, entranceX, entranceY, 40);
+        moundGrad.addColorStop(0, '#3a2a1a');
+        moundGrad.addColorStop(1, 'rgba(58, 42, 26, 0)');
+        this.ctx.fillStyle = moundGrad;
+        this.ctx.beginPath();
+        this.ctx.arc(entranceX, entranceY, 40, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.fillStyle = '#050505';
+        this.ctx.beginPath();
+        if (isLandscape) this.ctx.ellipse(entranceX + 5, entranceY, 15, 25, 0, 0, Math.PI * 2);
+        else this.ctx.ellipse(entranceX, entranceY + 5, 25, 15, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+    }
+
+    // ── Texture baking for the WebGL (Pixi) renderer ──────────────────────────
+    // Reuse the exact canvas-2D art by temporarily pointing this.ctx at an
+    // offscreen canvas, so the WebGL sprites look identical to the 2D drawing.
+    private withCtx(ctx: CanvasRenderingContext2D, fn: () => void) {
+        const old = this.ctx;
+        this.ctx = ctx;
+        fn();
+        this.ctx = old;
+    }
+
+    private bakeCentered(size: number, draw: () => void): HTMLCanvasElement {
+        const SS = 2;
+        const c = document.createElement('canvas');
+        c.width = size * SS; c.height = size * SS;
+        const ctx = c.getContext('2d')!;
+        ctx.scale(SS, SS);
+        ctx.translate(size / 2, size / 2);
+        this.withCtx(ctx, draw);
+        return c;
+    }
+
+    bakeInsectCanvas(type: string): HTMLCanvasElement {
+        return this.bakeCentered(64, () => this.drawInsect({ x: 0, y: 0, type, angle: 0 }));
+    }
+
+    bakeFoodCanvas(type: string): HTMLCanvasElement {
+        // Reference amount 200 → radius ≈ 12; the sprite is scaled per source.
+        return this.bakeCentered(64, () => this.drawFood({ x: 0, y: 0, type, amount: 200, maxAmount: 200 }));
+    }
+
+    // Static decoration (rocks, grass, entrance) drawn once at world resolution.
+    renderStaticDecoration(world: World): HTMLCanvasElement {
+        const c = document.createElement('canvas');
+        c.width = CONFIG.width; c.height = CONFIG.height;
+        const ctx = c.getContext('2d')!;
+        this.withCtx(ctx, () => {
+            for (const obs of world.terrain.obstacles) this.drawRock(obs.x, obs.y, obs.radius);
+            for (const g of world.grass) this.drawGrass(g);
+            this.drawEntrance();
+        });
+        return c;
     }
 
     drawFood(food: any) {

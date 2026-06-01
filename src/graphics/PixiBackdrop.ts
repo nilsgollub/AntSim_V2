@@ -1,6 +1,7 @@
 import { Application, Container, Sprite, Texture, BlurFilter } from 'pixi.js';
 import type { World } from '../simulation/World';
 import type { Camera } from './Camera';
+import type { Renderer } from './Renderer';
 
 // ── Baked textures (drawn once to small canvases, then batched as sprites) ──
 // Realistic ant matching the canvas-2D look: 3 body segments, 6 legs, antennae.
@@ -77,31 +78,9 @@ function bakeDisc(): Texture {
     return Texture.from(c);
 }
 
-function bakeBug(): Texture {
-    const c = document.createElement('canvas');
-    c.width = 32; c.height = 32;
-    const x = c.getContext('2d')!;
-    x.translate(16, 16);
-    x.fillStyle = '#fff';
-    x.beginPath(); x.ellipse(0, 0, 7, 5, 0, 0, Math.PI * 2); x.fill();
-    x.strokeStyle = '#fff'; x.lineWidth = 1.2; x.lineCap = 'round';
-    for (const ly of [-3, 0, 3]) {
-        x.beginPath(); x.moveTo(-2, ly); x.lineTo(-9, ly - 1);
-        x.moveTo(2, ly); x.lineTo(9, ly - 1); x.stroke();
-    }
-    return Texture.from(c);
-}
-
-const BUG_STYLE: Record<string, { tint: number; scale: number }> = {
-    PREY: { tint: 0x9ccc6a, scale: 0.7 },
-    PREDATOR: { tint: 0xcc5a44, scale: 1.0 },
-    SPIDER: { tint: 0x6a5a6a, scale: 1.0 },
-    BEETLE: { tint: 0x556b4a, scale: 1.4 },
-    LADYBUG: { tint: 0xdd4a44, scale: 0.9 },
-    APHID: { tint: 0xa8cc88, scale: 0.5 },
-};
-
-const FOOD_TINT: Record<string, number> = { SUGAR: 0x6fce6f, PROTEIN: 0xdd8088, CORPSE: 0x8a8078 };
+const INSECT_TYPES = ['PREY', 'PREDATOR', 'SPIDER', 'BEETLE', 'LADYBUG', 'APHID'];
+const FOOD_TYPES = ['SUGAR', 'PROTEIN', 'CORPSE'];
+const FOOD_REF_RADIUS = Math.sqrt(200) * 0.85 * 2; // baked content radius in texture px (SS=2)
 
 function particleTint(c: string): number {
     switch (c) {
@@ -120,6 +99,7 @@ export class PixiBackdrop {
     private app: Application | null = null;
     private world!: Container;
     private bgSprite!: Sprite;
+    private decoSprite!: Sprite;
     private pheroSprite!: Sprite;
     private foodLayer!: Container;
     private bugLayer!: Container;
@@ -133,7 +113,8 @@ export class PixiBackdrop {
 
     private antWorkerTex!: Texture;
     private antSoldierTex!: Texture;
-    private bugTex!: Texture;
+    private insectTex: Record<string, Texture> = {};
+    private foodTex: Record<string, Texture> = {};
     private discTex!: Texture;
 
     private pheroCanvas!: HTMLCanvasElement;
@@ -148,7 +129,7 @@ export class PixiBackdrop {
     private ready = false;
     private frame = 0;
 
-    async init(glCanvas: HTMLCanvasElement, bgCanvas: HTMLCanvasElement, logicalW: number, logicalH: number, resolutionScale: number) {
+    async init(glCanvas: HTMLCanvasElement, renderer: Renderer, world: World, logicalW: number, logicalH: number, resolutionScale: number) {
         this.logicalW = logicalW;
         this.logicalH = logicalH;
         this.resolutionScale = resolutionScale;
@@ -166,13 +147,15 @@ export class PixiBackdrop {
 
         this.antWorkerTex = bakeAnt('WORKER');
         this.antSoldierTex = bakeAnt('SOLDIER');
-        this.bugTex = bakeBug();
         this.discTex = bakeDisc();
+        // Reuse the exact canvas-2D art for insects, food and decoration.
+        for (const t of INSECT_TYPES) this.insectTex[t] = Texture.from(renderer.bakeInsectCanvas(t));
+        for (const t of FOOD_TYPES) this.foodTex[t] = Texture.from(renderer.bakeFoodCanvas(t));
 
         this.world = new Container();
         app.stage.addChild(this.world);
 
-        this.bgSprite = new Sprite(Texture.from(bgCanvas));
+        this.bgSprite = new Sprite(Texture.from(renderer.bgCanvas));
         this.bgSprite.width = logicalW;
         this.bgSprite.height = logicalH;
         this.world.addChild(this.bgSprite);
@@ -189,6 +172,13 @@ export class PixiBackdrop {
         this.pheroSprite.alpha = 0.7;
         this.pheroSprite.filters = [new BlurFilter({ strength: 4, quality: 3 })];
         this.world.addChild(this.pheroSprite);
+
+        // Static decoration (rocks, grass, entrance) baked once at world resolution,
+        // over the pheromones (matching the 2D draw order).
+        this.decoSprite = new Sprite(Texture.from(renderer.renderStaticDecoration(world)));
+        this.decoSprite.width = logicalW;
+        this.decoSprite.height = logicalH;
+        this.world.addChild(this.decoSprite);
 
         this.foodLayer = new Container();
         this.bugLayer = new Container();
@@ -266,30 +256,30 @@ export class PixiBackdrop {
             }
         }
 
-        // Food
-        this.pool(this.foodPool, this.foodLayer, this.discTex, world.foods.length);
+        // Food — baked 2D art per type, scaled by the source's current radius.
+        this.pool(this.foodPool, this.foodLayer, this.foodTex.SUGAR, world.foods.length);
         for (let i = 0; i < world.foods.length; i++) {
             const f: any = world.foods[i];
             const s = this.foodPool[i];
             s.visible = true;
+            s.texture = this.foodTex[f.type] ?? this.foodTex.SUGAR;
             s.position.set(f.x, f.y);
-            const radius = Math.max(8, Math.sqrt(f.amount) * 0.35);
-            s.width = s.height = radius * 2.2;
-            s.tint = FOOD_TINT[f.type] ?? 0xffffff;
-            s.alpha = 0.9;
+            const radius = Math.max(8, Math.sqrt(f.amount) * 0.85);
+            s.scale.set(radius / FOOD_REF_RADIUS);
+            s.tint = 0xffffff;
         }
 
-        // Insects
-        this.pool(this.bugPool, this.bugLayer, this.bugTex, world.insects.length);
+        // Insects — baked 2D art per type; texture already faces +x, rotate by angle.
+        this.pool(this.bugPool, this.bugLayer, this.insectTex.PREY, world.insects.length);
         for (let i = 0; i < world.insects.length; i++) {
             const ins: any = world.insects[i];
             const s = this.bugPool[i];
-            const style = BUG_STYLE[ins.type] ?? BUG_STYLE.PREY;
             s.visible = true;
+            s.texture = this.insectTex[ins.type] ?? this.insectTex.PREY;
             s.position.set(ins.x, ins.y);
             s.rotation = ins.angle ?? 0;
-            s.scale.set(style.scale);
-            s.tint = style.tint;
+            s.scale.set(0.5); // texture is 2× supersampled
+            s.tint = 0xffffff;
         }
 
         // Ants (world only) — natural look, texture by caste, no state/cargo tint.
