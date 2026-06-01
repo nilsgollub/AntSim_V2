@@ -75,6 +75,21 @@ At these levels:
 The auto-downgrade kicks in after 60 consecutive frames below 20 FPS with a 10-second
 cooldown between steps, so the sim self-adjusts on first launch.
 
+## Determinism & headless simulation
+
+All simulation randomness flows through a seeded PRNG (`src/rng.ts`) instead of
+`Math.random()`, so a run is fully reproducible from its seed:
+
+- In the browser, append `?seed=12345` to the URL to replay an exact run
+  (otherwise each session seeds from the clock).
+- Headless: `runHeadless(seed, ticks)` (`src/simulation/headless.ts`) runs the
+  whole simulation with no DOM and returns aggregate metrics — used by tests to
+  assert on *emergent* outcomes (population stays in band, colony doesn't
+  collapse, no resource stuck at zero) rather than only unit behaviour.
+
+Rendering-only randomness (background texture, grass) stays on `Math.random()` —
+it doesn't affect simulation state.
+
 ## Testing
 
 ```bash
@@ -82,8 +97,10 @@ npm run test        # run once
 npm run test:watch  # watch mode
 ```
 
-Test files live alongside their modules as `*.test.ts`. Covered modules:
-`PheromoneGrid`, `Brood`, `SpatialGrid`, `Food`.
+Test files live alongside their modules as `*.test.ts`. Covered: `PheromoneGrid`,
+`Brood`, `SpatialGrid`, `Food`, `SimObserver`, `configStore`, `Nest`, `Ant`
+(forage urge / site fidelity / trail quality), plus the headless harness
+(determinism + colony-viability soak).
 
 Tests run in a `node` environment — no DOM required. `config.ts` guards all
 `window.*` reads so it can be imported safely from tests.

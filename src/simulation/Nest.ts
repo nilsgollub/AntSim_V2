@@ -1,3 +1,4 @@
+import { rand } from '../rng';
 import { CONFIG } from '../config';
 
 export type ChamberRole = 'QUEEN' | 'BROOD' | 'STORAGE';
@@ -73,7 +74,7 @@ export class Nest {
     private digChamber(): Chamber | null {
         const minDim = Math.min(this.width, this.height);
         const rScale = minDim / 300;
-        const newR = (45 + Math.random() * 25) * rScale;
+        const newR = (45 + rand() * 25) * rScale;
         const gap = 15 * rScale;
 
         // Always branch off the founding hub (chambers[0]) so the nest stays a
@@ -81,7 +82,7 @@ export class Nest {
         // This keeps the greedy nest pathfinding robust.
         const parent = this.chambers[0];
         for (let attempt = 0; attempt < 24; attempt++) {
-            const angle = Math.random() * Math.PI * 2;
+            const angle = rand() * Math.PI * 2;
             const d = parent.radius + newR + gap;
             const nx = parent.x + Math.cos(angle) * d;
             const ny = parent.y + Math.sin(angle) * d;

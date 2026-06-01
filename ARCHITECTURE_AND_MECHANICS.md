@@ -131,10 +131,16 @@ Out-of-bounds neighbours reuse the centre value so edges don't bleed toward zero
 -   Samples colony metrics every ~600 frames (cheap, O(1) per tick) into a rolling window.
 -   `analyze()` compares metrics (population trend, energy, foraging ratio, combat pressure, queen health/stress, brood pipeline, soldier ratio, stockpile) against realism targets and returns severity-tagged suggestions, each naming a concrete `CONFIG.*` key and explaining the effect.
 
-## 6. Testing
--   **Runner:** Vitest (`npm run test`), `node` environment (no DOM).
--   **Coverage:** Pure simulation modules — `PheromoneGrid` (decay/diffusion), `Brood` (lifecycle/starvation), `SpatialGrid`, `Food`, `SimObserver` (tuner logic).
--   `config.ts` guards `window.*` reads so it imports cleanly under Node.
+## 6. Determinism & Testing
+-   **Seeded RNG (`src/rng.ts`):** mulberry32; the whole simulation draws via `rand()`,
+    seeded by `seedRng()`. A given seed reproduces a run exactly. `main.ts` seeds at startup
+    (`?seed=<n>` to replay). Rendering-only randomness stays on `Math.random()`.
+-   **Headless harness (`src/simulation/headless.ts`):** `runHeadless(seed, ticks)` runs the
+    full simulation with no DOM and returns aggregate metrics — used to assert on emergent
+    outcomes (population band, no collapse, no resource stuck at zero) rather than only units.
+-   **Runner:** Vitest (`npm run test`), `node` environment. `config.ts` guards `window.*`.
+-   **Coverage:** `PheromoneGrid`, `Brood`, `SpatialGrid`, `Food`, `SimObserver`, `configStore`,
+    `Nest`, `Ant`, and the headless determinism + viability soak.
 
 ## 7. Configuration (`config.ts`)
 Key parameters to tune the simulation (flat keys + grouped sub-objects):

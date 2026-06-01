@@ -1,3 +1,4 @@
+import { rand } from '../rng';
 import { CONFIG } from '../config';
 import { World } from './World';
 
@@ -27,11 +28,11 @@ export class Ant {
 
     // Stable per-ant value (0..1) used to split the workforce between sugar and
     // protein foraging when both are needed, without per-frame flicker.
-    forageSeed: number = Math.random();
+    forageSeed: number = rand();
 
     // Cosmetic per-ant variety (set once, purely visual).
-    sizeVar: number = 0.85 + Math.random() * 0.3; // 0.85–1.15× draw scale
-    shade: number = Math.floor(Math.random() * 4); // cached-sprite brightness variant
+    sizeVar: number = 0.85 + rand() * 0.3; // 0.85–1.15× draw scale
+    shade: number = Math.floor(rand() * 4); // cached-sprite brightness variant
 
     // Pathfinding/Movement
     obstacleTimer: number = 0;
@@ -57,10 +58,10 @@ export class Ant {
         this.x = x;
         this.y = y;
         this.type = type;
-        this.angle = Math.random() * Math.PI * 2;
+        this.angle = rand() * Math.PI * 2;
         this.energy = CONFIG.antMaxEnergy;
         this.health = type === 'SOLDIER' ? CONFIG.soldierHealth : CONFIG.workerHealth;
-        this.maxAge = CONFIG.ant.lifespan + Math.random() * CONFIG.ant.lifespanJitter;
+        this.maxAge = CONFIG.ant.lifespan + rand() * CONFIG.ant.lifespanJitter;
         this.carrying = 'NONE';
         this.location = 'WORLD'; // Start in world
 
@@ -72,7 +73,7 @@ export class Ant {
             this.state = 'PATROLLING';
         } else {
             // Workers split between Foraging and Nursing
-            this.state = Math.random() > 0.3 ? 'FORAGING' : 'NURSING';
+            this.state = rand() > 0.3 ? 'FORAGING' : 'NURSING';
             if (this.state === 'NURSING') this.location = 'NEST';
         }
     }
@@ -260,7 +261,7 @@ export class Ant {
                 if (currentChamber) {
                     // If we are in STORAGE, we probably just finished work. Don't sleep here!
                     // 80% chance to go find another room (dispersal)
-                    if (currentChamber.type === 'STORAGE' && Math.random() < 0.8) {
+                    if (currentChamber.type === 'STORAGE' && rand() < 0.8) {
                         // Just leave the current chamber!
                         const otherChambers = world.nest.chambers.filter(c => c !== currentChamber);
                         if (otherChambers.length > 0) {
@@ -271,8 +272,8 @@ export class Ant {
                     }
 
                     // We are in a valid resting chamber (or decided to stay). Pick a random spot HERE to sleep.
-                    const angle = Math.random() * Math.PI * 2;
-                    const r = Math.random() * (currentChamber.radius * 0.7); // Stay well inside
+                    const angle = rand() * Math.PI * 2;
+                    const r = rand() * (currentChamber.radius * 0.7); // Stay well inside
                     this.patrolTarget = {
                         x: currentChamber.x + Math.cos(angle) * r,
                         y: currentChamber.y + Math.sin(angle) * r
@@ -326,9 +327,9 @@ export class Ant {
 
         // 1. Rest Chance (Top Priority)
         // Tune: 0.1% chance per frame
-        if (Math.random() < 0.001) {
+        if (rand() < 0.001) {
             this.state = 'RESTING';
-            this.restTimer = 300 + Math.random() * 300; // Short nap (5-10s)
+            this.restTimer = 300 + rand() * 300; // Short nap (5-10s)
             return;
         }
 
@@ -416,7 +417,7 @@ export class Ant {
         if (this.type === 'WORKER') {
             const emergency = world.sugarStockpile < CONFIG.ant.forageEmergencySugar
                 || world.proteinStockpile < CONFIG.ant.forageEmergencyProtein;
-            if (emergency || Math.random() < this.forageUrge()) {
+            if (emergency || rand() < this.forageUrge()) {
                 this.state = 'FORAGING';
                 return;
             }
@@ -424,9 +425,9 @@ export class Ant {
 
         // 5. No task found: Rest or Loiter
         // If we are deep in the nest and have nothing to do, REST.
-        if (Math.random() < 0.005) { // 0.5% chance per frame
+        if (rand() < 0.005) { // 0.5% chance per frame
             this.state = 'RESTING';
-            this.restTimer = 300 + Math.random() * 300; // 5-10s nap
+            this.restTimer = 300 + rand() * 300; // 5-10s nap
         } else {
             // Wander in nest (loiter)
             this.wander();
@@ -459,7 +460,7 @@ export class Ant {
             this.wander();
 
             // Random chance to drop
-            if (Math.random() < 0.05) {
+            if (rand() < 0.05) {
                 // Drop
                 this.carryingInstance.carrier = null;
                 this.carryingInstance = null;
@@ -501,9 +502,9 @@ export class Ant {
             return;
         }
 
-        if (Math.random() < 0.00005) {
+        if (rand() < 0.00005) {
             this.state = 'RESTING';
-            this.restTimer = 300 + Math.random() * 600;
+            this.restTimer = 300 + rand() * 600;
             return;
         }
 
@@ -513,12 +514,12 @@ export class Ant {
             const nextNode = world.nest.getNextNodeTowards(this.x, this.y, entrance.x, entrance.y);
             if (nextNode) {
                 const angle = Math.atan2(nextNode.y - this.y, nextNode.x - this.x);
-                this.angle = angle + (Math.random() - 0.5) * 0.5;
+                this.angle = angle + (rand() - 0.5) * 0.5;
             } else {
                 // Fallback: If no path found, steer directly towards entrance
                 const dx = entrance.x - this.x;
                 const dy = entrance.y - this.y;
-                this.angle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 1.0;
+                this.angle = Math.atan2(dy, dx) + (rand() - 0.5) * 1.0;
             }
             return;
         }
@@ -544,10 +545,10 @@ export class Ant {
             distSq = dx * dx + dy * dy;
         }
 
-        if (!this.patrolTarget || distSq < 400 || Math.random() < 0.005) {
+        if (!this.patrolTarget || distSq < 400 || rand() < 0.005) {
             // Pick new point
-            const angle = Math.random() * Math.PI * 2;
-            const dist = 50 + Math.random() * 200;
+            const angle = rand() * Math.PI * 2;
+            const dist = 50 + rand() * 200;
 
             let tx = entranceX + Math.cos(angle) * dist;
             let ty = entranceY + Math.sin(angle) * dist;
@@ -573,7 +574,7 @@ export class Ant {
         while (diff > Math.PI) diff -= Math.PI * 2;
 
         this.angle += diff * 0.2;
-        this.angle += (Math.random() - 0.5) * 0.2;
+        this.angle += (rand() - 0.5) * 0.2;
     }
 
     handleFleeing(world: World) {
@@ -619,7 +620,7 @@ export class Ant {
         while (diff > Math.PI) diff -= Math.PI * 2;
 
         this.angle += diff * 0.5; // High turn rate for fleeing
-        this.angle += (Math.random() - 0.5) * 0.5; // Panic jitter
+        this.angle += (rand() - 0.5) * 0.5; // Panic jitter
 
         // Drop Danger trail while fleeing to warn others
         if (this.fleeTimer % 5 === 0) {
@@ -644,7 +645,7 @@ export class Ant {
                 if (this.type !== 'SOLDIER') {
                     this.state = 'FLEEING';
                     this.fleeTimer = 60;
-                    this.angle += Math.PI + (Math.random() - 0.5);
+                    this.angle += Math.PI + (rand() - 0.5);
                     return;
                 }
             }
@@ -690,7 +691,7 @@ export class Ant {
 
             // Move towards enemy with jitter to prevent stacking
             this.angle = Math.atan2(dy, dx);
-            this.angle += (Math.random() - 0.5) * 0.1;
+            this.angle += (rand() - 0.5) * 0.1;
 
             // Sprint Logic
             if (this.sprintTimer > 0) {
@@ -787,11 +788,11 @@ export class Ant {
         // Steering Logic
         if (center > left && center > right) {
             // Continue straight (with tiny jitter)
-            this.angle += (Math.random() - 0.5) * 0.05;
+            this.angle += (rand() - 0.5) * 0.05;
         } else if (center < left && center < right) {
             // Confused / Surrounded -> Rotate randomly but decisively
             // Don't just jitter, pick a direction to break the loop
-            if (Math.random() < 0.5) this.angle -= turnSpeed;
+            if (rand() < 0.5) this.angle -= turnSpeed;
             else this.angle += turnSpeed;
         } else if (left > right) {
             // Turn Left
@@ -828,7 +829,7 @@ export class Ant {
         // Avoidance Logic: Turn towards the LOWEST concentration
         if (center > left && center > right) {
             // Blocked ahead! Turn randomly L or R
-            if (Math.random() < 0.5) this.angle -= turnSpeed;
+            if (rand() < 0.5) this.angle -= turnSpeed;
             else this.angle += turnSpeed;
         } else if (left > right) {
             // Left is worse, turn Right
@@ -861,9 +862,9 @@ export class Ant {
             const nextNode = world.nest.getNextNodeTowards(this.x, this.y, targetX, targetY);
             if (nextNode) {
                 const angle = Math.atan2(nextNode.y - this.y, nextNode.x - this.x);
-                this.angle = angle + (Math.random() - 0.5) * 0.5;
+                this.angle = angle + (rand() - 0.5) * 0.5;
             } else {
-                this.angle = Math.atan2(targetY - this.y, targetX - this.x) + (Math.random() - 0.5) * 1.0;
+                this.angle = Math.atan2(targetY - this.y, targetX - this.x) + (rand() - 0.5) * 1.0;
             }
             return;
         }
@@ -879,7 +880,7 @@ export class Ant {
             } else {
                 this.angle = -Math.PI / 2; // Move Up (away from bottom wall)
             }
-            this.angle += (Math.random() - 0.5) * 1.0; // Spread out
+            this.angle += (rand() - 0.5) * 1.0; // Spread out
             return;
         }
 
@@ -951,7 +952,7 @@ export class Ant {
                 // Anti-Clustering: If stuck while approaching food, back off
                 if (this.stuckTimer > 20) {
                     world.addParticle(this.x, this.y, 'yellow'); // Debug Visual: Unstuck Triggered
-                    this.angle += Math.PI + (Math.random() - 0.5);
+                    this.angle += Math.PI + (rand() - 0.5);
                     this.obstacleTimer = 45; // Move away for 0.75s (increased from 30)
                     this.stuckTimer = 0;
                     return;
@@ -959,7 +960,7 @@ export class Ant {
 
                 // If visible, turn towards it
                 this.angle = Math.atan2(dy, dx);
-                this.angle += (Math.random() - 0.5) * 0.1;
+                this.angle += (rand() - 0.5) * 0.1;
                 return;
             }
         }
@@ -968,7 +969,7 @@ export class Ant {
         if (this.thinkTimer > 0) {
             this.thinkTimer--;
         } else {
-            this.thinkTimer = 3 + Math.floor(Math.random() * 3);
+            this.thinkTimer = 3 + Math.floor(rand() * 3);
 
             // 0. Check for DANGER
             const dangerLevel = world.grid.get(this.x, this.y, 'DANGER');
@@ -1063,7 +1064,7 @@ export class Ant {
         let diff = outward - this.angle;
         while (diff < -Math.PI) diff += Math.PI * 2;
         while (diff > Math.PI) diff -= Math.PI * 2;
-        this.angle += diff * CONFIG.ant.dispersalStrength + (Math.random() - 0.5) * 0.3;
+        this.angle += diff * CONFIG.ant.dispersalStrength + (rand() - 0.5) * 0.3;
         return true;
     }
 
@@ -1084,7 +1085,7 @@ export class Ant {
         let diff = target - this.angle;
         while (diff < -Math.PI) diff += Math.PI * 2;
         while (diff > Math.PI) diff -= Math.PI * 2;
-        this.angle += diff * CONFIG.ant.memoryBias + (Math.random() - 0.5) * 0.2;
+        this.angle += diff * CONFIG.ant.memoryBias + (rand() - 0.5) * 0.2;
         return true;
     }
 
@@ -1125,7 +1126,7 @@ export class Ant {
 
         // Stuck Check
         if (this.stuckTimer > 20) {
-            this.angle += Math.PI + (Math.random() - 0.5);
+            this.angle += Math.PI + (rand() - 0.5);
             this.stuckTimer = 0;
             this.obstacleTimer = 10;
             return;
@@ -1153,8 +1154,8 @@ export class Ant {
                 // Drop Corpse
                 const corpse = this.carryingInstance;
                 if (corpse) {
-                    corpse.x = this.x + (Math.random() - 0.5) * 20; // Scatter slightly
-                    corpse.y = this.y + (Math.random() - 0.5) * 20;
+                    corpse.x = this.x + (rand() - 0.5) * 20; // Scatter slightly
+                    corpse.y = this.y + (rand() - 0.5) * 20;
                     world.foods.push(corpse);
                 }
                 this.carrying = 'NONE';
@@ -1165,7 +1166,7 @@ export class Ant {
             } else {
                 // Move towards Graveyard
                 this.angle = Math.atan2(dy, dx);
-                this.angle += (Math.random() - 0.5) * 0.2;
+                this.angle += (rand() - 0.5) * 0.2;
             }
             return;
         }
@@ -1301,7 +1302,7 @@ export class Ant {
     }
 
     wander() {
-        this.angle += (Math.random() - 0.5) * 0.2;
+        this.angle += (rand() - 0.5) * 0.2;
     }
 
     // Temporal polyethism: per-frame probability that an idle worker leaves to
@@ -1363,7 +1364,7 @@ export class Ant {
                 this.y = nextY;
             } else {
                 this.angle = world.terrain.getCollisionAngle(this.x, this.y, this.angle);
-                this.obstacleTimer = 10 + Math.floor(Math.random() * 10);
+                this.obstacleTimer = 10 + Math.floor(rand() * 10);
                 this.x += Math.cos(this.angle) * speed;
                 this.y += Math.sin(this.angle) * speed;
             }
@@ -1424,7 +1425,7 @@ export class Ant {
                         const angleToCenter = Math.atan2(nearest.y - this.y, nearest.x - this.x);
                         this.x += Math.cos(angleToCenter) * 2;
                         this.y += Math.sin(angleToCenter) * 2;
-                        this.angle = angleToCenter + (Math.random() - 0.5) * 0.6;
+                        this.angle = angleToCenter + (rand() - 0.5) * 0.6;
                     }
                 }
             }
@@ -1434,7 +1435,7 @@ export class Ant {
             if (this.stuckTimer > 25) {
                 const nearest = world.nest.getNearestNode(this.x, this.y);
                 if (nearest) {
-                    this.angle = Math.atan2(nearest.y - this.y, nearest.x - this.x) + (Math.random() - 0.5) * 0.8;
+                    this.angle = Math.atan2(nearest.y - this.y, nearest.x - this.x) + (rand() - 0.5) * 0.8;
                 }
                 this.stuckTimer = 0;
             }

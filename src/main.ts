@@ -10,6 +10,13 @@ import { PerformanceManager, QualityLevel } from './PerformanceManager';
 import { applyTunerAction } from './simulation/SimObserver';
 import type { TunerSuggestion } from './simulation/SimObserver';
 import { loadOverrides, clearOverrides, hasOverrides, getByPath, setOverride } from './configStore';
+import { seedRng } from './rng';
+
+// Seed the deterministic RNG. A ?seed=<n> URL param reproduces a run exactly;
+// otherwise each session gets a fresh seed.
+const seedParam = new URLSearchParams(location.search).get('seed');
+const seed = seedParam !== null ? Number(seedParam) >>> 0 : (Date.now() >>> 0);
+seedRng(seed);
 
 // Apply persisted parameter overrides to CONFIG before anything reads it.
 loadOverrides();

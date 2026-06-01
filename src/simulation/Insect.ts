@@ -1,3 +1,4 @@
+import { rand } from '../rng';
 
 import { World } from './World';
 import { Ant } from './Ant';
@@ -26,7 +27,7 @@ export class Insect {
         this.x = x;
         this.y = y;
         this.type = type;
-        this.angle = Math.random() * Math.PI * 2;
+        this.angle = rand() * Math.PI * 2;
         this.targetX = x;
         this.targetY = y;
 
@@ -66,7 +67,7 @@ export class Insect {
         if (this.thinkTimer > 0) {
             this.thinkTimer--;
         } else {
-            this.thinkTimer = 3 + Math.floor(Math.random() * 3); // Think every 3-6 frames
+            this.thinkTimer = 3 + Math.floor(rand() * 3); // Think every 3-6 frames
 
             // Default behavior: Wander
             // Specific behaviors override this by setting state/target
@@ -103,7 +104,7 @@ export class Insect {
         if (dist < 5) {
             if (this.state === 'WANDER') {
                 this.state = 'IDLE';
-                this.stateTimer = 30 + Math.random() * 60; // Pause for 0.5-1.5s
+                this.stateTimer = 30 + rand() * 60; // Pause for 0.5-1.5s
             }
             return;
         }
@@ -133,8 +134,8 @@ export class Insect {
 
     pickRandomTarget() {
         const range = 100;
-        this.targetX = this.x + (Math.random() - 0.5) * range * 2;
-        this.targetY = this.y + (Math.random() - 0.5) * range * 2;
+        this.targetX = this.x + (rand() - 0.5) * range * 2;
+        this.targetY = this.y + (rand() - 0.5) * range * 2;
     }
 
     updatePrey(world: World) {
@@ -218,7 +219,7 @@ export class Insect {
 
     updateAphid(_world: World) {
         // Aphids mostly stay still or move very slowly
-        if (Math.random() < 0.01 && this.state !== 'WANDER') {
+        if (rand() < 0.01 && this.state !== 'WANDER') {
             this.state = 'WANDER';
             this.pickRandomTarget();
         }

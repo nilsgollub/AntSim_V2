@@ -103,14 +103,14 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
 dieser Session (Balance-Whiplash, Navigations-Hänger, blindes Tunen). **Kein Rewrite** —
 gezielte Nachrüstung. Nach Hebelwirkung sortiert.
 
-- [ ] **Deterministische Simulation (seeded PRNG)** *(höchste Priorität)*: `Math.random()`
-  überall ersetzen durch einen injizierten, seed-baren Zufallsgenerator. Ermöglicht
-  reproduzierbare Runs, Save/Replay und — entscheidend — automatisierte Verhaltens-Tests.
+- [x] **Deterministische Simulation (seeded PRNG)**: `src/rng.ts` (mulberry32, `seedRng`/`rand`);
+  alle 87 `Math.random()`-Aufrufe in `src/simulation/*` ersetzt. `main.ts` seedet beim Start
+  (`?seed=<n>` reproduziert einen Run exakt). Rendering-Zufall bleibt bewusst auf `Math.random()`.
 
-- [ ] **Headless Metrik-Harness für emergentes Verhalten**: Sim N Frames ohne DOM laufen
-  lassen und auf Aggregate asserten (Population pendelt in [x,y], Straße bildet sich, kein
-  Vorrat bleibt bei 0). Hätte jede Balance-Regression dieser Session automatisch gefangen.
-  Macht Tuning *verifizierbar* statt „im Browser nachschauen".
+- [x] **Headless Metrik-Harness für emergentes Verhalten**: `src/simulation/headless.ts`
+  (`runHeadless(seed, ticks)` → Aggregat-Metriken, ohne DOM). Tests prüfen Determinismus
+  (gleicher Seed → identischer Run) + Kolonie-Stabilität (Soak: stirbt nicht aus, bleibt
+  unter Cap, kein Vorrat dauerhaft 0, Brut lebt). Macht Balance verifizierbar statt „im Browser".
 
 - [ ] **Explizites Balance-Modell statt reaktivem Tunen**: Vitalraten (Geburt/Tod/Ertrag/
   Verbrauch) dokumentieren; Parameter aus Zielwerten ableiten (z.B. Pop ≈ lifespan/layInterval)

@@ -1,3 +1,4 @@
+import { rand } from '../rng';
 import { CONFIG } from '../config';
 import { World } from './World';
 import { Brood } from './Brood';
@@ -69,8 +70,8 @@ export class Queen {
                         // Spawn Egg
                         // Spawn Egg at the tip of the abdomen (Queen is vertical, head up)
                         // Abdomen tip is approx +45px down
-                        const eggX = this.x + (Math.random() - 0.5) * 10;
-                        const eggY = this.y + 45 + (Math.random() * 5);
+                        const eggX = this.x + (rand() - 0.5) * 10;
+                        const eggY = this.y + 45 + (rand() * 5);
                         world.brood.push(new Brood(eggX, eggY));
 
                         this.state = 'IDLE';

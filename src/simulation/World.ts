@@ -1,3 +1,4 @@
+import { rand } from '../rng';
 import { CONFIG } from '../config';
 import { Ant } from './Ant';
 import { Queen } from './Queen';
@@ -83,10 +84,10 @@ export class World {
         // Generate Grass
         for (let i = 0; i < 200; i++) {
             this.grass.push({
-                x: Math.random() * CONFIG.width,
-                y: Math.random() * CONFIG.height,
-                size: 2 + Math.random() * 3,
-                angle: Math.random() * Math.PI * 2
+                x: rand() * CONFIG.width,
+                y: rand() * CONFIG.height,
+                size: 2 + rand() * 3,
+                angle: rand() * Math.PI * 2
             });
         }
 
@@ -95,7 +96,7 @@ export class World {
             this.spawnAnt('WORKER');
             const ant = this.ants[this.ants.length - 1];
             // Randomize energy between 50% and 100%
-            ant.energy = CONFIG.antMaxEnergy * (0.5 + Math.random() * 0.5);
+            ant.energy = CONFIG.antMaxEnergy * (0.5 + rand() * 0.5);
         }
         // Spawn one initial soldier
         this.spawnAnt('SOLDIER');
@@ -107,14 +108,14 @@ export class World {
         const spawnBrood = (stage: 'EGG' | 'LARVA' | 'PUPA', count: number) => {
             for (let i = 0; i < count; i++) {
                 const b = new Brood(
-                    broodChamber.x + (Math.random() - 0.5) * 40,
-                    broodChamber.y + (Math.random() - 0.5) * 40
+                    broodChamber.x + (rand() - 0.5) * 40,
+                    broodChamber.y + (rand() - 0.5) * 40
                 );
                 b.stage = stage;
                 // Randomize age to stagger hatching/pupation
-                if (stage === 'EGG') b.age = Math.random() * Brood.EGG_DURATION;
-                if (stage === 'LARVA') b.age = Math.random() * Brood.LARVA_DURATION;
-                if (stage === 'PUPA') b.age = Math.random() * Brood.PUPA_DURATION;
+                if (stage === 'EGG') b.age = rand() * Brood.EGG_DURATION;
+                if (stage === 'LARVA') b.age = rand() * Brood.LARVA_DURATION;
+                if (stage === 'PUPA') b.age = rand() * Brood.PUPA_DURATION;
                 this.brood.push(b);
             }
         };
@@ -140,8 +141,8 @@ export class World {
     }
 
     addParticle(x: number, y: number, color: string, type: 'DEFAULT' | 'BLOOD' | 'DUST' = 'DEFAULT') {
-        const angle = Math.random() * Math.PI * 2;
-        const speed = type === 'BLOOD' ? Math.random() * 0.5 : Math.random() * 2;
+        const angle = rand() * Math.PI * 2;
+        const speed = type === 'BLOOD' ? rand() * 0.5 : rand() * 2;
         this.particles.push({
             x, y,
             vx: Math.cos(angle) * speed,
@@ -156,8 +157,8 @@ export class World {
         let x = 0, y = 0;
         let valid = false;
         while (!valid) {
-            x = Math.random() * CONFIG.width;
-            y = Math.random() * CONFIG.height;
+            x = rand() * CONFIG.width;
+            y = rand() * CONFIG.height;
 
             // Check Entrance Proximity (Don't spawn too close to entrance)
             const isLandscape = CONFIG.width > CONFIG.height;
@@ -174,7 +175,7 @@ export class World {
         let amount = 1000;
         if (type === 'SUGAR') {
             // Reduced to 150-400
-            amount = 100 + Math.floor(Math.random() * 200);
+            amount = 100 + Math.floor(rand() * 200);
         }
         this.foods.push(new Food(x, y, type, amount));
     }
@@ -196,8 +197,8 @@ export class World {
         let valid = false;
         let attempts = 0;
         while (!valid && attempts < 20) {
-            x = Math.random() * CONFIG.width;
-            y = Math.random() * CONFIG.height;
+            x = rand() * CONFIG.width;
+            y = rand() * CONFIG.height;
             // Check terrain and distance from edges
             if (!this.terrain.isBlocked(x, y) && x > 10 && x < CONFIG.width - 10 && y > 10 && y < CONFIG.height - 10) {
                 valid = true;
@@ -304,42 +305,42 @@ export class World {
 
         // Spawn Prey
         if (this.insects.filter(i => i.type === 'PREY').length < CONFIG.maxPrey) {
-            if (Math.random() < CONFIG.preySpawnRate) {
+            if (rand() < CONFIG.preySpawnRate) {
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'PREY'));
             }
         }
         // Spawn Predators (Generic)
         if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'PREDATOR').length < currentMaxPredators) {
-            if (Math.random() < CONFIG.predatorSpawnRate) {
+            if (rand() < CONFIG.predatorSpawnRate) {
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'PREDATOR'));
             }
         }
         // Spawn Spiders (Fast, Dangerous)
         if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'SPIDER').length < currentMaxSpiders) {
-            if (Math.random() < CONFIG.spiderSpawnRate) {
+            if (rand() < CONFIG.spiderSpawnRate) {
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'SPIDER'));
             }
         }
         // Spawn Beetles (Tanky)
         if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'BEETLE').length < currentMaxBeetles) {
-            if (Math.random() < CONFIG.beetleSpawnRate) {
+            if (rand() < CONFIG.beetleSpawnRate) {
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'BEETLE'));
             }
         }
         // Spawn Ladybugs (Aphid Hunters)
         if (this.age > CONFIG.gracePeriod && this.insects.filter(i => i.type === 'LADYBUG').length < currentMaxLadybugs) {
-            if (Math.random() < CONFIG.ladybugSpawnRate) {
+            if (rand() < CONFIG.ladybugSpawnRate) {
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'LADYBUG'));
             }
         }
         // Spawn Aphids (Blattläuse)
         if (this.insects.filter(i => i.type === 'APHID').length < 8) {
-            if (Math.random() < 0.003) {
+            if (rand() < 0.003) {
                 const pos = this.getSafePosition();
                 this.insects.push(new Insect(pos.x, pos.y, 'APHID'));
             }
@@ -405,7 +406,7 @@ export class World {
         }
         // Respawn Sugar
         if (this.foods.filter(f => f.type === 'SUGAR').length < CONFIG.sugarSourceCount) {
-            if (Math.random() < 0.05) this.spawnFood('SUGAR');
+            if (rand() < 0.05) this.spawnFood('SUGAR');
         }
 
         // Passive colony upkeep: the nest steadily burns resources proportional
@@ -437,11 +438,11 @@ export class World {
         const c = this.nest.chambers[this.nest.chambers.length - 1];
         if (!c) return;
         for (let i = 0; i < 14; i++) {
-            const a = Math.random() * Math.PI * 2;
-            const sp = Math.random() * 1.5;
+            const a = rand() * Math.PI * 2;
+            const sp = rand() * 1.5;
             this.nestParticles.push({
-                x: c.x + (Math.random() - 0.5) * c.radius,
-                y: c.y + (Math.random() - 0.5) * c.radius,
+                x: c.x + (rand() - 0.5) * c.radius,
+                y: c.y + (rand() - 0.5) * c.radius,
                 vx: Math.cos(a) * sp,
                 vy: Math.sin(a) * sp,
                 life: 1.0,

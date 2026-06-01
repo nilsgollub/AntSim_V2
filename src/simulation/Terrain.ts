@@ -1,3 +1,4 @@
+import { rand } from '../rng';
 import { CONFIG } from '../config';
 
 export class Terrain {
@@ -21,9 +22,9 @@ export class Terrain {
             let attempts = 0;
 
             while (!valid && attempts < 100) {
-                x = Math.random() * CONFIG.width;
-                y = Math.random() * CONFIG.height;
-                r = 20 + Math.random() * 30; // Reduced Radius: 20-50 (was 30-100)
+                x = rand() * CONFIG.width;
+                y = rand() * CONFIG.height;
+                r = 20 + rand() * 30; // Reduced Radius: 20-50 (was 30-100)
 
                 // Check distance to Nest Entrance (Right edge, Centered)
                 // Entrance at x = CONFIG.width, y = CONFIG.height / 2
@@ -86,7 +87,7 @@ export class Terrain {
         }
 
         // Wall collision (if no obstacle matched)
-        return currentAngle + Math.PI + (Math.random() - 0.5) * 1.5;
+        return currentAngle + Math.PI + (rand() - 0.5) * 1.5;
     }
 
     normalizeAngle(a: number): number {
