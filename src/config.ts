@@ -32,6 +32,10 @@ export const CONFIG = {
     sugarValue: 10,
     proteinValue: 5,
 
+    // Starting stockpiles (a modest founding buffer, not a huge head start)
+    startSugar: 600,
+    startProtein: 300,
+
     // Resource economy (consumption sinks)
     sugarEnergyValue: 100,    // energy restored per 1 unit of sugar eaten
     colonyUpkeep: 0.001,      // sugar drained per ant per frame (passive nest metabolism)

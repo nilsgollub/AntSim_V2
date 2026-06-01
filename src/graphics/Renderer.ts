@@ -409,7 +409,7 @@ export class Renderer {
         // overlay becomes a dense, muddy blob. The nestGrid still drives ant
         // navigation underground — only its visualisation is suppressed.
 
-        const storage = world.nest.chambers.find(c => c.type === 'STORAGE');
+        const storage = world.nest.getChamber('STORAGE');
         if (storage) {
             // Draw Food Piles BEFORE ants so ants walk ON TOP
             this.drawFoodPile(storage.x, storage.y, storage.radius, world.sugarStockpile, 'SUGAR', ctx);

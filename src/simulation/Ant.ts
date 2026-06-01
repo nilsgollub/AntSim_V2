@@ -331,7 +331,7 @@ export class Ant {
         // In Nest
         // 0. Self-Preservation (Eat if hungry)
         if (this.energy < CONFIG.ant.nurseEatThreshold) {
-            const storage = world.nest.chambers.find(c => c.type === 'STORAGE');
+            const storage = world.nest.getChamber('STORAGE');
             if (storage) {
                 const dx = storage.x - this.x;
                 const dy = storage.y - this.y;
@@ -350,7 +350,7 @@ export class Ant {
         // Check if work needed
         if (this.carrying === 'NONE') {
             // 1. Check for Misplaced Brood (Priority)
-            const broodChamber = world.nest.chambers.find(c => c.type === 'BROOD');
+            const broodChamber = world.nest.getChamber('BROOD');
             if (broodChamber) {
                 const misplacedBrood = world.brood.find(b => {
                     if (b.carrier) return false;
@@ -385,7 +385,7 @@ export class Ant {
 
                 if (queenHungry || larvaHungry) {
                     // Go to Storage
-                    const storage = world.nest.chambers.find(c => c.type === 'STORAGE');
+                    const storage = world.nest.getChamber('STORAGE');
                     if (!storage) return;
 
                     const dx = storage.x - this.x;
@@ -442,7 +442,7 @@ export class Ant {
         this.carryingInstance.y = this.y;
 
         // Go to Brood Chamber
-        const broodChamber = world.nest.chambers.find(c => c.type === 'BROOD');
+        const broodChamber = world.nest.getChamber('BROOD');
         if (!broodChamber) return;
         const dx = broodChamber.x - this.x;
         const dy = broodChamber.y - this.y;
@@ -1177,7 +1177,7 @@ export class Ant {
             this.angle += diff * biasStrength;
 
         } else {
-            const storage = world.nest.chambers.find(c => c.type === 'STORAGE');
+            const storage = world.nest.getChamber('STORAGE');
 
             if (storage) {
                 const dx = storage.x - this.x;
@@ -1226,7 +1226,7 @@ export class Ant {
         }
 
         // In Nest: Go to Storage and Eat
-        const storage = world.nest.chambers.find(c => c.type === 'STORAGE');
+        const storage = world.nest.getChamber('STORAGE');
         if (storage) {
             const dx = storage.x - this.x;
             const dy = storage.y - this.y;
@@ -1375,19 +1375,46 @@ export class Ant {
                 this.x = nextX;
                 this.y = nextY;
             } else {
+                // Blocked by a wall. Wall-slide: rotate the heading just enough to
+                // find a walkable direction and step there, so ants flow around
+                // curved chamber/tunnel boundaries instead of oscillating.
+                const probe = CONFIG.antSpeed * Math.max(0.5, this.speedMultiplier);
+                let slid = false;
+                for (let k = 1; k <= 6 && !slid; k++) {
+                    const off = k * 0.4; // up to ~2.4 rad either way
+                    for (const dir of [1, -1]) {
+                        const a = this.angle + dir * off;
+                        const tx = this.x + Math.cos(a) * probe;
+                        const ty = this.y + Math.sin(a) * probe;
+                        if (world.nest.isInside(tx, ty, NEST_BUFFER)) {
+                            this.angle = a;
+                            this.x = tx;
+                            this.y = ty;
+                            slid = true;
+                            break;
+                        }
+                    }
+                }
+                if (!slid) {
+                    // Last resort: ease back toward the nearest node centre.
+                    const nearest = world.nest.getNearestNode(this.x, this.y);
+                    if (nearest) {
+                        const angleToCenter = Math.atan2(nearest.y - this.y, nearest.x - this.x);
+                        this.x += Math.cos(angleToCenter) * 2;
+                        this.y += Math.sin(angleToCenter) * 2;
+                        this.angle = angleToCenter + (Math.random() - 0.5) * 0.6;
+                    }
+                }
+            }
+
+            // Nest stuck-recovery: if wedged for a while, steer toward the nearest
+            // node centre to break free of a concave pocket.
+            if (this.stuckTimer > 25) {
                 const nearest = world.nest.getNearestNode(this.x, this.y);
                 if (nearest) {
-                    const dx = nearest.x - this.x;
-                    const dy = nearest.y - this.y;
-                    const angleToCenter = Math.atan2(dy, dx);
-                    this.x += Math.cos(angleToCenter) * 2;
-                    this.y += Math.sin(angleToCenter) * 2;
-                    this.angle = angleToCenter + (Math.random() - 0.5) * 2.0;
-                } else {
-                    this.angle += Math.PI;
-                    this.x += Math.cos(this.angle) * 2;
-                    this.y += Math.sin(this.angle) * 2;
+                    this.angle = Math.atan2(nearest.y - this.y, nearest.x - this.x) + (Math.random() - 0.5) * 0.8;
                 }
+                this.stuckTimer = 0;
             }
         }
         // Stuck Detection

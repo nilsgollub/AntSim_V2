@@ -1,20 +1,25 @@
 import { CONFIG } from '../config';
 
+export type ChamberRole = 'QUEEN' | 'BROOD' | 'STORAGE';
+export interface Chamber { x: number; y: number; radius: number; type: ChamberRole; }
+
 export class Nest {
     width: number;
     height: number;
 
-    // The nest is defined by a collection of overlapping nodes (circles)
-    // This allows for organic shapes and easy collision detection
+    // The nest is defined by a collection of overlapping nodes (circles).
     nodes: { x: number, y: number, radius: number, type: 'TUNNEL' | 'CHAMBER' }[] = [];
 
-    // Specific chamber locations for logic (Queen, Brood, Storage)
-    // These point to specific nodes in the list
-    chambers: { x: number, y: number, radius: number, type: 'QUEEN' | 'BROOD' | 'STORAGE' }[] = [];
+    // All chamber rooms (the founding chamber plus any excavated ones).
+    chambers: Chamber[] = [];
+
+    // Which chamber currently fulfils each functional role. Early on a single
+    // founding chamber holds all three; excavation differentiates them.
+    roles!: Record<ChamberRole, Chamber>;
 
     entrances: { x: number, y: number }[] = [];
 
-    // Count of dynamically excavated satellite chambers (beyond the core three).
+    // Count of dynamically excavated chambers (beyond the founding one).
     extraChambers: number = 0;
 
     constructor() {
@@ -24,124 +29,66 @@ export class Nest {
     }
 
     init() {
-        // Scale factor based on smallest dimension to ensure fit
-        // Base reference: 800px height/width.
-        // Scale factor based on smallest dimension to ensure fit
         const minDim = Math.min(this.width, this.height);
-        const rScale = minDim / 300; // Safer scaling (was 250)
+        const rScale = minDim / 300;
+        const cx = this.width / 2;
+        const cy = this.height / 2;
 
+        // A single, modest founding chamber that does everything at first.
+        const startR = 70 * rScale;
+        const founding = this.addChamber(cx, cy, startR, 'QUEEN');
+        this.roles = { QUEEN: founding, BROOD: founding, STORAGE: founding };
+
+        // Entrance + connecting tunnel, oriented like the original layout.
         if (this.width > this.height) {
-            this.initHorizontal(rScale);
+            // Wide nest (portrait world): entrance at the top.
+            this.entrances = [{ x: cx, y: 0 }];
+            this.createOrganicTunnel(cx, cy, startR, cx, 0, 30 * rScale, 30 * rScale);
         } else {
-            this.initVertical(rScale);
+            // Tall nest (landscape world): entrance at the left.
+            this.entrances = [{ x: 0, y: cy }];
+            this.createOrganicTunnel(cx, cy, startR, 0, cy, 30 * rScale, 30 * rScale);
         }
     }
 
-    initVertical(rScale: number) {
-        const cx = this.width / 2;
-
-        // 1. Define Main Chambers (Massive & Organic)
-
-        // Queen Chamber (Bottom - 80% down) - Moved up from 85%
-        const queenY = this.height * 0.80;
-        const queenR = 100 * rScale;
-        this.addChamber(cx, queenY, queenR, 'QUEEN');
-
-        // Storage Chamber (Middle - 50% down)
-        const storageY = this.height * 0.5;
-        const storageR = 90 * rScale;
-        this.addChamber(cx, storageY, storageR, 'STORAGE');
-
-        // Brood Chamber (Top - 20% down) - Moved down from 15%
-        const broodY = this.height * 0.20;
-        const broodR = 80 * rScale;
-        this.addChamber(cx, broodY, broodR, 'BROOD');
-
-        // 2. Connect with Organic Bone-Shape Tunnels
-        // Thin tunnels (30 * rScale) with smooth flares at ends
-
-        // Connect Brood (Top) -> Storage (Middle)
-        this.createOrganicTunnel(cx, broodY, broodR, cx, storageY, storageR, 30 * rScale);
-
-        // Connect Storage (Middle) -> Queen (Bottom)
-        this.createOrganicTunnel(cx, storageY, storageR, cx, queenY, queenR, 30 * rScale);
-
-        // 3. Entrance Tunnel (Horizontal to Left)
-        // From Storage Chamber (Middle) to Left Wall
-        // Entrance at y = height / 2 (Centered)
-        const entranceY = this.height / 2;
-        this.entrances = [{ x: 0, y: entranceY }];
-
-        // Connect Storage to Entrance
-        this.createOrganicTunnel(cx, storageY, storageR, 0, entranceY, 30 * rScale, 30 * rScale);
-    }
-
-    initHorizontal(rScale: number) {
-        const cy = this.height / 2;
-
-        // 1. Define Main Chambers (Left to Right)
-
-        // Brood Chamber (Left - 20% across) - Moved right from 15%
-        const broodX = this.width * 0.20;
-        const broodR = 80 * rScale;
-        this.addChamber(broodX, cy, broodR, 'BROOD');
-
-        // Storage Chamber (Middle - 50% across)
-        const storageX = this.width * 0.5;
-        const storageR = 90 * rScale;
-        this.addChamber(storageX, cy, storageR, 'STORAGE');
-
-        // Queen Chamber (Right - 80% across) - Moved left from 85%
-        const queenX = this.width * 0.80;
-        const queenR = 100 * rScale;
-        this.addChamber(queenX, cy, queenR, 'QUEEN');
-
-        // 2. Connect with Organic Bone-Shape Tunnels
-
-        // Connect Brood (Left) -> Storage (Middle)
-        this.createOrganicTunnel(broodX, cy, broodR, storageX, cy, storageR, 30 * rScale);
-
-        // Connect Storage (Middle) -> Queen (Right)
-        this.createOrganicTunnel(storageX, cy, storageR, queenX, cy, queenR, 30 * rScale);
-
-        // 3. Entrance Tunnel (Vertical to Top)
-        // From Storage Chamber (Middle) to Top Wall (y=0)
-        // Entrance at x = width / 2 (Centered)
-        const entranceX = this.width / 2;
-        this.entrances = [{ x: entranceX, y: 0 }]; // y=0 is top
-
-        // Connect Storage to Entrance
-        this.createOrganicTunnel(storageX, cy, storageR, entranceX, 0, 30 * rScale, 30 * rScale);
-    }
-
-    addChamber(x: number, y: number, radius: number, type: 'QUEEN' | 'BROOD' | 'STORAGE') {
+    addChamber(x: number, y: number, radius: number, type: ChamberRole): Chamber {
         this.nodes.push({ x, y, radius, type: 'CHAMBER' });
-        this.chambers.push({ x, y, radius, type });
+        const chamber: Chamber = { x, y, radius, type };
+        this.chambers.push(chamber);
+        return chamber;
     }
 
-    // Dig one new satellite chamber branching off an existing chamber, connected
-    // by an organic tunnel. Returns false if no valid spot was found (keeps the
-    // chamber inside the nest bounds and from burying an existing one).
-    // Existing navigation (isInside / getNextNodeTowards) and the renderer's
-    // node-count-based cache pick up the new nodes automatically.
-    excavate(): boolean {
+    addNode(x: number, y: number, radius: number, type: 'TUNNEL' | 'CHAMBER') {
+        this.nodes.push({ x, y, radius, type });
+    }
+
+    /** The chamber currently assigned a given functional role (always defined). */
+    getChamber(role: ChamberRole): Chamber {
+        return this.roles[role];
+    }
+
+    // Dig one new chamber branching off an existing one, connected by an organic
+    // tunnel, kept inside bounds and from burying an existing chamber. Returns the
+    // new chamber, or null if no valid spot was found.
+    private digChamber(): Chamber | null {
         const minDim = Math.min(this.width, this.height);
         const rScale = minDim / 300;
         const newR = (45 + Math.random() * 25) * rScale;
         const gap = 15 * rScale;
 
-        for (let attempt = 0; attempt < 16; attempt++) {
-            const parent = this.chambers[Math.floor(Math.random() * this.chambers.length)];
+        // Always branch off the founding hub (chambers[0]) so the nest stays a
+        // simple star: every chamber reaches the entrance through the centre.
+        // This keeps the greedy nest pathfinding robust.
+        const parent = this.chambers[0];
+        for (let attempt = 0; attempt < 24; attempt++) {
             const angle = Math.random() * Math.PI * 2;
             const d = parent.radius + newR + gap;
             const nx = parent.x + Math.cos(angle) * d;
             const ny = parent.y + Math.sin(angle) * d;
 
-            // Keep fully inside the nest canvas.
             if (nx < newR + 4 || nx > this.width - newR - 4) continue;
             if (ny < newR + 4 || ny > this.height - newR - 4) continue;
 
-            // Don't bury the new chamber inside an existing one.
             let tooClose = false;
             for (const c of this.chambers) {
                 const ddx = nx - c.x;
@@ -151,52 +98,54 @@ export class Nest {
             }
             if (tooClose) continue;
 
-            this.addChamber(nx, ny, newR, 'STORAGE');
+            const chamber = this.addChamber(nx, ny, newR, 'STORAGE');
             this.createOrganicTunnel(parent.x, parent.y, parent.radius, nx, ny, newR, 22 * rScale);
-            this.extraChambers++;
-            return true;
+            return chamber;
         }
-        return false;
+        return null;
     }
 
-    addNode(x: number, y: number, radius: number, type: 'TUNNEL' | 'CHAMBER') {
-        this.nodes.push({ x, y, radius, type });
+    // Grow the nest by one stage. The first dig becomes a dedicated brood
+    // chamber, the second a dedicated storage chamber (differentiating the
+    // founding chamber, which keeps the queen); further digs add generic space.
+    // Existing navigation and the renderer's node-count cache pick up new nodes.
+    growStage(): boolean {
+        const chamber = this.digChamber();
+        if (!chamber) return false;
+
+        if (this.extraChambers === 0) {
+            chamber.type = 'BROOD';
+            this.roles.BROOD = chamber; // nursery splits off
+        } else if (this.extraChambers === 1) {
+            chamber.type = 'STORAGE';
+            this.roles.STORAGE = chamber; // granary splits off
+        } else {
+            chamber.type = 'STORAGE'; // generic extra space / capacity
+        }
+
+        this.extraChambers++;
+        return true;
     }
 
     // Creates a tunnel that smoothly transitions from chamber radii to a thin tunnel radius
-    // Uses exponential decay to create a "trumpet" or "bone" shape
     createOrganicTunnel(x1: number, y1: number, r1: number, x2: number, y2: number, r2: number, tunnelRadius: number) {
         const dx = x2 - x1;
         const dy = y2 - y1;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // Step size
-        const stepSize = tunnelRadius * 0.05; // Ultra high density for smoothness
+        const stepSize = tunnelRadius * 0.05;
         const steps = Math.ceil(dist / stepSize);
 
-        // Decay factor - controls how fast the flare tapers
-        // We want it to drop from R to tunnelRadius over a distance of roughly R
-        // Gaussian decay: exp(-k * d^2)
-        // We want exp(-k * R^2) approx 0.05 (5%)
-        // -k * R^2 = ln(0.05) approx -3.0
-        // k = 3.0 / (avgR * avgR)
         const avgR = (r1 + r2) / 2;
         const k = 3.0 / (avgR * avgR);
 
         for (let i = 0; i <= steps; i++) {
             const t = i / steps;
-            const d = t * dist; // Distance from start
-            const dFromEnd = dist - d; // Distance from end
+            const d = t * dist;
+            const dFromEnd = dist - d;
 
-            // Calculate radius contribution from Start Flare (Gaussian)
-            // R_start(d) = (r1 - tunnelRadius) * exp(-k * d^2)
-            // Derivative at d=0 is 0, ensuring smooth tangent with chamber
             const excessStart = (r1 - tunnelRadius) * Math.exp(-k * d * d);
-
-            // Calculate radius contribution from End Flare (Gaussian)
             const excessEnd = (r2 - tunnelRadius) * Math.exp(-k * dFromEnd * dFromEnd);
-
-            // Combine them by SUMMING the excess radius.
             const currentRadius = tunnelRadius + excessStart + excessEnd;
 
             this.nodes.push({
@@ -213,8 +162,6 @@ export class Nest {
         for (const node of this.nodes) {
             const dx = x - node.x;
             const dy = y - node.y;
-            // Check against radius minus buffer
-            // If buffer is 5, we check if we are within (radius - 5)
             if (dx * dx + dy * dy < (node.radius - buffer) * (node.radius - buffer)) {
                 return true;
             }
@@ -242,25 +189,20 @@ export class Nest {
         return nearest;
     }
 
-    // Simple greedy pathfinding: Find a node that is closer to target than current position
-    // but is also connected (overlapping) with current node area
+    // Simple greedy pathfinding over overlapping nodes.
     getNextNodeTowards(x: number, y: number, targetX: number, targetY: number) {
-        // Find nodes that overlap with current position
         const currentNodes = this.nodes.filter(n => {
             const dx = x - n.x;
             const dy = y - n.y;
             return dx * dx + dy * dy < (n.radius + 10) * (n.radius + 10);
         });
 
-        if (currentNodes.length === 0) return this.getNearestNode(x, y); // Fallback
+        if (currentNodes.length === 0) return this.getNearestNode(x, y);
 
-        // Find a neighbor node that is closer to target
         let bestNode = null;
         let bestScore = Infinity;
 
-        // Consider all nodes as potential next steps
         for (const node of this.nodes) {
-            // Check if this node overlaps with any current node (is reachable)
             let reachable = false;
             for (const curr of currentNodes) {
                 const dx = node.x - curr.x;
@@ -277,7 +219,6 @@ export class Nest {
                 const dy = targetY - node.y;
                 const distToTarget = dx * dx + dy * dy;
 
-                // Add a penalty for distance from current position to avoid huge jumps
                 const dx2 = x - node.x;
                 const dy2 = y - node.y;
                 const distFromCurr = dx2 * dx2 + dy2 * dy2;

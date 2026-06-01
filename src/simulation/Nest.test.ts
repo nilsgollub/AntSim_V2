@@ -1,30 +1,40 @@
 import { describe, it, expect } from 'vitest';
 import { Nest } from './Nest';
 
-describe('Nest excavation', () => {
-    it('starts with the three core chambers and no extras', () => {
+describe('Nest — founding chamber & role differentiation', () => {
+    it('starts as a single founding chamber holding every role', () => {
         const nest = new Nest();
-        expect(nest.chambers.length).toBe(3);
+        expect(nest.chambers.length).toBe(1);
         expect(nest.extraChambers).toBe(0);
-        const types = nest.chambers.map(c => c.type).sort();
-        expect(types).toEqual(['BROOD', 'QUEEN', 'STORAGE']);
+        const c = nest.chambers[0];
+        expect(nest.getChamber('QUEEN')).toBe(c);
+        expect(nest.getChamber('BROOD')).toBe(c);
+        expect(nest.getChamber('STORAGE')).toBe(c);
     });
 
-    it('excavate() adds a chamber, tunnel nodes, and bumps the counter', () => {
+    it('first growth splits off a dedicated brood chamber', () => {
         const nest = new Nest();
-        const chambersBefore = nest.chambers.length;
-        const nodesBefore = nest.nodes.length;
-
-        const ok = nest.excavate();
-        expect(ok).toBe(true);
-        expect(nest.chambers.length).toBe(chambersBefore + 1);
-        expect(nest.nodes.length).toBeGreaterThan(nodesBefore + 1); // chamber + tunnel nodes
-        expect(nest.extraChambers).toBe(1);
+        const founding = nest.chambers[0];
+        expect(nest.growStage()).toBe(true);
+        expect(nest.chambers.length).toBe(2);
+        expect(nest.getChamber('BROOD')).not.toBe(founding);
+        expect(nest.getChamber('QUEEN')).toBe(founding);   // queen stays
+        expect(nest.getChamber('STORAGE')).toBe(founding); // storage not yet split
     });
 
-    it('keeps every excavated chamber inside the nest bounds', () => {
+    it('second growth splits off a dedicated storage chamber', () => {
         const nest = new Nest();
-        for (let i = 0; i < 8; i++) nest.excavate();
+        const founding = nest.chambers[0];
+        nest.growStage(); // brood
+        nest.growStage(); // storage
+        expect(nest.getChamber('STORAGE')).not.toBe(founding);
+        expect(nest.getChamber('BROOD')).not.toBe(founding);
+        expect(nest.getChamber('STORAGE')).not.toBe(nest.getChamber('BROOD'));
+    });
+
+    it('keeps every chamber inside the nest bounds', () => {
+        const nest = new Nest();
+        for (let i = 0; i < 8; i++) nest.growStage();
         for (const c of nest.chambers) {
             expect(c.x - c.radius).toBeGreaterThanOrEqual(0);
             expect(c.x + c.radius).toBeLessThanOrEqual(nest.width);
@@ -33,11 +43,11 @@ describe('Nest excavation', () => {
         }
     });
 
-    it('excavated chambers remain reachable by navigation', () => {
+    it('every excavated chamber centre is reachable (inside the node graph)', () => {
         const nest = new Nest();
-        nest.excavate();
-        const dug = nest.chambers[nest.chambers.length - 1];
-        // A point at the new chamber centre must register as inside the nest.
-        expect(nest.isInside(dug.x, dug.y)).toBe(true);
+        for (let i = 0; i < 6; i++) nest.growStage();
+        for (const c of nest.chambers) {
+            expect(nest.isInside(c.x, c.y)).toBe(true);
+        }
     });
 });

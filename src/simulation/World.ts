@@ -28,8 +28,8 @@ export class World {
     // Resources. Both stockpiles have real sinks: sugar fuels worker energy +
     // queen regen + passive colony upkeep; protein fuels egg-laying, larva
     // feeding + passive brood upkeep (see World.update / Queen / Ant).
-    proteinStockpile: number = 500; // Start with a buffer
-    sugarStockpile: number = 2000;  // Start with a buffer
+    proteinStockpile: number = CONFIG.startProtein;
+    sugarStockpile: number = CONFIG.startSugar;
 
     // Simulation Age
     age: number = 0;
@@ -64,7 +64,7 @@ export class World {
         this.foods = [];
         this.brood = [];
         this.queen = new Queen();
-        const queenChamber = this.nest.chambers.find(c => c.type === 'QUEEN') || this.nest.chambers[0];
+        const queenChamber = this.nest.getChamber('QUEEN');
         this.queen.x = queenChamber.x;
         this.queen.y = queenChamber.y;
 
@@ -101,7 +101,7 @@ export class World {
         this.spawnAnt('SOLDIER');
 
         // Initial Brood (Staggered Stages)
-        const broodChamber = this.nest.chambers.find(c => c.type === 'BROOD') || this.nest.chambers[0];
+        const broodChamber = this.nest.getChamber('BROOD');
 
         // Helper to spawn brood
         const spawnBrood = (stage: 'EGG' | 'LARVA' | 'PUPA', count: number) => {
@@ -426,7 +426,7 @@ export class World {
             Math.floor(this.ants.length / CONFIG.nest.excavateEvery),
         );
         while (this.nest.extraChambers < targetExtra) {
-            if (!this.nest.excavate()) break;
+            if (!this.nest.growStage()) break;
             this.spawnNestDust();
         }
     }
