@@ -5,15 +5,25 @@ const screenH = typeof window !== 'undefined' ? window.innerHeight : 600;
 
 const isLandscape = screenW > screenH;
 
-// Define a target "playable area" in logical pixels.
-// 1000x600 = 600,000 pixels.
-// This ensures the world is always roughly this "size" to the ants, regardless of screen resolution.
-const TARGET_AREA = 1000 * 600;
+// Size of the playable world in logical pixels. Base is 1000×600; WORLD_SCALE is
+// a linear multiplier (so the area grows with its square). A bigger world means
+// more room to roam / longer trails (use the camera to zoom in).
+const WORLD_SCALE = 1.4;
+// Share of the world the nest occupies (per axis, landscape).
+const NEST_FRACTION = 0.28;
+
+const TARGET_AREA = 1000 * 600 * WORLD_SCALE * WORLD_SCALE;
 const aspect = screenW / screenH;
 
 // Calculate logical dimensions that preserve the aspect ratio but approximate the target area
 const logicalHeight = Math.sqrt(TARGET_AREA / aspect);
 const logicalWidth = logicalHeight * aspect;
+
+// How much bigger the world is than the 1000×600 baseline. Food + ecosystem
+// caps scale by this so a larger world keeps the same density (otherwise prey —
+// the protein supply — gets too sparse and the colony starves).
+const areaFactor = (logicalWidth * logicalHeight) / (1000 * 600);
+const scaleCount = (base: number) => Math.max(base, Math.round(base * areaFactor));
 
 export const CONFIG = {
     // Logical World Dimensions
@@ -21,16 +31,18 @@ export const CONFIG = {
     height: Math.floor(logicalHeight),
 
     // Nest Dimensions (Relative to Logical World)
-    nestWidth: isLandscape ? Math.floor(logicalWidth * 0.20) : Math.floor(logicalWidth),
-    nestHeight: isLandscape ? Math.floor(logicalHeight) : Math.floor(logicalHeight * 0.20),
+    nestWidth: isLandscape ? Math.floor(logicalWidth * NEST_FRACTION) : Math.floor(logicalWidth),
+    nestHeight: isLandscape ? Math.floor(logicalHeight) : Math.floor(logicalHeight * NEST_FRACTION),
 
     // Simulation Settings
     initialWorkers: 15,
     soldierUnlockThreshold: 30,
 
-    // Resources
-    sugarValue: 10,
-    proteinValue: 5,
+    // Resources. Yield per delivery scales with the linear world size: a bigger
+    // world means longer round trips, so each trip must carry proportionally more
+    // to keep the income *rate* (and thus the carrying capacity) stable.
+    sugarValue: Math.round(10 * WORLD_SCALE),
+    proteinValue: Math.round(5 * WORLD_SCALE),
 
     // Starting stockpiles (a modest founding buffer, not a huge head start)
     startSugar: 600,
@@ -96,6 +108,7 @@ export const CONFIG = {
         // raises more soldiers, a lean one stays workers — the player's lever.
         soldierProteinLevel: 150,
         soldierFoodThreshold: 1700,
+        maxSoldierFraction: 0.30, // nutrition raises soldiers only up to this share
     },
 
     // Ant behaviour tuning (extracted magic numbers; values unchanged)
@@ -143,30 +156,38 @@ export const CONFIG = {
         proteinForagerShare: 0.4,
     },
 
+    // Reference used to size nest chambers (rScale = nestMinDim / nestScaleRef).
+    // It tracks WORLD_SCALE and NEST_FRACTION so chambers keep ~the same absolute
+    // size as the baseline nest — a bigger nest gains room, not bigger rooms.
+    nestScaleRef: 300 * WORLD_SCALE * (NEST_FRACTION / 0.20),
+
     // Dynamic nest excavation: the colony digs extra satellite chambers as it grows.
     nest: {
-        excavateEvery: 18,     // +1 satellite chamber per this many ants
-        maxExtraChambers: 8,   // cap on dug chambers
+        excavateEvery: 18,                      // +1 satellite chamber per this many ants
+        maxExtraChambers: scaleCount(8),        // more room → more chambers in a bigger nest
     },
 
     // World Generation
     obstacleCount: 12,
 
     // Ecosystem
-    sugarSourceCount: 4, // More, spread-out sources → activity fans out across the map
-    maxPrey: 7,          // Reduced from 10
-    preySpawnRate: 0.005, // Reduced to 0.5%
+    // Food sources scale with world area so the colony's supply (esp. prey →
+    // protein) keeps the same density in a larger world. Threats deliberately do
+    // NOT scale — a bigger world is roomier/safer, which offsets the longer trips.
+    sugarSourceCount: scaleCount(4), // spread-out sources → activity fans out
+    maxPrey: scaleCount(7),
+    preySpawnRate: 0.005 * areaFactor,
 
-    // Enemy Spawning
+    // Enemy Spawning (kept at baseline counts/rates regardless of world size)
     gracePeriod: 4000, // Increased grace period (~60-70s)
 
-    predatorSpawnRate: 0.0005, // Slower spawn
-    spiderSpawnRate: 0.0003,   // Slower spawn
-    beetleSpawnRate: 0.0003,   // Slower spawn
-    ladybugSpawnRate: 0.0005,  // Slower spawn
+    predatorSpawnRate: 0.0005,
+    spiderSpawnRate: 0.0003,
+    beetleSpawnRate: 0.0003,
+    ladybugSpawnRate: 0.0005,
 
-    maxSpiders: 1, // Start with fewer
+    maxSpiders: 1,
     maxBeetles: 1,
     maxLadybugs: 2,
-    maxPredators: 2, // Was 5
+    maxPredators: 2,
 };

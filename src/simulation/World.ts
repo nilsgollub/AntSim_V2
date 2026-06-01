@@ -242,8 +242,12 @@ export class World {
                     // but soldiers stay locked until the colony is established.
                     const workers = this.ants.filter(a => a.type === 'WORKER').length;
                     let caste = b.destinedCaste ?? 'WORKER';
-                    if (caste === 'SOLDIER' && workers <= CONFIG.soldierUnlockThreshold) {
-                        caste = 'WORKER';
+                    if (caste === 'SOLDIER') {
+                        // Locked until the colony is established, and capped so the
+                        // workforce never collapses even when protein is abundant.
+                        const soldiers = this.ants.length - workers;
+                        const tooMany = soldiers >= this.ants.length * CONFIG.brood.maxSoldierFraction;
+                        if (workers <= CONFIG.soldierUnlockThreshold || tooMany) caste = 'WORKER';
                     }
                     this.spawnAnt(caste);
                 }

@@ -11,14 +11,14 @@ body {
 
 #gameCanvas {
   display: block;
-  width: 80vw;
+  width: 74vw;
   height: 100dvh;
 }
 
 /* Nest Container - Holds Canvas and UI */
 #nest-container {
   position: relative;
-  width: 20vw;
+  width: 26vw;
   height: 100dvh;
   border-left: 4px solid #333;
   box-sizing: border-box;
@@ -282,12 +282,12 @@ select {
 
   #gameCanvas {
     width: 100vw;
-    height: 80dvh;
+    height: 74dvh;
   }
 
   #nest-container {
     width: 100vw;
-    height: 20dvh;
+    height: 26dvh;
     border-left: none;
     border-top: 4px solid #333;
   }

@@ -31,7 +31,7 @@ export class Nest {
 
     init() {
         const minDim = Math.min(this.width, this.height);
-        const rScale = minDim / 300;
+        const rScale = minDim / CONFIG.nestScaleRef;
         const cx = this.width / 2;
         const cy = this.height / 2;
 
@@ -73,7 +73,7 @@ export class Nest {
     // new chamber, or null if no valid spot was found.
     private digChamber(): Chamber | null {
         const minDim = Math.min(this.width, this.height);
-        const rScale = minDim / 300;
+        const rScale = minDim / CONFIG.nestScaleRef;
         const newR = (45 + rand() * 25) * rScale;
         const gap = 15 * rScale;
 
