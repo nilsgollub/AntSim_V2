@@ -28,6 +28,9 @@ export class Renderer {
     // When false, the WebGL backdrop draws the dirt + pheromones, so the 2D
     // canvas stays transparent and only draws entities/effects on top.
     drawBackdrop: boolean = true;
+    // When false, the Pixi layer draws the world entities; the 2D layer keeps
+    // only the selection ring + screen-space lighting/effects.
+    drawEntities: boolean = true;
 
     // Day/night ambient tint — optional and dialled down by default.
     dayNight: boolean = true;
@@ -278,6 +281,10 @@ export class Renderer {
 
 
 
+        // World entities (rocks, food, grass, insects, ants, particles). In WebGL
+        // mode the Pixi layer draws these, so the 2D layer skips them and only
+        // keeps the camera-space selection ring + screen-space lighting/effects.
+        if (this.drawEntities) {
         // 2. Obstacles (Rocks) with Shadows
         for (const obs of world.terrain.obstacles) {
             this.drawRock(obs.x, obs.y, obs.radius);
@@ -359,6 +366,7 @@ export class Renderer {
         }
         // 7. Particles
         this.drawParticles(world);
+        } // end if (drawEntities)
 
         // 8. Selection highlight ring (drawn in world space so it moves with camera)
         if (this.selectedEntity) {

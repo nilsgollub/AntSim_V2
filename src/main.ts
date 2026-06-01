@@ -61,11 +61,14 @@ async function enableWebGL() {
     const b = new PixiBackdrop();
     await b.init(glCanvas, renderer.bgCanvas, CONFIG.width, CONFIG.height, renderer.resolutionScale);
     backdrop = b;
-    renderer.drawBackdrop = false; // 2D layer goes transparent; Pixi draws the backdrop
+    // 2D layer keeps only lighting/effects/selection; Pixi draws backdrop + entities.
+    renderer.drawBackdrop = false;
+    renderer.drawEntities = false;
 }
 
 function disableWebGL() {
     renderer.drawBackdrop = true;
+    renderer.drawEntities = true;
     glCanvas.style.display = 'none';
     if (backdrop) { backdrop.destroy(); backdrop = null; }
 }
