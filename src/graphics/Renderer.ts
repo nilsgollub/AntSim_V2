@@ -209,7 +209,11 @@ export class Renderer {
         //    and reuse the cached canvas on the frames in between — a big saving in
         //    a large world (the per-frame cost is otherwise O(world area) in JS).
         if (this.showPheromones) {
-            if (world.age % PerformanceManager.settings.pheromoneUpdateSkip === 0) {
+            // Rebuild the overlay image at most every 3 frames (it changes slowly),
+            // independent of the grid cadence — so it stays cheap even at ULTRA
+            // where the grid updates every frame.
+            const overlaySkip = Math.max(PerformanceManager.settings.pheromoneUpdateSkip, 3);
+            if (world.age % overlaySkip === 0) {
                 const toHome = world.grid.toHome;
                 const toSugar = world.grid.toSugar;
                 const toProtein = world.grid.toProtein;
@@ -239,11 +243,14 @@ export class Renderer {
             ctx.imageSmoothingEnabled = true;
             ctx.globalCompositeOperation = 'lighter';
             ctx.globalAlpha = 0.55;
+            // The bilinear upscale of the low-res overlay already softens it; the
+            // blur just adds glow. Keep the radius small — a full-canvas blur every
+            // frame is one of the most expensive 2D-canvas ops, especially big.
             const lvl = PerformanceManager.level;
             if (lvl === QualityLevel.ULTRA || lvl === QualityLevel.HIGH) {
-                ctx.filter = 'blur(5px)';
+                ctx.filter = 'blur(2px)';
             } else if (lvl === QualityLevel.MEDIUM) {
-                ctx.filter = 'blur(3px)'; // cheap softening; off on LOW/ULTRA_LOW
+                ctx.filter = 'blur(1px)'; // off on LOW/ULTRA_LOW
             }
             ctx.drawImage(this.pheromoneCanvas, 0, 0, this.width, this.height);
             ctx.filter = 'none';

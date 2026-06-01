@@ -102,11 +102,11 @@ export class PerformanceManager {
                     gradients: true,
                     simpleInsects: false,
                     simpleAnts: false,
-                    pheromoneUpdateSkip: 1,
+                    pheromoneUpdateSkip: 2,
                     renderSkip: 1,
                     grassAnimation: true,
                     resolutionScale: 1.0,
-                    pheromoneResolutionScale: 0.5,
+                    pheromoneResolutionScale: 0.4,
                     legAnimation: true,
                     pheromoneDiffusion: true
                 };
