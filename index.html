@@ -109,7 +109,15 @@
           <input type="checkbox" id="webglToggle">
           <label for="webglToggle">WebGL-Renderer (experimentell)</label>
         </div>
-        <div class="tuner-hint">WebGL rendert Hintergrund + Pheromone auf der GPU (Fallback: Canvas).</div>
+        <div class="gfx-row">
+          <input type="checkbox" id="bloomToggle" checked>
+          <label for="bloomToggle">Bloom / Glühen (nur WebGL)</label>
+        </div>
+        <div class="gfx-row">
+          <label style="flex:1">Bloom-Stärke</label>
+          <input type="range" id="bloomRange" min="0" max="1.5" value="0.7" step="0.05">
+        </div>
+        <div class="tuner-hint">WebGL rendert die ganze Welt auf der GPU (Fallback: Canvas).</div>
       </div>
 
       <!-- Live parameter sliders panel -->

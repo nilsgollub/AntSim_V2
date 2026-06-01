@@ -1,4 +1,5 @@
 import { Application, Container, Sprite, Texture } from 'pixi.js';
+import { AdvancedBloomFilter } from 'pixi-filters';
 import type { World } from '../simulation/World';
 import type { Camera } from './Camera';
 import type { Renderer } from './Renderer';
@@ -125,6 +126,10 @@ export class PixiBackdrop {
     private pheroBuf!: Uint32Array;
     private pheroTex!: Texture;
 
+    private bloom!: AdvancedBloomFilter;
+    private bloomOn = true;
+    private bloomIntensity = 0.7;
+
     private logicalW = 0;
     private logicalH = 0;
     private resolutionScale = 1;
@@ -156,6 +161,11 @@ export class PixiBackdrop {
 
         this.world = new Container();
         app.stage.addChild(this.world);
+
+        // Bloom: only the brightest things (pheromone glow, particles, food glints)
+        // bloom — the dark dirt and the matte ants stay crisp (high threshold).
+        this.bloom = new AdvancedBloomFilter({ threshold: 0.7, bloomScale: this.bloomIntensity, brightness: 1, blur: 6, quality: 4 });
+        this.applyBloom();
 
         this.bgSprite = new Sprite(Texture.from(renderer.bgCanvas));
         this.bgSprite.width = logicalW;
@@ -221,6 +231,17 @@ export class PixiBackdrop {
             arr.push(s);
         }
         for (let i = count; i < arr.length; i++) arr[i].visible = false;
+    }
+
+    private applyBloom() {
+        this.bloom.bloomScale = this.bloomIntensity;
+        this.world.filters = this.bloomOn ? [this.bloom] : [];
+    }
+
+    setBloom(enabled: boolean, intensity: number) {
+        this.bloomOn = enabled;
+        this.bloomIntensity = intensity;
+        if (this.ready) this.applyBloom();
     }
 
     resize(logicalW: number, logicalH: number, resolutionScale: number) {

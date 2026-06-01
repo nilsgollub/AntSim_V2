@@ -47,6 +47,8 @@ renderer.camera = camera;
 // Falls back silently to pure canvas-2D when WebGL is unavailable (Pi-safe).
 const glCanvas = document.getElementById('glCanvas') as HTMLCanvasElement;
 let backdrop: PixiBackdrop | null = null;
+let bloomEnabled = true;
+let bloomIntensity = 0.7;
 
 function webglAvailable(): boolean {
     try {
@@ -60,6 +62,7 @@ async function enableWebGL() {
     glCanvas.style.display = 'block';
     const b = new PixiBackdrop();
     await b.init(glCanvas, renderer, world, CONFIG.width, CONFIG.height, renderer.resolutionScale);
+    b.setBloom(bloomEnabled, bloomIntensity);
     backdrop = b;
     // 2D layer keeps only lighting/effects/selection; Pixi draws backdrop + entities.
     renderer.drawBackdrop = false;
@@ -202,6 +205,8 @@ function saveUiState() {
             speed: simSpeed,
             dayNight: renderer.dayNight,
             dayNightIntensity: renderer.dayNightIntensity,
+            bloom: bloomEnabled,
+            bloomIntensity,
         }));
     } catch { /* storage unavailable */ }
 }
@@ -253,6 +258,19 @@ dayNightToggle.addEventListener('change', () => {
 });
 dayNightRange.addEventListener('input', () => {
     renderer.dayNightIntensity = parseFloat(dayNightRange.value);
+    saveUiState();
+});
+
+const bloomToggle = document.getElementById('bloomToggle') as HTMLInputElement;
+const bloomRange  = document.getElementById('bloomRange')  as HTMLInputElement;
+bloomToggle.addEventListener('change', () => {
+    bloomEnabled = bloomToggle.checked;
+    backdrop?.setBloom(bloomEnabled, bloomIntensity);
+    saveUiState();
+});
+bloomRange.addEventListener('input', () => {
+    bloomIntensity = parseFloat(bloomRange.value);
+    backdrop?.setBloom(bloomEnabled, bloomIntensity);
     saveUiState();
 });
 qualitySelect.addEventListener('change', () => {
@@ -558,7 +576,7 @@ function drawStats() {
 
 // ── Restore persisted UI state ───────────────────────────────────────────────
 (function restoreUiState() {
-    let saved: { quality?: string; pheromones?: boolean; speed?: number; dayNight?: boolean; dayNightIntensity?: number } | null = null;
+    let saved: { quality?: string; pheromones?: boolean; speed?: number; dayNight?: boolean; dayNightIntensity?: number; bloom?: boolean; bloomIntensity?: number } | null = null;
     try {
         const raw = localStorage.getItem(UI_KEY);
         if (raw) saved = JSON.parse(raw);
@@ -584,6 +602,14 @@ function drawStats() {
     if (typeof saved.dayNightIntensity === 'number' && Number.isFinite(saved.dayNightIntensity)) {
         renderer.dayNightIntensity = saved.dayNightIntensity;
         dayNightRange.value = String(saved.dayNightIntensity);
+    }
+    if (typeof saved.bloom === 'boolean') {
+        bloomEnabled = saved.bloom;
+        bloomToggle.checked = saved.bloom;
+    }
+    if (typeof saved.bloomIntensity === 'number' && Number.isFinite(saved.bloomIntensity)) {
+        bloomIntensity = saved.bloomIntensity;
+        bloomRange.value = String(saved.bloomIntensity);
     }
 })();
 
