@@ -18,6 +18,10 @@ export class Ant {
     age: number = 0;
     maxAge: number;
 
+    // Site fidelity: last productive food location this ant harvested (-1 = none).
+    foodMemoryX: number = -1;
+    foodMemoryY: number = -1;
+
     // Cosmetic per-ant variety (set once, purely visual).
     sizeVar: number = 0.85 + Math.random() * 0.3; // 0.85–1.15× draw scale
     shade: number = Math.floor(Math.random() * 4); // cached-sprite brightness variant
@@ -1008,8 +1012,9 @@ export class Ant {
         const foundFood = this.senseAndSteer(world, targetPheromone);
 
         if (!foundFood) {
-            // No trail to follow: push out of the congested nest zone, then wander.
-            if (!this.disperseFromNest(world)) this.wander();
+            // No collective trail: head back to a remembered source (site fidelity),
+            // else push out of the congested nest zone, else wander.
+            if (!this.steerToMemory() && !this.disperseFromNest(world)) this.wander();
         }
 
         world.grid.depositCircle(this.x, this.y, 'HOME', CONFIG.pheromone.depositTrail, CONFIG.pheromone.trailRadius);
@@ -1037,6 +1042,27 @@ export class Ant {
         return true;
     }
 
+    // Site fidelity: steer back toward the last productive source. Returns true if
+    // a heading was applied. On arriving with no food present (source depleted —
+    // otherwise the food-detection scan would have caught it), the memory is
+    // forgotten so the ant explores again.
+    steerToMemory(): boolean {
+        if (this.foodMemoryX < 0) return false;
+        const dx = this.foodMemoryX - this.x;
+        const dy = this.foodMemoryY - this.y;
+        if (dx * dx + dy * dy < CONFIG.ant.arriveRangeSq) {
+            this.foodMemoryX = -1;
+            this.foodMemoryY = -1;
+            return false;
+        }
+        const target = Math.atan2(dy, dx);
+        let diff = target - this.angle;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        this.angle += diff * CONFIG.ant.memoryBias + (Math.random() - 0.5) * 0.2;
+        return true;
+    }
+
 
 
     handleHarvesting() {
@@ -1052,6 +1078,9 @@ export class Ant {
                 this.state = 'RETURNING';
                 this.energy = CONFIG.antMaxEnergy;
                 this.angle += Math.PI;
+                // Site fidelity: remember this productive source to return to later.
+                this.foodMemoryX = food.x;
+                this.foodMemoryY = food.y;
                 this.carryingInstance = null;
             } else {
                 // Food gone?

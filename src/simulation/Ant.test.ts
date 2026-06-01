@@ -28,3 +28,27 @@ describe('temporal polyethism (forageUrge)', () => {
         expect(mid).toBeLessThan(old);
     });
 });
+
+describe('site fidelity (steerToMemory)', () => {
+    it('does nothing without a remembered source', () => {
+        const a = new Ant(0, 0, 'WORKER');
+        expect(a.steerToMemory()).toBe(false);
+    });
+
+    it('steers toward a distant remembered source', () => {
+        const a = new Ant(0, 0, 'WORKER');
+        a.foodMemoryX = 500;
+        a.foodMemoryY = 0;
+        expect(a.steerToMemory()).toBe(true);
+        // still remembers it (not yet arrived)
+        expect(a.foodMemoryX).toBe(500);
+    });
+
+    it('forgets the source once arrived (depleted)', () => {
+        const a = new Ant(100, 100, 'WORKER');
+        a.foodMemoryX = 100; // same spot → "arrived"
+        a.foodMemoryY = 100;
+        expect(a.steerToMemory()).toBe(false);
+        expect(a.foodMemoryX).toBe(-1);
+    });
+});

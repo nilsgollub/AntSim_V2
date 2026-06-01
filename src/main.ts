@@ -361,6 +361,7 @@ const SLIDER_SPECS: SliderSpec[] = [
     { path: 'antSensorDist',            label: 'antSensorDist (Spur-Reichweite)', min: 10, max: 120, step: 5 },
     { path: 'ant.dispersalRadius',      label: 'ant.dispersalRadius (Streuung)', min: 0, max: 600, step: 20 },
     { path: 'ant.dispersalStrength',    label: 'ant.dispersalStrength', min: 0, max: 0.4, step: 0.02 },
+    { path: 'ant.memoryBias',           label: 'ant.memoryBias (Site Fidelity)', min: 0, max: 1, step: 0.05 },
     { path: 'sugarSourceCount',         label: 'sugarSourceCount',   min: 1,   max: 10,  step: 1 },
     { path: 'predatorSpawnRate',        label: 'predatorSpawnRate',  min: 0,   max: 0.005, step: 0.0001 },
 ];

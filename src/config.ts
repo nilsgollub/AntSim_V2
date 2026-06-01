@@ -114,6 +114,9 @@ export const CONFIG = {
         forageAgeFraction: 0.6,  // above this → maximum forage urge
         forageUrgeYoung: 0.001,  // per-frame P(go forage) for the youngest
         forageUrgeOld: 0.02,     // per-frame P(go forage) for the oldest
+        // Site fidelity: how strongly a trail-less forager steers back toward its
+        // last productive source (0 = off, pure exploration).
+        memoryBias: 0.3,
     },
 
     // World Generation
