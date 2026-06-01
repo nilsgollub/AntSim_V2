@@ -177,6 +177,18 @@ document.addEventListener('keydown', e => {
 });
 cameraResetBtn.addEventListener('click', () => camera.reset());
 
+// Zoom buttons (keyboard +/- too) — zoom toward the current view centre.
+const zoomInBtn  = document.getElementById('zoomInBtn')  as HTMLButtonElement;
+const zoomOutBtn = document.getElementById('zoomOutBtn') as HTMLButtonElement;
+const zoomBy = (factor: number) => camera.zoomTo(factor, camera.x, camera.y);
+zoomInBtn.addEventListener('click', () => zoomBy(1.25));
+zoomOutBtn.addEventListener('click', () => zoomBy(1 / 1.25));
+document.addEventListener('keydown', (e) => {
+    if ((e.target as HTMLElement).tagName === 'INPUT') return;
+    if (e.key === '+' || e.key === '=') zoomBy(1.25);
+    else if (e.key === '-' || e.key === '_') zoomBy(1 / 1.25);
+});
+
 // ── UI-state persistence (quality / pheromones / speed) ──────────────────────
 const UI_KEY = 'antsim.ui.v1';
 function saveUiState() {
