@@ -203,56 +203,36 @@ export class Renderer {
         // 0. Background (Texture) — scrolls with camera
         ctx.drawImage(this.bgCanvas, 0, 0, this.width, this.height);
 
-        // 1. Pheromones (Overlay)
+        // 1. Pheromones (Overlay). The offscreen image is the SAME resolution as
+        //    the grid, so we index it directly (1:1, no per-pixel remap). It only
+        //    changes when the grid updates, so we rebuild the image on that cadence
+        //    and reuse the cached canvas on the frames in between — a big saving in
+        //    a large world (the per-frame cost is otherwise O(world area) in JS).
         if (this.showPheromones) {
-            const toHome = world.grid.toHome;
-            const toSugar = world.grid.toSugar;
-            const toProtein = world.grid.toProtein;
-            const toDanger = world.grid.toDanger;
-
-            // Iterate over the pheromone canvas pixels
-            const canvasWidth = this.pheromoneCanvas.width;
-            const canvasHeight = this.pheromoneCanvas.height;
-            const gridWidth = world.grid.width;
-            const gridHeight = world.grid.height;
-
-            for (let y = 0; y < canvasHeight; y++) {
-                for (let x = 0; x < canvasWidth; x++) {
-                    // Map canvas pixel to grid pixel
-                    const gridX = Math.floor(x * gridWidth / canvasWidth);
-                    const gridY = Math.floor(y * gridHeight / canvasHeight);
-                    const gridIdx = gridY * gridWidth + gridX;
-                    const canvasIdx = y * canvasWidth + x;
-
-                    const home = toHome[gridIdx] || 0;
-                    const sugar = toSugar[gridIdx] || 0;
-                    const protein = toProtein[gridIdx] || 0;
-                    const danger = toDanger[gridIdx] || 0;
-
+            if (world.age % PerformanceManager.settings.pheromoneUpdateSkip === 0) {
+                const toHome = world.grid.toHome;
+                const toSugar = world.grid.toSugar;
+                const toProtein = world.grid.toProtein;
+                const toDanger = world.grid.toDanger;
+                const buf = this.pheroBuf32;
+                for (let i = 0; i < buf.length; i++) {
+                    const home = toHome[i];
+                    const sugar = toSugar[i];
+                    const protein = toProtein[i];
+                    const danger = toDanger[i];
                     if (home > 0.01 || sugar > 0.01 || protein > 0.01 || danger > 0.01) {
-                        let r = protein + sugar;
-                        let g = sugar;
-                        let b = home;
-
-                        // Add danger
-                        r += danger;
-                        b += danger;
-
-                        const rVal = Math.min(255, Math.floor(r * 255));
-                        const gVal = Math.min(255, Math.floor(g * 255));
-                        const bVal = Math.min(255, Math.floor(b * 255));
-
-                        this.pheroBuf32[canvasIdx] = (255 << 24) | (bVal << 16) | (gVal << 8) | rVal;
+                        const rVal = Math.min(255, ((protein + sugar + danger) * 255) | 0);
+                        const gVal = Math.min(255, (sugar * 255) | 0);
+                        const bVal = Math.min(255, ((home + danger) * 255) | 0);
+                        buf[i] = (255 << 24) | (bVal << 16) | (gVal << 8) | rVal;
                     } else {
-                        this.pheroBuf32[canvasIdx] = 0;
+                        buf[i] = 0;
                     }
                 }
+                this.pheromoneCtx.putImageData(this.pheroImageData, 0, 0);
             }
 
-            // Put data to offscreen canvas
-            this.pheromoneCtx.putImageData(this.pheroImageData, 0, 0);
-
-            // Draw the overlay in logical world-space (lines up with entities under
+            // Draw the cached overlay in logical world-space (lines up with entities under
             // any camera zoom/pan). Additive blending + a soft blur turn the trails
             // into glowing "scent clouds" instead of hard pixel patches.
             ctx.save();

@@ -136,7 +136,7 @@ export const CONFIG = {
         // Exploration dispersal: trail-less foragers within this radius of the
         // entrance get pushed radially outward, so activity spreads across the
         // map instead of clogging the nest door.
-        dispersalRadius: 280,
+        dispersalRadius: Math.round(280 * WORLD_SCALE), // scales with world so it stays effective
         dispersalStrength: 0.10,
         // Temporal polyethism: an idle worker's per-frame urge to leave the nest
         // and forage ramps up with age (young nurse, old forage).
