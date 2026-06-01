@@ -120,10 +120,11 @@ gezielte Nachrüstung. Nach Hebelwirkung sortiert.
   aktuell an den Quality-Presets → Verhalten ändert sich je Grafikstufe. Sim sollte
   quality-unabhängig & deterministisch sein, nur das Rendering skaliert.
 
-- [ ] **`Ant.ts` (FSM) entflechten**: 1350-Zeilen-Gott-Klasse; 12 Zustände + implizite,
-  sich gegenseitig mutierende Übergänge (Quelle der „target loss"-Fehlerklasse). In diskrete
-  State-Handler aufteilen, Perzeption/Steuerung/Entscheidung trennen. Reine Mechanik, kein
-  Verhaltensänderung. (`Renderer.ts` analog in Layer aufteilen.)
+- [x] **`Ant.ts` (FSM) entflechtet**: die 12 State-Handler nach `src/simulation/antStates.ts`
+  ausgelagert (freie Funktionen `(ant, world)`); `Ant.ts` 1490 → 486 Zeilen (nur noch Daten +
+  Low-Level-Primitive: move/sense/separation/steering). Verhalten **bit-identisch** (Golden-Test
+  unverändert) — der Harness hat den Refactor lückenlos abgesichert. *Offen:* `Renderer.ts`
+  analog in Layer aufteilen.
 
 - [ ] **Robuste Nest-Navigation**: Kreis-Union + Greedy-Pfadsuche war die Wurzel des Hängens.
   Ersetzbar durch Raum-Graph mit expliziten Kanten + A* (robust by design). Teil-entschärft

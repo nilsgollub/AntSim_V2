@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Ant } from './Ant';
+import { handleHarvesting } from './antStates';
 import { CONFIG } from '../config';
 
 function workerAged(fraction: number): Ant {
@@ -61,7 +62,7 @@ describe('trail strength ∝ food quality', () => {
             amount, maxAmount: amount, type: 'SUGAR', x: 50, y: 50,
             harvest() { this.amount -= 1; },
         };
-        a.handleHarvesting();
+        handleHarvesting(a);
         return a;
     }
 

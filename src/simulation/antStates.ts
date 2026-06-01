@@ -1,0 +1,1033 @@
+import { CONFIG } from '../config';
+import { rand } from '../rng';
+import type { Ant } from './Ant';
+import type { World } from './World';
+
+// FSM state handlers, extracted from Ant.ts. Each acts on the given ant
+// (and world where needed); the Ant class keeps the low-level primitives
+// (move, sensing, separation, steering helpers) these call via ant.*.
+
+export function handleNursing(ant: Ant, world: World) {
+    // If not carrying protein, go get some (via IDLE state)
+    if (ant.carrying !== 'PROTEIN') {
+        ant.state = 'IDLE';
+        return;
+    }
+
+    // Target Selection Priority:
+    // 1. Queen if hungry (< 1500) - CRITICAL
+    // 2. Critical Larvae (Starving)
+    // 3. Queen if not full (< 1900) - Maintain
+    // 4. Normal Larvae
+
+    let target: any = null;
+
+    if (world.queen.energy < CONFIG.ant.queenCriticalEnergy) {
+        target = world.queen;
+    } else {
+        const criticalLarva = world.brood.find(b => b.stage === 'LARVA' && b.hunger > 50);
+        if (criticalLarva) {
+            target = criticalLarva;
+        } else if (world.queen.energy < CONFIG.ant.queenMaintainEnergy) {
+            target = world.queen;
+        } else {
+            const hungryLarva = world.brood.find(b => b.stage === 'LARVA' && b.hunger > 20);
+            if (hungryLarva) {
+                target = hungryLarva;
+            }
+        }
+    }
+
+    if (!target) {
+        // No one hungry, dump in stockpile
+        ant.state = 'RETURNING';
+        return;
+    }
+
+    // Move to target
+    const targetX = target.x;
+    const targetY = target.y;
+    const dx = targetX - ant.x;
+    const dy = targetY - ant.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    ant.angle = Math.atan2(dy, dx);
+
+    if (dist < 10) {
+        // Feed
+        if (target === world.queen) {
+            world.queen.energy += CONFIG.ant.queenFeedAmount; // Feed queen
+        } else {
+            target.feed(CONFIG.ant.larvaFeedAmount); // Feed larva
+        }
+
+        ant.carryingAmount -= CONFIG.ant.larvaFeedAmount; // Assume protein chunk is large
+        // Simplified: One protein item feeds one thing fully for now
+        ant.carrying = 'NONE';
+        ant.carryingAmount = 0;
+        ant.state = 'IDLE'; // Go back to idle to check for more work
+    }
+}
+
+
+export function handleResting(ant: Ant, world: World) {
+    if (ant.location === 'WORLD') {
+        // Go Home to Rest
+        ant.speedMultiplier = 1.0;
+        ant.patrolTarget = null; // Clear any existing target
+
+        let homeX, homeY;
+
+        // Use Nest Dimensions to determine orientation reliably
+        // If Nest is Taller than Wide -> Landscape Mode (Nest Right)
+        if (world.nest.height > world.nest.width) {
+            homeX = CONFIG.width;
+            homeY = CONFIG.height / 2;
+        } else {
+            homeX = CONFIG.width / 2;
+            homeY = CONFIG.height;
+        }
+
+        const dx = homeX - ant.x;
+        const dy = homeY - ant.y;
+        ant.angle = Math.atan2(dy, dx);
+    } else {
+        // In Nest: Find a cozy spot
+
+        // 1. If not already targeting a spot, find one
+        if (!ant.patrolTarget) {
+            // Check if we are currently inside a chamber
+            const currentChamber = world.nest.chambers.find(c => (ant.x - c.x) ** 2 + (ant.y - c.y) ** 2 < (c.radius * 0.9) ** 2);
+
+            if (currentChamber) {
+                // If we are in STORAGE, we probably just finished work. Don't sleep here!
+                // 80% chance to go find another room (dispersal)
+                if (currentChamber.type === 'STORAGE' && rand() < 0.8) {
+                    // Just leave the current chamber!
+                    const otherChambers = world.nest.chambers.filter(c => c !== currentChamber);
+                    if (otherChambers.length > 0) {
+                        ant.wander();
+                        ant.applySeparation(world);
+                        return;
+                    }
+                }
+
+                // We are in a valid resting chamber (or decided to stay). Pick a random spot HERE to sleep.
+                const angle = rand() * Math.PI * 2;
+                const r = rand() * (currentChamber.radius * 0.7); // Stay well inside
+                ant.patrolTarget = {
+                    x: currentChamber.x + Math.cos(angle) * r,
+                    y: currentChamber.y + Math.sin(angle) * r
+                };
+            } else {
+                // In a corridor / tunnel.
+                // Don't just walk straight (walls!). Wander randomly until we hit a chamber.
+                ant.wander();
+                ant.applySeparation(world);
+                return;
+            }
+        }
+
+        // 2. Move to Bed (Linear, but short distance since valid target is in same chamber)
+        const dx = ant.patrolTarget.x - ant.x;
+        const dy = ant.patrolTarget.y - ant.y;
+        const distSq = dx * dx + dy * dy;
+
+        if (distSq < 100) { // Arrived (within 10px)
+            ant.speedMultiplier = 0; // Zzz...
+            ant.restTimer--;
+
+            // Wake up
+            if (ant.restTimer <= 0 || ant.energy < CONFIG.ant.restWakeThreshold) {
+                ant.state = 'IDLE';
+                ant.patrolTarget = null;
+            }
+        } else {
+            // Walking to local bed spot
+            ant.speedMultiplier = 0.5; // Walk slowly to bed
+            ant.angle = Math.atan2(dy, dx);
+            ant.applySeparation(world); // Don't sleep on top of others
+        }
+    }
+}
+
+
+export function handleNurseIdle(ant: Ant, world: World) {
+    if (ant.location === 'WORLD') {
+        // Go to Entrance (Right edge of World)
+        let dx, dy;
+        if (world.nest.height > world.nest.width) { // Landscape
+            dx = CONFIG.width - ant.x;
+            dy = (CONFIG.height / 2) - ant.y;
+        } else { // Portrait
+            dx = (CONFIG.width / 2) - ant.x;
+            dy = CONFIG.height - ant.y;
+        }
+        ant.angle = Math.atan2(dy, dx);
+        return;
+    }
+
+    // 1. Rest Chance (Top Priority)
+    // Tune: 0.1% chance per frame
+    if (rand() < 0.001) {
+        ant.state = 'RESTING';
+        ant.restTimer = 300 + rand() * 300; // Short nap (5-10s)
+        return;
+    }
+
+    // In Nest
+    // 0. Self-Preservation (Eat if hungry)
+    if (ant.energy < CONFIG.ant.nurseEatThreshold) {
+        const storage = world.nest.getChamber('STORAGE');
+        if (storage) {
+            const dx = storage.x - ant.x;
+            const dy = storage.y - ant.y;
+            const distSq = dx * dx + dy * dy;
+
+            if (distSq < CONFIG.ant.arriveRangeSq) {
+                ant.eatFromStockpile(world);
+            } else {
+                // Move to storage
+                ant.angle = Math.atan2(dy, dx);
+            }
+            return;
+        }
+    }
+
+    // Check if work needed
+    if (ant.carrying === 'NONE') {
+        // 1. Check for Misplaced Brood (Priority)
+        const broodChamber = world.nest.getChamber('BROOD');
+        if (broodChamber) {
+            const misplacedBrood = world.brood.find(b => {
+                if (b.carrier) return false;
+                const dx = b.x - broodChamber.x;
+                const dy = b.y - broodChamber.y;
+                return dx * dx + dy * dy > broodChamber.radius * broodChamber.radius;
+            });
+
+            if (misplacedBrood) {
+                // Go pick it up
+                const dx = misplacedBrood.x - ant.x;
+                const dy = misplacedBrood.y - ant.y;
+                const distSq = dx * dx + dy * dy;
+
+                if (distSq < CONFIG.ant.arriveRangeSq) {
+                    ant.carrying = 'BROOD';
+                    ant.carryingInstance = misplacedBrood;
+                    misplacedBrood.carrier = ant;
+                    ant.state = 'TRANSPORTING';
+                } else {
+                    ant.angle = Math.atan2(dy, dx);
+                }
+                return;
+            }
+        }
+
+        // 2. Check if Queen or Larva needs food AND we have stockpile
+        if (world.proteinStockpile >= 10) {
+            // FIXED: Aggressive check for Queen (keep her > 1800 energy)
+            const queenHungry = world.queen.energy < CONFIG.ant.queenHungryEnergy;
+            const larvaHungry = world.brood.some(b => b.stage === 'LARVA' && b.hunger > 20);
+
+            if (queenHungry || larvaHungry) {
+                // Go to Storage
+                const storage = world.nest.getChamber('STORAGE');
+                if (!storage) return;
+
+                const dx = storage.x - ant.x;
+                const dy = storage.y - ant.y;
+
+                if (dx * dx + dy * dy < CONFIG.ant.arriveRangeSq) {
+                    // Grab from stockpile
+                    world.proteinStockpile -= 10;
+                    ant.carrying = 'PROTEIN';
+                    ant.carryingAmount = 10;
+                    ant.state = 'NURSING';
+                } else {
+                    // Move to storage
+                    ant.angle = Math.atan2(dy, dx);
+                }
+                return;
+            }
+        }
+    }
+
+    // Worker Logic: leave the nest to forage. Emergency (low stockpiles)
+    // always pulls workers out; otherwise the urge to forage is age-weighted
+    // (temporal polyethism: young ants nurse, old ants forage).
+    if (ant.type === 'WORKER') {
+        const emergency = world.sugarStockpile < CONFIG.ant.forageEmergencySugar
+            || world.proteinStockpile < CONFIG.ant.forageEmergencyProtein;
+        if (emergency || rand() < ant.forageUrge()) {
+            ant.state = 'FORAGING';
+            return;
+        }
+    }
+
+    // 5. No task found: Rest or Loiter
+    // If we are deep in the nest and have nothing to do, REST.
+    if (rand() < 0.005) { // 0.5% chance per frame
+        ant.state = 'RESTING';
+        ant.restTimer = 300 + rand() * 300; // 5-10s nap
+    } else {
+        // Wander in nest (loiter)
+        ant.wander();
+        ant.speedMultiplier = 0.3; // Walk very slowly when loitering
+        ant.applySeparation(world); // Spread out
+    }
+}
+
+
+export function handleTransporting(ant: Ant, world: World) {
+    if (!ant.carryingInstance) {
+        ant.state = 'IDLE';
+        ant.carrying = 'NONE';
+        return;
+    }
+
+    // Carry the brood
+    ant.carryingInstance.x = ant.x;
+    ant.carryingInstance.y = ant.y;
+
+    // Go to Brood Chamber
+    const broodChamber = world.nest.getChamber('BROOD');
+    if (!broodChamber) return;
+    const dx = broodChamber.x - ant.x;
+    const dy = broodChamber.y - ant.y;
+    const distSq = dx * dx + dy * dy;
+
+    // If inside chamber (with some random offset to spread them out), drop it
+    if (distSq < (broodChamber.radius * 0.8) * (broodChamber.radius * 0.8)) {
+        // Wander to spread out (Don't force angle to center!)
+        ant.wander();
+
+        // Random chance to drop
+        if (rand() < 0.05) {
+            // Drop
+            ant.carryingInstance.carrier = null;
+            ant.carryingInstance = null;
+            ant.carrying = 'NONE';
+            ant.state = 'IDLE';
+
+            // Move away a bit
+            ant.angle += Math.PI;
+        }
+    } else {
+        // Move towards center of brood chamber
+        ant.angle = Math.atan2(dy, dx);
+    }
+}
+
+
+export function handlePatrolling(ant: Ant, world: World) {
+    // Active Enemy Scan (Soldiers should not ignore threats while patrolling)
+    if (ant.type === 'SOLDIER') {
+        for (const insect of world.insects) {
+            if (insect.type === 'SPIDER' || insect.type === 'PREDATOR' || insect.type === 'BEETLE') {
+                const distSq = (ant.x - insect.x) ** 2 + (ant.y - insect.y) ** 2;
+                if (distSq < CONFIG.ant.detectEnemyRangeSq) { // 100px detection
+                    ant.state = 'ATTACKING';
+                    return; // Switch immediately
+                }
+            }
+        }
+    }
+
+    if (ant.energy < CONFIG.ant.foragingHungerThreshold) {
+        ant.state = 'HUNGRY';
+        return;
+    }
+
+    // Check if colony needs protein
+    // If low on protein, Soldiers go hunting (FORAGING state handles hunting if protein is needed)
+    if (world.proteinStockpile < 20) {
+        ant.state = 'FORAGING';
+        return;
+    }
+
+    if (rand() < 0.00005) {
+        ant.state = 'RESTING';
+        ant.restTimer = 300 + rand() * 600;
+        return;
+    }
+
+    if (ant.location === 'NEST') {
+        // If in nest, go to entrance to start patrol
+        const entrance = world.nest.getEntrance();
+        const nextNode = world.nest.getNextNodeTowards(ant.x, ant.y, entrance.x, entrance.y);
+        if (nextNode) {
+            const angle = Math.atan2(nextNode.y - ant.y, nextNode.x - ant.x);
+            ant.angle = angle + (rand() - 0.5) * 0.5;
+        } else {
+            // Fallback: If no path found, steer directly towards entrance
+            const dx = entrance.x - ant.x;
+            const dy = entrance.y - ant.y;
+            ant.angle = Math.atan2(dy, dx) + (rand() - 0.5) * 1.0;
+        }
+        return;
+    }
+
+    // Patrol near Entrance (World side)
+    let entranceX, entranceY;
+
+    if (world.nest.height > world.nest.width) {
+        // Landscape: Entrance at Right Edge
+        entranceX = CONFIG.width - 150;
+        entranceY = CONFIG.height / 2;
+    } else {
+        // Portrait: Entrance at Bottom Edge
+        entranceX = CONFIG.width / 2;
+        entranceY = CONFIG.height - 150;
+    }
+
+    // Initialize or Update Patrol Target
+    let distSq = 0;
+    if (ant.patrolTarget) {
+        const dx = ant.patrolTarget.x - ant.x;
+        const dy = ant.patrolTarget.y - ant.y;
+        distSq = dx * dx + dy * dy;
+    }
+
+    if (!ant.patrolTarget || distSq < 400 || rand() < 0.005) {
+        // Pick new point
+        const angle = rand() * Math.PI * 2;
+        const dist = 50 + rand() * 200;
+
+        let tx = entranceX + Math.cos(angle) * dist;
+        let ty = entranceY + Math.sin(angle) * dist;
+
+        tx = Math.max(10, Math.min(CONFIG.width - 10, tx));
+        ty = Math.max(10, Math.min(CONFIG.height - 10, ty));
+
+        ant.patrolTarget = { x: tx, y: ty };
+
+        const dx = tx - ant.x;
+        const dy = ty - ant.y;
+        distSq = dx * dx + dy * dy;
+    }
+
+    // Move towards patrol point
+    const dx = ant.patrolTarget.x - ant.x;
+    const dy = ant.patrolTarget.y - ant.y;
+    const desiredAngle = Math.atan2(dy, dx);
+
+    // Turn towards target
+    let diff = desiredAngle - ant.angle;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+
+    ant.angle += diff * 0.2;
+    ant.angle += (rand() - 0.5) * 0.2;
+}
+
+
+export function handleFleeing(ant: Ant, world: World) {
+    ant.speedMultiplier = 2.5; // Run fast!
+    ant.fleeTimer--;
+
+    if (ant.obstacleTimer > 0) return; // Sliding along wall
+
+    // Move generally towards home (Entrance), but with high noise (panic)
+    let homeX, homeY;
+
+    if (ant.location === 'WORLD') {
+        // Determine orientation based on world dimensions
+        if (world.nest.height > world.nest.width) {
+            // Landscape: Nest is on the Right
+            homeX = CONFIG.width;
+            homeY = CONFIG.height / 2;
+        } else {
+            // Portrait: Nest is on the Bottom
+            homeX = CONFIG.width / 2;
+            homeY = CONFIG.height;
+        }
+    } else {
+        // Nest Location: Determine exit based on nest shape
+        // Tall Nest (Landscape Mode) -> Exit is Left (x=0)
+        // Wide Nest (Portrait Mode) -> Exit is Top (y=0)
+        if (CONFIG.nestWidth < CONFIG.nestHeight) {
+            homeX = 0;
+            homeY = CONFIG.nestHeight / 2;
+        } else {
+            homeX = CONFIG.nestWidth / 2;
+            homeY = 0;
+        }
+    }
+
+    const dx = homeX - ant.x;
+    const dy = homeY - ant.y;
+    const homeAngle = Math.atan2(dy, dx);
+
+    // Robust Angle Interpolation (Shortest path)
+    let diff = homeAngle - ant.angle;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+
+    ant.angle += diff * 0.5; // High turn rate for fleeing
+    ant.angle += (rand() - 0.5) * 0.5; // Panic jitter
+
+    // Drop Danger trail while fleeing to warn others
+    if (ant.fleeTimer % 5 === 0) {
+        const grid = ant.location === 'NEST' ? world.nestGrid : world.grid;
+        grid.depositCircle(ant.x, ant.y, 'DANGER', CONFIG.pheromone.depositTrail, 10); // Increased trail size
+    }
+
+    if (ant.fleeTimer <= 0) {
+        ant.state = 'FORAGING';
+    }
+}
+
+
+export function handleCombat(ant: Ant, world: World) {
+    ant.speedMultiplier = 1.5; // Combat adrenaline
+
+    // 0. Check for Overwhelming Danger (Panic)
+    const dangerLevel = world.grid.get(ant.x, ant.y, 'DANGER');
+    if (dangerLevel > 0.5) { // High danger area
+        const allies = ant.countNearbyAllies(world, 100);
+        if (allies < 3) { // Run if outnumbered/overwhelmed
+            // Soldiers NEVER flee
+            if (ant.type !== 'SOLDIER') {
+                ant.state = 'FLEEING';
+                ant.fleeTimer = 60;
+                ant.angle += Math.PI + (rand() - 0.5);
+                return;
+            }
+        }
+    }
+
+    // Find nearest enemy
+    let nearestEnemy = null;
+    let minDist = Infinity;
+
+
+
+    for (const insect of world.insects) {
+        if (insect.type !== 'APHID') {
+            const dx = ant.x - insect.x;
+            const dy = ant.y - insect.y;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < minDist) {
+                minDist = d2;
+                nearestEnemy = insect;
+            }
+        }
+    }
+
+    if (nearestEnemy && minDist < CONFIG.ant.detectEnemyRangeSq) { // 100px chase range
+
+        // Cowardice Check for Workers
+        if (ant.type === 'WORKER' && ant.attackCooldown % 10 === 0) {
+            const isDangerous = nearestEnemy.type === 'PREDATOR' || nearestEnemy.type === 'SPIDER' || nearestEnemy.type === 'BEETLE';
+
+            if (isDangerous) {
+                const allies = ant.countNearbyAllies(world, 100);
+                if (allies < 3) { // Need 3 friends to be brave against bosses
+                    ant.state = 'FLEEING';
+                    ant.fleeTimer = 60;
+                    ant.angle += Math.PI;
+                    return;
+                }
+            }
+        }
+
+        const dx = nearestEnemy.x - ant.x;
+        const dy = nearestEnemy.y - ant.y;
+
+        // Move towards enemy with jitter to prevent stacking
+        ant.angle = Math.atan2(dy, dx);
+        ant.angle += (rand() - 0.5) * 0.1;
+
+        // Sprint Logic
+        if (ant.sprintTimer > 0) {
+            ant.speedMultiplier = 2.5; // Sprint!
+            ant.sprintTimer--;
+        } else if (ant.sprintCooldown > 0) {
+            ant.sprintCooldown--;
+        } else if (minDist > CONFIG.ant.attackRangeSq) { // If > 30px away
+            // Trigger Sprint to catch up
+            ant.sprintTimer = 30; // 0.5s sprint
+            ant.sprintCooldown = 180; // 3s cooldown
+        }
+
+        if (minDist < CONFIG.ant.attackRangeSq) { // Attack range (30px)
+            ant.speedMultiplier = 0; // Stop moving to attack!
+            if (ant.attackCooldown <= 0) {
+                const dmg = ant.type === 'SOLDIER' ? CONFIG.soldierDamage : CONFIG.workerDamage;
+                nearestEnemy.health -= dmg;
+                world.addParticle(nearestEnemy.x, nearestEnemy.y, 'red', 'BLOOD');
+                ant.attackCooldown = 20;
+            }
+        }
+    } else {
+        // No enemy found, return to foraging or check for danger
+        let brave = false;
+
+        if (ant.type === 'SOLDIER') {
+            brave = true;
+        } else {
+            // Worker Mob Courage
+            const allies = ant.countNearbyAllies(world, 150); // Check wider area for support
+            if (allies >= 4) { // Need 4 allies to charge into danger
+                brave = true;
+            }
+        }
+
+        if (brave) {
+            // Charge towards danger!
+            ant.speedMultiplier = ant.type === 'SOLDIER' ? 2.0 : 1.3;
+
+            // Follow gradient strongly
+            const sensorDist = CONFIG.antSensorDist;
+            const sensorAngle = CONFIG.antSensorAngle;
+            const getDanger = (a: number) => world.grid.get(ant.x + Math.cos(ant.angle + a) * sensorDist, ant.y + Math.sin(ant.angle + a) * sensorDist, 'DANGER');
+
+            const l = getDanger(-sensorAngle);
+            const c = getDanger(0);
+            const r = getDanger(sensorAngle);
+
+            // FIX: If no danger, stop charging
+            if (c < 0.01 && l < 0.01 && r < 0.01) {
+                ant.state = 'FORAGING';
+                ant.speedMultiplier = 1.0;
+                return;
+            }
+
+            if (c > l && c > r) { /* straight */ }
+            else if (l > r) ant.angle -= CONFIG.antTurnSpeed * 2;
+            else ant.angle += CONFIG.antTurnSpeed * 2;
+
+            ant.move(world);
+            return;
+        } else {
+            ant.speedMultiplier = 1.0; // Reset speed
+            ant.state = 'FORAGING'; // Enemy lost or dead
+        }
+    }
+}
+
+// Standard Slime Mold / Ant Steering Algorithm
+
+export function handleForaging(ant: Ant, world: World) {
+    if (ant.energy < CONFIG.ant.foragingHungerThreshold) {
+        ant.state = 'HUNGRY';
+        return;
+    }
+
+    // Check if we are already performing an evasive maneuver
+    if (ant.obstacleTimer > 0) return;
+
+    if (ant.obstacleTimer > 0) return; // Sliding along wall
+
+    if (ant.location === 'NEST') {
+        // Go to Exit
+        const entrance = world.nest.getEntrance();
+        const targetX = entrance.x;
+        const targetY = entrance.y;
+
+        const nextNode = world.nest.getNextNodeTowards(ant.x, ant.y, targetX, targetY);
+        if (nextNode) {
+            const angle = Math.atan2(nextNode.y - ant.y, nextNode.x - ant.x);
+            ant.angle = angle + (rand() - 0.5) * 0.5;
+        } else {
+            ant.angle = Math.atan2(targetY - ant.y, targetX - ant.x) + (rand() - 0.5) * 1.0;
+        }
+        return;
+    }
+
+    // 0.5 Exit Momentum
+    // If just exited nest, keep moving forward to clear the entrance area
+    if (ant.exitTimer > 0) {
+        ant.exitTimer--;
+        // Move generally away from nest center (towards world center)
+        const isLandscape = CONFIG.width > CONFIG.height;
+        if (isLandscape) {
+            ant.angle = Math.PI; // Move Left (away from right wall)
+        } else {
+            ant.angle = -Math.PI / 2; // Move Up (away from bottom wall)
+        }
+        ant.angle += (rand() - 0.5) * 1.0; // Spread out
+        return;
+    }
+
+    const proteinLow = world.proteinStockpile < CONFIG.eggCost * 25;
+    const sugarLow = world.sugarStockpile < 1000;
+
+    let prioritizeProtein = false;
+    if (ant.type === 'SOLDIER') {
+        prioritizeProtein = true;
+    } else {
+        const share = CONFIG.ant.proteinForagerShare; // stable per-ant split (forageSeed)
+        if (proteinLow && sugarLow) {
+            // Both short: split the workforce so protein (brood food) doesn't
+            // collapse while everyone chases sugar.
+            prioritizeProtein = ant.forageSeed < share;
+        } else if (proteinLow) {
+            prioritizeProtein = true;
+        } else if (sugarLow) {
+            prioritizeProtein = false;
+        } else {
+            // Both fine: a minority keeps topping up protein for the brood.
+            prioritizeProtein = ant.forageSeed < share * 0.6;
+        }
+    }
+
+    // The resource this worker is out to fetch this trip.
+    const wantType: 'SUGAR' | 'PROTEIN' = prioritizeProtein ? 'PROTEIN' : 'SUGAR';
+
+    // 2. Food - Check EVERY FRAME to prevent overshooting
+    for (let i = 0; i < world.foods.length; i++) {
+        const food = world.foods[i];
+        if (food.amount <= 0) continue;
+        if (ant.type === 'SOLDIER' && food.type === 'SUGAR') continue;
+
+        // Focus: a well-fed worker ignores the resource it isn't after and keeps
+        // searching for the needed one (so a sugar crisis isn't "solved" by
+        // hauling protein). A hungry worker grabs whatever it finds to survive.
+        if (ant.type === 'WORKER' && ant.energy > CONFIG.ant.foragingHungerThreshold) {
+            const matches = food.type === wantType || (wantType === 'PROTEIN' && food.type === 'CORPSE');
+            if (!matches) continue;
+        }
+
+        // Ignore Corpses in Graveyard (Prevent getting stuck approaching them)
+        if (food.type === 'CORPSE') {
+            const isLandscape = CONFIG.width > CONFIG.height;
+            const graveX = isLandscape ? 50 : CONFIG.width / 2;
+            const graveY = isLandscape ? CONFIG.height / 2 : 50;
+            const dG = (food.x - graveX) ** 2 + (food.y - graveY) ** 2;
+            if (dG < 40000) continue;
+        }
+
+        const dx = food.x - ant.x;
+        const dy = food.y - ant.y;
+        const distSq = dx * dx + dy * dy;
+
+        const foodRadius = Math.max(8, Math.sqrt(food.amount) * 0.35);
+        const harvestRange = foodRadius + 5; // Tighter range (User request: ants must be AT the source)
+        const harvestRangeSq = harvestRange * harvestRange;
+
+        if (distSq < harvestRangeSq) {
+            // Corpses are now harvested as food in place.
+            // Logic falls through to HARVESTING below.
+
+            ant.state = 'HARVESTING';
+            ant.harvestTimer = food.type === 'SUGAR' ? 60 : 120; // 1s for sugar, 2s for protein
+            ant.carryingInstance = food;
+            return;
+        } else if (distSq < CONFIG.ant.detectEnemyRangeSq) {
+            // Anti-Clustering: If stuck while approaching food, back off
+            if (ant.stuckTimer > 20) {
+                world.addParticle(ant.x, ant.y, 'yellow'); // Debug Visual: Unstuck Triggered
+                ant.angle += Math.PI + (rand() - 0.5);
+                ant.obstacleTimer = 45; // Move away for 0.75s (increased from 30)
+                ant.stuckTimer = 0;
+                return;
+            }
+
+            // If visible, turn towards it
+            ant.angle = Math.atan2(dy, dx);
+            ant.angle += (rand() - 0.5) * 0.1;
+            return;
+        }
+    }
+
+    // Throttled Perception
+    if (ant.thinkTimer > 0) {
+        ant.thinkTimer--;
+    } else {
+        ant.thinkTimer = 3 + Math.floor(rand() * 3);
+
+        // 0. Check for DANGER
+        const dangerLevel = world.grid.get(ant.x, ant.y, 'DANGER');
+        if (dangerLevel > 0.05) {
+            ant.state = 'FLEEING';
+            ant.fleeTimer = 30;
+            ant.angle += Math.PI;
+            return;
+        }
+
+        // 1. Hunt
+        for (const insect of world.insects) {
+            const isPrey = insect.type === 'PREY' || insect.type === 'BEETLE' || insect.type === 'LADYBUG' || insect.type === 'SPIDER' || insect.type === 'PREDATOR';
+
+            if (isPrey) {
+                const dx = ant.x - insect.x;
+                const dy = ant.y - insect.y;
+                const distSq = dx * dx + dy * dy;
+
+                // Soldiers always hunt. Workers hunt if protein needed or self-defense (close)
+                if (ant.type === 'SOLDIER' || prioritizeProtein || distSq < 2500) {
+                    if (distSq < 4900) {
+                        if (ant.type === 'WORKER') {
+                            if (insect.type === 'BEETLE') {
+                                const allies = ant.countNearbyAllies(world, 80);
+                                if (allies < 5) continue;
+                            }
+                            if (insect.type === 'SPIDER' || insect.type === 'PREDATOR') {
+                                const allies = ant.countNearbyAllies(world, 100);
+                                if (allies < 2) continue;
+                            }
+                        }
+                        ant.state = 'ATTACKING';
+                        return;
+                    }
+                }
+            }
+        }
+
+        // 1.5 Aphids
+        if (ant.type === 'WORKER') {
+            for (const insect of world.insects) {
+                if (insect.type === 'APHID') {
+                    const dx = ant.x - insect.x;
+                    const dy = ant.y - insect.y;
+                    const distSq = dx * dx + dy * dy;
+
+                    if (distSq < CONFIG.ant.attackRangeSq) { // 30px close enough
+                        ant.state = 'MILKING';
+                        ant.harvestTimer = 60; // 1 second milking duration represents interaction
+                        ant.carryingInstance = insect;
+                        return;
+                    } else if (distSq < CONFIG.ant.detectEnemyRangeSq) {
+                        ant.angle = Math.atan2(dy, dx);
+                        return;
+                    }
+                }
+            }
+        }
+
+
+    }
+
+    // 3. Pheromones
+    const targetPheromone = prioritizeProtein ? 'PROTEIN' : 'SUGAR';
+    const foundFood = ant.senseAndSteer(world, targetPheromone);
+
+    if (!foundFood) {
+        // No collective trail: head back to a remembered source (site fidelity),
+        // else push out of the congested nest zone, else wander.
+        if (!ant.steerToMemory() && !ant.disperseFromNest(world)) ant.wander();
+    }
+
+    world.grid.depositCircle(ant.x, ant.y, 'HOME', CONFIG.pheromone.depositTrail, CONFIG.pheromone.trailRadius);
+}
+
+// Steer a trail-less explorer radially away from the nest entrance while it
+// is still inside the dispersal radius. Returns true if a bias was applied.
+// This breaks the random-walk's tendency to loiter at the nest door and
+// spreads foraging activity across the whole map.
+
+export function handleHarvesting(ant: Ant) {
+    ant.harvestTimer--;
+    ant.speedMultiplier = 0; // Stand still
+
+    if (ant.harvestTimer <= 0) {
+        // Done!
+        const food = ant.carryingInstance;
+        if (food && food.amount > 0) {
+            food.harvest(1);
+            ant.carrying = food.type === 'CORPSE' ? 'PROTEIN' : food.type;
+            ant.state = 'RETURNING';
+            ant.energy = CONFIG.antMaxEnergy;
+            ant.angle += Math.PI;
+            // Site fidelity: remember this productive source to return to later.
+            ant.foodMemoryX = food.x;
+            ant.foodMemoryY = food.y;
+            // Trail quality ∝ how rich the source still is.
+            ant.carryingQuality = Math.max(
+                CONFIG.pheromone.minQuality,
+                Math.min(1, food.amount / CONFIG.pheromone.qualityRef),
+            );
+            ant.carryingInstance = null;
+        } else {
+            // Food gone?
+            ant.state = 'FORAGING';
+            ant.carryingInstance = null;
+        }
+    }
+}
+
+
+export function handleReturning(ant: Ant, world: World) {
+    if (ant.obstacleTimer > 0) return;
+
+    // Stuck Check
+    if (ant.stuckTimer > 20) {
+        ant.angle += Math.PI + (rand() - 0.5);
+        ant.stuckTimer = 0;
+        ant.obstacleTimer = 10;
+        return;
+    }
+
+    if (ant.carrying === 'CORPSE') {
+        // Graveyard Location: Opposite side of the nest
+        const isLandscape = world.nest.height > world.nest.width;
+        let graveX, graveY;
+        if (isLandscape) {
+            // Nest is Right -> Graveyard Left
+            graveX = 50;
+            graveY = CONFIG.height / 2;
+        } else {
+            // Nest is Bottom -> Graveyard Top Center
+            graveX = CONFIG.width / 2;
+            graveY = 50;
+        }
+
+        const dx = graveX - ant.x;
+        const dy = graveY - ant.y;
+        const distSq = dx * dx + dy * dy;
+
+        if (distSq < 2500) { // Close enough (50px)
+            // Drop Corpse
+            const corpse = ant.carryingInstance;
+            if (corpse) {
+                corpse.x = ant.x + (rand() - 0.5) * 20; // Scatter slightly
+                corpse.y = ant.y + (rand() - 0.5) * 20;
+                world.foods.push(corpse);
+            }
+            ant.carrying = 'NONE';
+            ant.carryingInstance = null;
+            ant.state = 'FORAGING';
+            ant.angle += Math.PI;
+            return;
+        } else {
+            // Move towards Graveyard
+            ant.angle = Math.atan2(dy, dx);
+            ant.angle += (rand() - 0.5) * 0.2;
+        }
+        return;
+    }
+
+    const grid = ant.location === 'NEST' ? world.nestGrid : world.grid;
+
+    const trail = CONFIG.pheromone.depositFood * ant.carryingQuality;
+    if (ant.carrying === 'SUGAR') {
+        grid.depositCircle(ant.x, ant.y, 'SUGAR', trail, CONFIG.pheromone.trailRadius);
+    } else if (ant.carrying === 'PROTEIN') {
+        grid.depositCircle(ant.x, ant.y, 'PROTEIN', trail, CONFIG.pheromone.trailRadius);
+    }
+
+    if (ant.location === 'WORLD') {
+        let targetX, targetY;
+        if (world.nest.height > world.nest.width) {
+            targetX = CONFIG.width;
+            targetY = CONFIG.height / 2;
+        } else {
+            targetX = CONFIG.width / 2;
+            targetY = CONFIG.height;
+        }
+        const angleToHome = Math.atan2(targetY - ant.y, targetX - ant.x);
+        const foundTrail = ant.senseAndSteer(world, 'HOME');
+        const biasStrength = foundTrail ? 0.15 : 0.3;
+
+        let diff = angleToHome - ant.angle;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+
+        ant.angle += diff * biasStrength;
+
+    } else {
+        const storage = world.nest.getChamber('STORAGE');
+
+        if (storage) {
+            const dx = storage.x - ant.x;
+            const dy = storage.y - ant.y;
+            const distSq = dx * dx + dy * dy;
+
+            if (distSq < 2500) {
+                if (ant.carrying === 'SUGAR') world.sugarStockpile += CONFIG.sugarValue;
+                else if (ant.carrying === 'PROTEIN') world.proteinStockpile += CONFIG.proteinValue;
+
+                ant.carrying = 'NONE';
+
+                // Check Hunger after dropping food
+                if (ant.energy < CONFIG.ant.nurseEatThreshold) {
+                    ant.state = 'HUNGRY';
+                } else {
+                    ant.state = 'IDLE'; // Go IDLE to check for rest/nursing
+                }
+
+                ant.angle += Math.PI;
+                return;
+            } else {
+                const nextNode = world.nest.getNextNodeTowards(ant.x, ant.y, storage.x, storage.y);
+                if (nextNode) {
+                    const dx = nextNode.x - ant.x;
+                    const dy = nextNode.y - ant.y;
+                    ant.angle = Math.atan2(dy, dx);
+                } else {
+                    ant.angle = Math.atan2(dy, dx);
+                }
+            }
+        }
+    }
+}
+
+
+export function handleHungry(ant: Ant, world: World) {
+    if (ant.location === 'WORLD') {
+        // Use returning logic to get back to nest
+        // Temporarily switch to RETURNING state logic without changing state enum?
+        // Or just manually move to nest.
+        // Simplest: Switch to RETURNING, but we need to know we are hungry.
+        // Let's just copy the "Go Home" logic or force RETURNING state but with 'NONE' carrying?
+        // If carrying is NONE, handleReturning still works to get home.
+        ant.state = 'RETURNING';
+        return;
+    }
+
+    // In Nest: Go to Storage and Eat
+    const storage = world.nest.getChamber('STORAGE');
+    if (storage) {
+        const dx = storage.x - ant.x;
+        const dy = storage.y - ant.y;
+        const distSq = dx * dx + dy * dy;
+
+        if (distSq < CONFIG.ant.arriveRangeSq) {
+            // Eat (consumes sugar proportional to the energy restored). Whether
+            // or not sugar was available, leave the storage and resume work.
+            ant.eatFromStockpile(world);
+            if (ant.type === 'SOLDIER') ant.state = 'PATROLLING';
+            else ant.state = 'FORAGING';
+        } else {
+            // Move to storage
+            const nextNode = world.nest.getNextNodeTowards(ant.x, ant.y, storage.x, storage.y);
+            if (nextNode) {
+                ant.angle = Math.atan2(nextNode.y - ant.y, nextNode.x - ant.x);
+            } else {
+                ant.angle = Math.atan2(dy, dx);
+            }
+        }
+    }
+}
+
+
+
+
+export function handleMilking(ant: Ant, world: World) {
+    ant.harvestTimer--;
+    ant.speedMultiplier = 0; // Stand still
+
+    // Face the aphid
+    if (ant.carryingInstance) {
+        const dx = ant.carryingInstance.x - ant.x;
+        const dy = ant.carryingInstance.y - ant.y;
+        ant.angle = Math.atan2(dy, dx);
+    }
+
+    if (ant.harvestTimer <= 0) {
+        // Milking Complete
+        ant.carrying = 'SUGAR';
+        ant.carryingAmount = 200;
+        ant.carryingQuality = 0.7; // aphid honeydew: a steady, moderate trail
+        ant.state = 'RETURNING';
+        ant.energy = CONFIG.antMaxEnergy;
+        ant.angle += Math.PI;
+        ant.carryingInstance = null;
+
+        // Particles
+        world.addParticle(ant.x, ant.y, '#FFD700', 'DEFAULT');
+    }
+}
+
+
