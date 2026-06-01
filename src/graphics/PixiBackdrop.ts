@@ -162,9 +162,10 @@ export class PixiBackdrop {
         this.world = new Container();
         app.stage.addChild(this.world);
 
-        // Bloom: only the brightest things (pheromone glow, particles, food glints)
-        // bloom — the dark dirt and the matte ants stay crisp (high threshold).
-        this.bloom = new AdvancedBloomFilter({ threshold: 0.7, bloomScale: this.bloomIntensity, brightness: 1, blur: 6, quality: 4 });
+        // Bloom: bright things (pheromone glow, particles, food glints) get a soft
+        // halo. A low threshold lets the glowing trails through; the dark dirt
+        // (~0.16 luminance) stays below it and remains crisp.
+        this.bloom = new AdvancedBloomFilter({ threshold: 0.3, bloomScale: this.bloomIntensity, brightness: 1, blur: 8, quality: 5 });
         this.applyBloom();
 
         this.bgSprite = new Sprite(Texture.from(renderer.bgCanvas));
