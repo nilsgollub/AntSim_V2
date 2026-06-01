@@ -30,12 +30,7 @@
           <input type="range" id="speedRange" min="0" max="10" value="1" step="0.1">
         </div>
         <div class="control-group">
-          <input type="checkbox" id="pheromoneToggle">
-          <label for="pheromoneToggle" style="cursor: pointer;">Pheromones</label>
-        </div>
-        <div class="control-group">
-          <input type="checkbox" id="webglToggle">
-          <label for="webglToggle" style="cursor: pointer;">WebGL (experimentell)</label>
+          <button id="graphicsBtn" title="Grafik-Einstellungen">🎨 Grafik</button>
         </div>
         <div class="control-group" id="playback-controls">
           <button id="pauseBtn" title="Pause/Resume (Space)">⏸</button>
@@ -87,6 +82,31 @@
           <button id="tunerClose" style="font-size:10px;padding:2px 6px">✕</button>
         </div>
         <div id="tuner-content"></div>
+      </div>
+
+      <!-- Graphics settings panel -->
+      <div id="graphics-panel" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <strong style="font-size:11px">Grafik</strong>
+          <button id="graphicsClose" style="font-size:10px;padding:2px 6px">✕</button>
+        </div>
+        <div class="gfx-row">
+          <input type="checkbox" id="pheromoneToggle">
+          <label for="pheromoneToggle">Pheromon-Spuren</label>
+        </div>
+        <div class="gfx-row">
+          <input type="checkbox" id="dayNightToggle" checked>
+          <label for="dayNightToggle">Tag/Nacht-Tönung</label>
+        </div>
+        <div class="gfx-row">
+          <label style="flex:1">Tag/Nacht-Stärke</label>
+          <input type="range" id="dayNightRange" min="0" max="1" value="0.5" step="0.05">
+        </div>
+        <div class="gfx-row">
+          <input type="checkbox" id="webglToggle">
+          <label for="webglToggle">WebGL-Renderer (experimentell)</label>
+        </div>
+        <div class="tuner-hint">WebGL rendert Hintergrund + Pheromone auf der GPU (Fallback: Canvas).</div>
       </div>
 
       <!-- Live parameter sliders panel -->

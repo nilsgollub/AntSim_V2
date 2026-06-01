@@ -29,6 +29,10 @@ export class Renderer {
     // canvas stays transparent and only draws entities/effects on top.
     drawBackdrop: boolean = true;
 
+    // Day/night ambient tint — optional and dialled down by default.
+    dayNight: boolean = true;
+    dayNightIntensity: number = 0.5; // 0..1 scales the whole effect
+
     // Background Texture
     bgCanvas!: HTMLCanvasElement;
 
@@ -1635,57 +1639,37 @@ export class Renderer {
     }
 
     drawLighting(world: World) {
+        if (!this.dayNight) return;
         const ctx = this.ctx;
         const time = world.timeOfDay; // 0-1
+        const k = this.dayNightIntensity; // overall strength (toned down by default)
 
-        let ambientColor = 'rgba(0,0,0,0)';
+        // Night/dawn/dusk darkness (0 during the day).
+        let alpha = 0;
+        if (time < 0.2) alpha = 0.7 * (1 - time / 0.2);        // dawn fading out
+        else if (time < 0.7) alpha = 0;                         // day
+        else if (time < 0.8) alpha = 0.7 * ((time - 0.7) / 0.1); // dusk fading in
+        else alpha = 0.7;                                       // night
+        alpha *= k;
 
-        // Day/Night Cycle
-        // 0.0 - 0.2: Dawn (Dark -> Orange)
-        // 0.2 - 0.7: Day (Clear)
-        // 0.7 - 0.8: Dusk (Orange -> Dark)
-        // 0.8 - 1.0: Night (Dark Blue)
-
-        if (time < 0.2) {
-            // Dawn
-            const t = time / 0.2;
-            // Fade from Night (0.7) to Day (0.0)
-            const alpha = 0.7 * (1 - t);
-            ambientColor = `rgba(0, 10, 30, ${alpha})`;
-        } else if (time < 0.7) {
-            // Day
-            ambientColor = 'rgba(0,0,0,0)';
-        } else if (time < 0.8) {
-            // Dusk
-            const t = (time - 0.7) / 0.1;
-            // Fade from Day (0.0) to Night (0.7)
-            const alpha = 0.7 * t;
-            ambientColor = `rgba(0, 10, 30, ${alpha})`;
-        } else {
-            // Night
-            ambientColor = 'rgba(0, 10, 30, 0.7)';
+        ctx.save();
+        if (alpha > 0.001) {
+            ctx.fillStyle = `rgba(0, 10, 30, ${alpha})`;
+            ctx.fillRect(0, 0, this.width, this.height);
         }
 
-        // Apply Ambient Light
-        ctx.save();
-        ctx.fillStyle = ambientColor;
-        ctx.fillRect(0, 0, this.width, this.height);
-
-        // Sun/Moon Glow
+        // Sun/Moon glow (also scaled by intensity).
         if (time > 0.8 || time < 0.2) {
-            // Moon Glow
             ctx.globalCompositeOperation = 'screen';
-            ctx.fillStyle = 'rgba(100, 150, 255, 0.1)';
+            ctx.fillStyle = `rgba(100, 150, 255, ${0.1 * k})`;
             ctx.fillRect(0, 0, this.width, this.height);
         } else if (time > 0.2 && time < 0.3) {
-            // Morning Glow
             ctx.globalCompositeOperation = 'overlay';
-            ctx.fillStyle = 'rgba(255, 200, 100, 0.2)';
+            ctx.fillStyle = `rgba(255, 200, 100, ${0.2 * k})`;
             ctx.fillRect(0, 0, this.width, this.height);
         } else if (time > 0.6 && time < 0.7) {
-            // Evening Glow
             ctx.globalCompositeOperation = 'overlay';
-            ctx.fillStyle = 'rgba(255, 100, 50, 0.2)';
+            ctx.fillStyle = `rgba(255, 100, 50, ${0.2 * k})`;
             ctx.fillRect(0, 0, this.width, this.height);
         }
 

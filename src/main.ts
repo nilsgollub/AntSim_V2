@@ -185,6 +185,8 @@ function saveUiState() {
             quality: PerformanceManager.level,
             pheromones: renderer.showPheromones,
             speed: simSpeed,
+            dayNight: renderer.dayNight,
+            dayNightIntensity: renderer.dayNightIntensity,
         }));
     } catch { /* storage unavailable */ }
 }
@@ -216,6 +218,27 @@ if (!webglAvailable()) {
 }
 webglToggle.addEventListener('change', () => {
     if (webglToggle.checked) enableWebGL(); else disableWebGL();
+});
+
+// ── Graphics settings panel ──────────────────────────────────────────────────
+const graphicsBtn   = document.getElementById('graphicsBtn')    as HTMLButtonElement;
+const graphicsPanel = document.getElementById('graphics-panel') as HTMLDivElement;
+const graphicsClose = document.getElementById('graphicsClose')  as HTMLButtonElement;
+const dayNightToggle = document.getElementById('dayNightToggle') as HTMLInputElement;
+const dayNightRange  = document.getElementById('dayNightRange')  as HTMLInputElement;
+
+graphicsBtn.addEventListener('click', () => {
+    graphicsPanel.style.display = graphicsPanel.style.display === 'none' ? 'block' : 'none';
+});
+graphicsClose.addEventListener('click', () => { graphicsPanel.style.display = 'none'; });
+
+dayNightToggle.addEventListener('change', () => {
+    renderer.dayNight = dayNightToggle.checked;
+    saveUiState();
+});
+dayNightRange.addEventListener('input', () => {
+    renderer.dayNightIntensity = parseFloat(dayNightRange.value);
+    saveUiState();
 });
 qualitySelect.addEventListener('change', () => {
     const val = qualitySelect.value as keyof typeof QualityLevel;
@@ -520,7 +543,7 @@ function drawStats() {
 
 // ── Restore persisted UI state ───────────────────────────────────────────────
 (function restoreUiState() {
-    let saved: { quality?: string; pheromones?: boolean; speed?: number } | null = null;
+    let saved: { quality?: string; pheromones?: boolean; speed?: number; dayNight?: boolean; dayNightIntensity?: number } | null = null;
     try {
         const raw = localStorage.getItem(UI_KEY);
         if (raw) saved = JSON.parse(raw);
@@ -538,6 +561,14 @@ function drawStats() {
         simSpeed = saved.speed;
         speedRange.value = String(saved.speed);
         speedVal.innerText = saved.speed + 'x';
+    }
+    if (typeof saved.dayNight === 'boolean') {
+        renderer.dayNight = saved.dayNight;
+        dayNightToggle.checked = saved.dayNight;
+    }
+    if (typeof saved.dayNightIntensity === 'number' && Number.isFinite(saved.dayNightIntensity)) {
+        renderer.dayNightIntensity = saved.dayNightIntensity;
+        dayNightRange.value = String(saved.dayNightIntensity);
     }
 })();
 

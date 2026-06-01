@@ -228,6 +228,30 @@ select {
 #tunerApplyAll:disabled { background: #333; color: #7a9a7a; cursor: default; }
 .tuner-hint { color: #888; font-size: 8px; margin-bottom: 6px; }
 
+/* Graphics settings panel */
+#graphics-panel {
+  position: absolute;
+  left: 6px;
+  top: 20px;
+  background: rgba(0, 0, 0, 0.90);
+  border: 1px solid #555;
+  border-radius: 5px;
+  padding: 8px 10px;
+  font-size: 11px;
+  color: #ccc;
+  width: calc(100% - 24px);
+  pointer-events: auto;
+  z-index: 200;
+}
+.gfx-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+}
+.gfx-row label { cursor: pointer; }
+.gfx-row input[type=range] { width: 90px; }
+
 /* Live parameter sliders panel */
 #sliders-panel {
   position: absolute;
