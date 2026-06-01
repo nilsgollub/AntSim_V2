@@ -410,7 +410,8 @@ export class Ant {
         // always pulls workers out; otherwise the urge to forage is age-weighted
         // (temporal polyethism: young ants nurse, old ants forage).
         if (this.type === 'WORKER') {
-            const emergency = world.sugarStockpile < 50 || world.proteinStockpile < 20;
+            const emergency = world.sugarStockpile < CONFIG.ant.forageEmergencySugar
+                || world.proteinStockpile < CONFIG.ant.forageEmergencyProtein;
             if (emergency || Math.random() < this.forageUrge()) {
                 this.state = 'FORAGING';
                 return;
@@ -894,11 +895,22 @@ export class Ant {
             }
         }
 
+        // The resource this worker is out to fetch this trip.
+        const wantType: 'SUGAR' | 'PROTEIN' = prioritizeProtein ? 'PROTEIN' : 'SUGAR';
+
         // 2. Food - Check EVERY FRAME to prevent overshooting
         for (let i = 0; i < world.foods.length; i++) {
             const food = world.foods[i];
             if (food.amount <= 0) continue;
             if (this.type === 'SOLDIER' && food.type === 'SUGAR') continue;
+
+            // Focus: a well-fed worker ignores the resource it isn't after and keeps
+            // searching for the needed one (so a sugar crisis isn't "solved" by
+            // hauling protein). A hungry worker grabs whatever it finds to survive.
+            if (this.type === 'WORKER' && this.energy > CONFIG.ant.foragingHungerThreshold) {
+                const matches = food.type === wantType || (wantType === 'PROTEIN' && food.type === 'CORPSE');
+                if (!matches) continue;
+            }
 
             // Ignore Corpses in Graveyard (Prevent getting stuck approaching them)
             if (food.type === 'CORPSE') {

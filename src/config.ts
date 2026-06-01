@@ -126,6 +126,10 @@ export const CONFIG = {
         // Site fidelity: how strongly a trail-less forager steers back toward its
         // last productive source (0 = off, pure exploration).
         memoryBias: 0.3,
+        // Stockpile levels that force idle workers out to forage regardless of age
+        // (kept above 0 so the colony maintains a buffer instead of bottoming out).
+        forageEmergencySugar: 200,
+        forageEmergencyProtein: 40,
     },
 
     // Dynamic nest excavation: the colony digs extra satellite chambers as it grows.
