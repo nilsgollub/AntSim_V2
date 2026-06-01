@@ -196,6 +196,13 @@ export class PixiBackdrop {
         this.pheroCanvas.height = gh;
         this.pheroImage = this.pheroCtx.createImageData(gw, gh);
         this.pheroBuf = new Uint32Array(this.pheroImage.data.buffer);
+        // The canvas changed size → rebuild the GPU texture so its source matches
+        // (otherwise it stays at its initial 1×1 size and the field is invisible).
+        this.pheroTex.destroy();
+        this.pheroTex = Texture.from(this.pheroCanvas);
+        this.pheroSprite.texture = this.pheroTex;
+        this.pheroSprite.width = this.logicalW;
+        this.pheroSprite.height = this.logicalH;
     }
 
     private pool(arr: Sprite[], layer: Container, tex: Texture, count: number) {
