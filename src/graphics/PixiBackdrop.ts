@@ -3,26 +3,66 @@ import type { World } from '../simulation/World';
 import type { Camera } from './Camera';
 
 // ── Baked textures (drawn once to small canvases, then batched as sprites) ──
-function bakeAnt(): Texture {
+// Realistic ant matching the canvas-2D look: 3 body segments, 6 legs, antennae.
+// Drawn in natural colours and shown untinted (no state/cargo recolouring).
+function bakeAnt(type: 'WORKER' | 'SOLDIER'): Texture {
+    const SS = 2; // supersample for crispness
     const c = document.createElement('canvas');
-    c.width = 32; c.height = 32;
-    const x = c.getContext('2d')!;
-    x.translate(16, 16);
-    x.fillStyle = '#fff';
-    // abdomen / thorax / head along +x (facing right = angle 0)
-    x.beginPath(); x.ellipse(-4, 0, 5, 3.4, 0, 0, Math.PI * 2); x.fill();
-    x.beginPath(); x.ellipse(1, 0, 3, 2.4, 0, 0, Math.PI * 2); x.fill();
-    x.beginPath(); x.arc(6, 0, 2.6, 0, Math.PI * 2); x.fill();
-    x.strokeStyle = '#fff'; x.lineCap = 'round';
-    x.lineWidth = 1;
-    x.beginPath(); x.moveTo(7, -1); x.lineTo(11, -4); x.moveTo(7, 1); x.lineTo(11, 4); x.stroke(); // antennae
-    x.lineWidth = 1.1;
-    for (const lx of [-4, 0, 3]) { // legs
-        x.beginPath(); x.moveTo(lx, -1.5); x.lineTo(lx - 1, -5);
-        x.moveTo(lx, 1.5); x.lineTo(lx - 1, 5); x.stroke();
+    c.width = 30 * SS; c.height = 30 * SS;
+    const ctx = c.getContext('2d')!;
+    ctx.scale(SS, SS);
+    ctx.translate(15, 15);
+    ctx.lineCap = 'round';
+
+    // Legs (6, static splayed pose)
+    ctx.strokeStyle = type === 'SOLDIER' ? '#2a1410' : '#8a8a8a';
+    ctx.lineWidth = 0.7;
+    const count = 6, length = 4.5;
+    for (let i = 0; i < count; i++) {
+        const side = i % 2 === 0 ? 1 : -1;
+        const legIndex = Math.floor(i / 2);
+        const legOffset = (legIndex - count / 4 + 0.5) * 2.2;
+        const move = i % 2 === 0 ? 0.4 : -0.4;
+        ctx.beginPath();
+        ctx.moveTo(legOffset, 0);
+        ctx.quadraticCurveTo(legOffset + move, side * length * 0.5, legOffset + move * 2, side * length);
+        ctx.stroke();
+    }
+
+    if (type === 'SOLDIER') {
+        ctx.fillStyle = '#4a0606';
+        ctx.beginPath(); ctx.ellipse(-6, 0, 3.6, 2.6, 0, 0, Math.PI * 2); ctx.fill(); // abdomen
+        ctx.fillStyle = '#8b0000';
+        ctx.fillRect(-7.5, -1.5, 0.9, 3); ctx.fillRect(-5.6, -1.8, 0.9, 3.6); // stripes
+        ctx.fillStyle = '#4b0000';
+        ctx.beginPath(); ctx.ellipse(-1, 0, 2.6, 2.1, 0, 0, Math.PI * 2); ctx.fill(); // thorax
+        ctx.fillStyle = '#900000';
+        ctx.beginPath();
+        ctx.moveTo(1, -4.5); ctx.lineTo(6, -4.5);
+        ctx.quadraticCurveTo(8, -4.5, 8, 0);
+        ctx.quadraticCurveTo(8, 4.5, 6, 4.5); ctx.lineTo(1, 4.5);
+        ctx.quadraticCurveTo(0, 0, 1, -4.5); ctx.fill(); // big head
+        ctx.strokeStyle = '#221100'; ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(8, 3); ctx.quadraticCurveTo(11, 3, 12, 0.5);
+        ctx.moveTo(8, -3); ctx.quadraticCurveTo(11, -3, 12, -0.5); ctx.stroke(); // mandibles
+        ctx.strokeStyle = '#5a1a1a'; ctx.lineWidth = 0.6;
+        ctx.beginPath(); ctx.moveTo(6, -2); ctx.lineTo(10, -5); ctx.moveTo(6, 2); ctx.lineTo(10, 5); ctx.stroke(); // antennae
+    } else {
+        ctx.fillStyle = '#b8b8b8';
+        ctx.beginPath(); ctx.ellipse(-3.2, 0, 2.6, 1.7, 0, 0, Math.PI * 2); ctx.fill(); // abdomen
+        ctx.fillStyle = '#cccccc';
+        ctx.beginPath(); ctx.ellipse(0, 0, 2, 1.1, 0, 0, Math.PI * 2); ctx.fill(); // thorax
+        ctx.fillStyle = '#dddddd';
+        ctx.beginPath(); ctx.arc(2.4, 0, 1.6, 0, Math.PI * 2); ctx.fill(); // head
+        ctx.strokeStyle = '#9a9a9a'; ctx.lineWidth = 0.5;
+        ctx.beginPath(); ctx.moveTo(3.4, -0.8); ctx.lineTo(6, -3); ctx.moveTo(3.4, 0.8); ctx.lineTo(6, 3); ctx.stroke(); // antennae
     }
     return Texture.from(c);
 }
+
+// Subtle per-ant darkening for variety (multiply tint; lighter is impossible).
+const SHADE_TINT = [0xffffff, 0xeeeeee, 0xdddddd, 0xcccccc];
 
 function bakeDisc(): Texture {
     const c = document.createElement('canvas');
@@ -50,14 +90,6 @@ function bakeBug(): Texture {
         x.moveTo(2, ly); x.lineTo(9, ly - 1); x.stroke();
     }
     return Texture.from(c);
-}
-
-function antTint(ant: any): number {
-    if (ant.state === 'FLEEING') return 0xff5a5a;
-    if (ant.state === 'ATTACKING') return 0xff9030;
-    if (ant.carrying === 'SUGAR') return 0xa8e8a8;
-    if (ant.carrying === 'PROTEIN' || ant.carrying === 'CORPSE') return 0xe8b0a8;
-    return ant.type === 'SOLDIER' ? 0x7a4a30 : 0x4a3526;
 }
 
 const BUG_STYLE: Record<string, { tint: number; scale: number }> = {
@@ -99,7 +131,8 @@ export class PixiBackdrop {
     private antPool: Sprite[] = [];
     private particlePool: Sprite[] = [];
 
-    private antTex!: Texture;
+    private antWorkerTex!: Texture;
+    private antSoldierTex!: Texture;
     private bugTex!: Texture;
     private discTex!: Texture;
 
@@ -131,7 +164,8 @@ export class PixiBackdrop {
         });
         this.app = app;
 
-        this.antTex = bakeAnt();
+        this.antWorkerTex = bakeAnt('WORKER');
+        this.antSoldierTex = bakeAnt('SOLDIER');
         this.bugTex = bakeBug();
         this.discTex = bakeDisc();
 
@@ -258,19 +292,20 @@ export class PixiBackdrop {
             s.tint = style.tint;
         }
 
-        // Ants (world only)
+        // Ants (world only) — natural look, texture by caste, no state/cargo tint.
         const ants = world.ants;
-        this.pool(this.antPool, this.antLayer, this.antTex, ants.length);
+        this.pool(this.antPool, this.antLayer, this.antWorkerTex, ants.length);
         let n = 0;
         for (let i = 0; i < ants.length; i++) {
             const a: any = ants[i];
             const s = this.antPool[n++];
             if (a.location !== 'WORLD') { s.visible = false; continue; }
             s.visible = true;
+            s.texture = a.type === 'SOLDIER' ? this.antSoldierTex : this.antWorkerTex;
             s.position.set(a.x, a.y);
             s.rotation = a.angle;
-            s.scale.set((a.type === 'SOLDIER' ? 1.35 : 1) * (a.sizeVar ?? 1));
-            s.tint = antTint(a);
+            s.scale.set((a.sizeVar ?? 1) * 0.5); // texture is 2× supersampled (bakeAnt SS=2)
+            s.tint = SHADE_TINT[(a.shade ?? 0) % SHADE_TINT.length];
         }
         for (let i = n; i < this.antPool.length; i++) this.antPool[i].visible = false;
 
