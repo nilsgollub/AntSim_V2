@@ -399,9 +399,12 @@ export class Ant {
             }
         }
 
-        // Worker Logic: Go back to foraging if needed (Critical only)
+        // Worker Logic: leave the nest to forage. Emergency (low stockpiles)
+        // always pulls workers out; otherwise the urge to forage is age-weighted
+        // (temporal polyethism: young ants nurse, old ants forage).
         if (this.type === 'WORKER') {
-            if (world.sugarStockpile < 50 || world.proteinStockpile < 20 || Math.random() < 0.005) {
+            const emergency = world.sugarStockpile < 50 || world.proteinStockpile < 20;
+            if (emergency || Math.random() < this.forageUrge()) {
                 this.state = 'FORAGING';
                 return;
             }
@@ -1238,6 +1241,20 @@ export class Ant {
 
     wander() {
         this.angle += (Math.random() - 0.5) * 0.2;
+    }
+
+    // Temporal polyethism: per-frame probability that an idle worker leaves to
+    // forage, ramping from young (nurse-biased) to old (forage-biased).
+    forageUrge(): number {
+        const f = this.maxAge > 0 ? this.age / this.maxAge : 0;
+        const young = CONFIG.ant.nurseAgeFraction;
+        const old = CONFIG.ant.forageAgeFraction;
+        const lo = CONFIG.ant.forageUrgeYoung;
+        const hi = CONFIG.ant.forageUrgeOld;
+        if (f <= young) return lo;
+        if (f >= old) return hi;
+        const t = (f - young) / (old - young);
+        return lo + t * (hi - lo);
     }
 
     // Refill energy from the colony's sugar stockpile. Sugar is consumed in

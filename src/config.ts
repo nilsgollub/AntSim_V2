@@ -108,6 +108,12 @@ export const CONFIG = {
         // map instead of clogging the nest door.
         dispersalRadius: 280,
         dispersalStrength: 0.10,
+        // Temporal polyethism: an idle worker's per-frame urge to leave the nest
+        // and forage ramps up with age (young nurse, old forage).
+        nurseAgeFraction: 0.2,   // below this age fraction → minimum forage urge
+        forageAgeFraction: 0.6,  // above this → maximum forage urge
+        forageUrgeYoung: 0.001,  // per-frame P(go forage) for the youngest
+        forageUrgeOld: 0.02,     // per-frame P(go forage) for the oldest
     },
 
     // World Generation
