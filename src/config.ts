@@ -89,6 +89,13 @@ export const CONFIG = {
         pupaDuration: 1500,
         larvaStarveLimit: 200, // hunger above this = larva dies
         hungerRate: 0.005,     // hunger gained per frame while a larva
+        // Caste by nutrition (no extra protein cost). Each frame a larva spends
+        // while the colony holds more than `soldierProteinLevel` protein counts as
+        // "well-fed"; a larva that accumulates `soldierFoodThreshold` such frames
+        // (out of larvaDuration) hatches as a soldier. So a protein-rich colony
+        // raises more soldiers, a lean one stays workers — the player's lever.
+        soldierProteinLevel: 150,
+        soldierFoodThreshold: 1700,
     },
 
     // Ant behaviour tuning (extracted magic numbers; values unchanged)

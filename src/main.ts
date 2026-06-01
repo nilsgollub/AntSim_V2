@@ -372,6 +372,8 @@ const SLIDER_SPECS: SliderSpec[] = [
     { path: 'ant.memoryBias',           label: 'ant.memoryBias (Site Fidelity)', min: 0, max: 1, step: 0.05 },
     { path: 'ant.proteinForagerShare',  label: 'ant.proteinForagerShare', min: 0, max: 0.8, step: 0.05 },
     { path: 'broodProteinUpkeep',       label: 'broodProteinUpkeep (Pop-Limit)', min: 0, max: 0.005, step: 0.0005 },
+    { path: 'brood.soldierFoodThreshold', label: 'brood.soldierFoodThreshold (Soldaten ↑=weniger)', min: 100, max: 2000, step: 100 },
+    { path: 'brood.soldierProteinLevel', label: 'brood.soldierProteinLevel', min: 0, max: 500, step: 25 },
     { path: 'sugarSourceCount',         label: 'sugarSourceCount',   min: 1,   max: 10,  step: 1 },
     { path: 'predatorSpawnRate',        label: 'predatorSpawnRate',  min: 0,   max: 0.005, step: 0.0001 },
 ];

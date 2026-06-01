@@ -226,22 +226,26 @@ export class World {
         }
 
         // Update Brood
+        const proteinRich = this.proteinStockpile > CONFIG.brood.soldierProteinLevel;
         for (let i = this.brood.length - 1; i >= 0; i--) {
             const b = this.brood[i];
+            // Larvae raised during protein-rich times accumulate toward the soldier
+            // caste (no protein consumed here — the cost is broodProteinUpkeep).
+            if (proteinRich) b.provision();
             const readyToHatch = b.update();
             if (readyToHatch) {
                 // Hatch!
                 // Dynamic Caste Production
                 // Check Population Limit
                 if (this.ants.length < PerformanceManager.settings.maxAnts) {
-                    const soldiers = this.ants.filter(a => a.type === 'SOLDIER').length;
+                    // Caste is set by how well the larva was provisioned (nutrition),
+                    // but soldiers stay locked until the colony is established.
                     const workers = this.ants.filter(a => a.type === 'WORKER').length;
-
-                    if (soldiers < workers / 5 && workers > CONFIG.soldierUnlockThreshold) {
-                        this.spawnAnt('SOLDIER');
-                    } else {
-                        this.spawnAnt('WORKER');
+                    let caste = b.destinedCaste ?? 'WORKER';
+                    if (caste === 'SOLDIER' && workers <= CONFIG.soldierUnlockThreshold) {
+                        caste = 'WORKER';
                     }
+                    this.spawnAnt(caste);
                 }
 
                 this.brood.splice(i, 1);
