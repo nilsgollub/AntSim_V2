@@ -18,6 +18,10 @@ export class World {
     queen: Queen;
     insects: Insect[];
     foods: Food[];
+    // Corpses laid to rest in a graveyard chamber. Kept OUT of `foods` so foragers
+    // never re-scan them (that would make the per-frame food scan grow without bound
+    // as the dead pile up) — they're only decayed + drawn from here.
+    graveyard: Food[] = [];
     terrain: Terrain;
     grid: PheromoneGrid;
     nestGrid: PheromoneGrid;
@@ -31,6 +35,16 @@ export class World {
     // feeding + passive brood upkeep (see World.update / Queen / Ant).
     proteinStockpile: number = CONFIG.startProtein;
     sugarStockpile: number = CONFIG.startSugar;
+
+    /**
+     * Per-resource storage ceiling. Scales with the number of granary (STORAGE)
+     * chambers, so digging more granaries lets the colony stockpile more — giving
+     * those chambers a concrete function. Deliveries clamp to this.
+     */
+    storageCapacity(): number {
+        const granaries = this.nest.getChambers('STORAGE').length;
+        return CONFIG.nest.storageBaseCapacity + granaries * CONFIG.nest.storagePerGranary;
+    }
 
     // Simulation Age
     age: number = 0;
@@ -411,6 +425,12 @@ export class World {
             if (this.foods[i].amount <= 0) {
                 this.foods.splice(i, 1);
             }
+        }
+
+        // Interred corpses slowly moulder away (and are never foraged again).
+        for (let i = this.graveyard.length - 1; i >= 0; i--) {
+            this.graveyard[i].update();
+            if (this.graveyard[i].amount <= 0) this.graveyard.splice(i, 1);
         }
         // Respawn Sugar
         if (this.foods.filter(f => f.type === 'SUGAR').length < CONFIG.sugarSourceCount) {

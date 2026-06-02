@@ -80,17 +80,38 @@ Ants use a sensory-based steering algorithm:
     allies (`mobMinAllies`) and roughly `mobSuperiority`× more allies than enemies
     nearby (`countNearbyAllies` vs `countNearbyEnemies`); otherwise it flees and
     spreads the alarm. Soldiers fight regardless.
--   **Attack:** in melee range the ant stops and deals `worker/soldierDamage`.
--   **AoE bite:** when an enemy attacks, *every* ant within bite range takes the hit
-    (not just the nearest) — so mobbing a predator is genuinely costly.
+-   **Attack:** in melee range the ant stops and deals `worker/soldierDamage`; the
+    enemy bites back at the single ant it's locked onto (a whole-swarm AoE bite was
+    tried but reverted — it could wipe a mobbing squad and collapse the colony).
 -   **Grappling/swarming:** an enemy is slowed by `grappleSlowPerAnt` for every ant
     within `grappleRadius` (capped at `grappleMaxSlow`) — a swarm slows it, but no
     longer fully pins it, so it can still fight/retreat while outnumbered.
--   **Death:** dead insects drop Protein at their location.
+-   **Death:** dead insects drop Protein at their location; dead **ants** above
+    ground leave a corpse that undertakers carry to a graveyard chamber (§3.4).
+-   **Balance note:** long-run (30k-tick) colony survival is ~50–60 % and *RNG-stream
+    dominated* — tuning enemy strength reshuffles which seeds collapse rather than
+    raising the survival rate. The soak guarantees establishment, not immortality.
 
 ### 3.4. Nest Logic (`Nest.ts`)
 -   **Structure:** A graph of **Nodes** (rooms/junctions) connected by **Tunnels**.
--   **Chambers:** Special nodes for `QUEEN`, `BROOD`, `STORAGE`.
+-   **Growth:** the colony digs satellite chambers as it grows (`growStage`), as a
+    **branching tree** — each new chamber hangs off an existing one but is placed
+    strictly *outward* from the hub, so heading home is always monotone "inward"
+    (keeps greedy navigation robust) and far more chambers fit than a single star ring.
+-   **Functional chambers (roles):** a nest has *several* chambers per role
+    (`getChambers`/`nearestChamber`), dug in the order Nursery → Granary → Cemetery →
+    then a mix:
+    -   `QUEEN` — the founding chamber; the queen lays here.
+    -   `BROOD` (nurseries) — nurses carry misplaced brood to the nearest nursery
+        (target committed at pickup via `Ant.carryTarget`, so it can't thrash between
+        rooms). Brood is "misplaced" only if outside *every* nursery.
+    -   `STORAGE` (granaries) — give real capacity: the global stockpile is capped at
+        `base + perGranary × granaryCount` (`CONFIG.nest.storage*`). Food piles render
+        split across all granaries. Delivery/eating use the primary granary (one stable
+        target; the stockpile is global anyway).
+    -   `CEMETERY` — undertakers carry **ant** corpses here (sanitation); they rest in
+        `world.graveyard` (kept out of `world.foods` so the per-frame forage scan can't
+        blow up as the dead accumulate) and slowly moulder. **Insect** corpses stay food.
 -   **Navigation:** Ants move between nodes using a pathfinding heuristic (or simple node-to-node steering).
 
 

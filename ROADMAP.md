@@ -59,12 +59,15 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
   Worker mobben/fliehen nach **lokaler Übermacht** (`countNearbyAllies` vs `countNearbyEnemies`)
   statt fester Zahl; Feinde werden beim **Schwärmen verlangsamt** (Grapple, `Insect.grappleSlow`).
   Harness-verifiziert: Kolonie übersteht Angriffe (seed7 @30k ≈ 152 Ameisen, ~30 % Soldaten).
-  **Räuber-Buff (`CONFIG.enemy`):** Predator/Spider/Beetle haben jetzt config-getriebene HP+Schaden
-  (Predator 30/4 → 55/7, Spider 25/6 → 42/8, Beetle 80/10 → 95/13) und einen **AoE-Biss** — ein
-  umzingelter Räuber trifft beim Zuschlagen *alle* Ameisen in Bissreichweite, statt nur einer.
-  Grapple gelockert (nicht mehr fast komplett gepinnt). Harness: Kolonie überlebt weiter (seed7 @30k
-  ≈ 130 statt 152 Ameisen → Räuber kosten messbar mehr).
-  *Offen/Ideen:* Rekruten-Pheromon, Rückzug-Sammelpunkt, Beißen-über-Zeit statt Instant-Schaden.
+  **Räuber-Stärke (`CONFIG.enemy`):** Predator/Spider/Beetle haben config-getriebene HP+Schaden
+  (Predator 30/4 → 42/6, Spider 25/6 → 32/7, Beetle 80/10 → 88/12) — ein moderater Buff, damit ein
+  Räuber pro Begegnung spürbar Ameisen kostet. Grapple leicht gelockert (0.15/0.8).
+  *Lektion (harness-belegt):* Die 30k-Langzeit-Überlebensrate (~50–60 %) ist **RNG-dominiert**, nicht
+  predator-stärke-dominiert — jede Balance-Änderung mischt nur durch, welche Seeds kollabieren. Ein
+  erster Über-Buff (55/7 + AoE-Biss auf den ganzen Schwarm) wurde zurückgenommen, weil der AoE eine
+  mobbende Squad auf einen Schlag auslöschen konnte. Kolonie etabliert sich verlässlich (Soak seed7
+  @6000 grün); ein einzelner sehr langer Run kann an einen Räuberangriff verloren gehen (realistisch).
+  *Offen/Ideen:* Kolonie-Resilienz im Protein-Todesspiral (Notfall-Rekrutierung), Rückzug-Sammelpunkt.
 
 - [ ] **Trophallaxis / Sozialer Magen**: Ameisen tragen Crop-Inhalt (`cropSugar: number`);
   beim Passieren einer hungrigen Nestgenossin oder Larve wird Nahrung direkt mund-zu-mund
@@ -89,6 +92,20 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
   erreichbar), während die Greedy-Navigation robust bleibt (Heimweg ist immer „nach innen",
   monoton). `excavateEvery` 18→10 + höheres `maxExtraChambers` → sichtbar mehr Kammern.
   Rollen-Modell `getChamber(role)` statt fixem Typ. *Offen:* per-Ameise `DIGGING`-Zustand.
+
+- [x] **Funktionale Kammern** (Kammern haben echte Aufgaben, nicht nur Deko): Rollen-Modell auf
+  *mehrere Kammern pro Rolle* erweitert (`getChambers`/`nearestChamber`). Grabungs-Rotation:
+  Nursery → Granary → **Friedhof** → dann Mix aus Granaries/Nurseries.
+  • **Granaries (STORAGE):** geben echte Lagerkapazität — globaler Vorrat ist gedeckelt bei
+    `base + perGranary × Granary-Zahl` (`CONFIG.nest.storage*`); mehr Granaries = mehr Vorrat.
+    Piles werden über alle Granaries verteilt gezeichnet.
+  • **Mehrere Bruthöhlen (BROOD):** Brut gilt nur als „verlegt", wenn sie außerhalb *aller* Nurseries
+    liegt; Ammen tragen sie in die beim Aufheben **committete** nächste Nursery (kein Frame-Thrashing).
+  • **Friedhof (CEMETERY):** **Ameisen**leichen werden zur nächsten Friedhofskammer getragen
+    (Sanität) und ruhen in `world.graveyard` (aus dem Foraging-Pool raus → kein O(Tote)-Scan-Blowup),
+    wo sie langsam vermodern. **Insekten**leichen bleiben Beute → Protein.
+  *Lektion:* per-Frame „nächste Kammer" ließ Ameisen zwischen Räumen oszillieren und nie ankommen →
+  Ziele werden jetzt einmal committet (`Ant.carryTarget`) bzw. auf die primäre Kammer geführt.
 
 - [x] **Sammler-Gedächtnis / Site Fidelity**: `Ant.foodMemoryX/Y` + `steerToMemory()`;
   Forager kehrt zur letzten erfolgreichen Quelle zurück (Fallback hinter Pheromon-Spur),

@@ -380,11 +380,23 @@ export class Renderer {
         // overlay becomes a dense, muddy blob. The nestGrid still drives ant
         // navigation underground — only its visualisation is suppressed.
 
-        const storage = world.nest.getChamber('STORAGE');
-        if (storage) {
-            // Draw Food Piles BEFORE ants so ants walk ON TOP
-            this.drawFoodPile(storage.x, storage.y, storage.radius, world.sugarStockpile, 'SUGAR', ctx);
-            this.drawFoodPile(storage.x, storage.y, storage.radius, world.proteinStockpile, 'PROTEIN', ctx);
+        // Draw Food Piles BEFORE ants so ants walk ON TOP. The stockpile is shown
+        // split evenly across every granary, so a multi-chamber nest shows food in
+        // each storage room rather than one giant heap.
+        const granaries = world.nest.getChambers('STORAGE');
+        const piles = granaries.length > 0 ? granaries : [world.nest.getChamber('STORAGE')];
+        if (piles[0]) {
+            const sugarPer = world.sugarStockpile / piles.length;
+            const proteinPer = world.proteinStockpile / piles.length;
+            for (const g of piles) {
+                this.drawFoodPile(g.x, g.y, g.radius, sugarPer, 'SUGAR', ctx);
+                this.drawFoodPile(g.x, g.y, g.radius, proteinPer, 'PROTEIN', ctx);
+            }
+        }
+
+        // Interred corpses resting in the graveyard chamber(s).
+        for (const corpse of world.graveyard) {
+            this.drawFood(corpse);
         }
 
         // Draw Dynamic Entities

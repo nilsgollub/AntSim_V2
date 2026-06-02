@@ -51,6 +51,10 @@ export class Ant {
     patrolAngle: number = 0;
     patrolRadius: number = 100;
     patrolTarget: { x: number, y: number } | null = null;
+    // A chamber target committed once (e.g. which nursery a carried brood goes to),
+    // so per-frame "nearest chamber" recomputation can't make the ant thrash between
+    // rooms and never arrive.
+    carryTarget: { x: number, y: number } | null = null;
     stuckTimer: number = 0;
     lastX: number = 0;
     lastY: number = 0;
@@ -144,7 +148,7 @@ export class Ant {
                 handleTransporting(this, world);
                 break;
             case 'HARVESTING':
-                handleHarvesting(this);
+                handleHarvesting(this, world);
                 break;
             case 'MILKING':
                 handleMilking(this, world);

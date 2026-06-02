@@ -195,14 +195,19 @@ export function handleNurseIdle(ant: Ant, world: World) {
 
     // Check if work needed
     if (ant.carrying === 'NONE') {
-        // 1. Check for Misplaced Brood (Priority)
-        const broodChamber = world.nest.getChamber('BROOD');
-        if (broodChamber) {
+        // 1. Check for Misplaced Brood (Priority). With several nurseries, brood is
+        // "misplaced" only if it lies outside *every* brood chamber.
+        const broodChambers = world.nest.getChambers('BROOD');
+        const broodHomes = broodChambers.length > 0 ? broodChambers : [world.nest.getChamber('BROOD')];
+        if (broodHomes[0]) {
             const misplacedBrood = world.brood.find(b => {
                 if (b.carrier) return false;
-                const dx = b.x - broodChamber.x;
-                const dy = b.y - broodChamber.y;
-                return dx * dx + dy * dy > broodChamber.radius * broodChamber.radius;
+                for (const ch of broodHomes) {
+                    const dx = b.x - ch.x;
+                    const dy = b.y - ch.y;
+                    if (dx * dx + dy * dy <= ch.radius * ch.radius) return false; // inside a nursery
+                }
+                return true; // outside all nurseries
             });
 
             if (misplacedBrood) {
@@ -216,6 +221,11 @@ export function handleNurseIdle(ant: Ant, world: World) {
                     ant.carryingInstance = misplacedBrood;
                     misplacedBrood.carrier = ant;
                     ant.state = 'TRANSPORTING';
+                    // Commit to one nursery (nearest to the brood) for the whole haul,
+                    // so the target can't flip between rooms frame-to-frame.
+                    const home = world.nest.nearestChamber('BROOD', misplacedBrood.x, misplacedBrood.y)
+                        ?? world.nest.getChamber('BROOD');
+                    ant.carryTarget = home ? { x: home.x, y: home.y } : null;
                 } else {
                     ant.angle = Math.atan2(dy, dx);
                 }
@@ -230,7 +240,7 @@ export function handleNurseIdle(ant: Ant, world: World) {
             const larvaHungry = world.brood.some(b => b.stage === 'LARVA' && b.hunger > 20);
 
             if (queenHungry || larvaHungry) {
-                // Go to Storage
+                // Go to the primary granary (stable target; stockpile is global)
                 const storage = world.nest.getChamber('STORAGE');
                 if (!storage) return;
 
@@ -282,6 +292,7 @@ export function handleTransporting(ant: Ant, world: World) {
     if (!ant.carryingInstance) {
         ant.state = 'IDLE';
         ant.carrying = 'NONE';
+        ant.carryTarget = null;
         return;
     }
 
@@ -289,8 +300,11 @@ export function handleTransporting(ant: Ant, world: World) {
     ant.carryingInstance.x = ant.x;
     ant.carryingInstance.y = ant.y;
 
-    // Go to Brood Chamber
-    const broodChamber = world.nest.getChamber('BROOD');
+    // Head to the nursery committed at pickup (resolving from the fixed target coord
+    // keeps the chamber — and thus the destination — stable for the whole haul).
+    const target = ant.carryTarget;
+    const broodChamber = (target ? world.nest.nearestChamber('BROOD', target.x, target.y) : null)
+        ?? world.nest.getChamber('BROOD');
     if (!broodChamber) return;
     const dx = broodChamber.x - ant.x;
     const dy = broodChamber.y - ant.y;
@@ -307,6 +321,7 @@ export function handleTransporting(ant: Ant, world: World) {
             ant.carryingInstance.carrier = null;
             ant.carryingInstance = null;
             ant.carrying = 'NONE';
+            ant.carryTarget = null;
             ant.state = 'IDLE';
 
             // Move away a bit
@@ -683,14 +698,6 @@ export function handleForaging(ant: Ant, world: World) {
             if (!matches) continue;
         }
 
-        // Ignore Corpses in Graveyard (Prevent getting stuck approaching them)
-        if (food.type === 'CORPSE') {
-            const isLandscape = CONFIG.width > CONFIG.height;
-            const graveX = isLandscape ? 50 : CONFIG.width / 2;
-            const graveY = isLandscape ? CONFIG.height / 2 : 50;
-            const dG = (food.x - graveX) ** 2 + (food.y - graveY) ** 2;
-            if (dG < 40000) continue;
-        }
 
         const dx = food.x - ant.x;
         const dy = food.y - ant.y;
@@ -818,7 +825,7 @@ export function handleForaging(ant: Ant, world: World) {
 // This breaks the random-walk's tendency to loiter at the nest door and
 // spreads foraging activity across the whole map.
 
-export function handleHarvesting(ant: Ant) {
+export function handleHarvesting(ant: Ant, world: World) {
     ant.harvestTimer--;
     ant.speedMultiplier = 0; // Stand still
 
@@ -826,6 +833,20 @@ export function handleHarvesting(ant: Ant) {
         // Done!
         const food = ant.carryingInstance;
         if (food && food.amount > 0) {
+            // Undertaker: an ant corpse is carried whole to the graveyard (once one
+            // exists) for sanitation, rather than eaten. Insect corpses — and any
+            // corpse before a cemetery is dug — stay food and are harvested as protein.
+            if (food.type === 'CORPSE' && food.corpseType === 'ANT'
+                && world.nest.getChambers('CEMETERY').length > 0) {
+                ant.carrying = 'CORPSE';
+                ant.carryingInstance = food;          // keep it to drop at the cemetery
+                const idx = world.foods.indexOf(food); // remove so it isn't re-grabbed mid-haul
+                if (idx >= 0) world.foods.splice(idx, 1);
+                ant.state = 'RETURNING';
+                ant.energy = CONFIG.antMaxEnergy;
+                ant.angle += Math.PI;
+                return;
+            }
             food.harvest(1);
             ant.carrying = food.type === 'CORPSE' ? 'PROTEIN' : food.type;
             ant.state = 'RETURNING';
@@ -861,41 +882,47 @@ export function handleReturning(ant: Ant, world: World) {
     }
 
     if (ant.carrying === 'CORPSE') {
-        // Graveyard Location: Opposite side of the nest
-        const isLandscape = world.nest.height > world.nest.width;
-        let graveX, graveY;
-        if (isLandscape) {
-            // Nest is Right -> Graveyard Left
-            graveX = 50;
-            graveY = CONFIG.height / 2;
-        } else {
-            // Nest is Bottom -> Graveyard Top Center
-            graveX = CONFIG.width / 2;
-            graveY = 50;
+        const corpse = ant.carryingInstance;
+
+        if (ant.location === 'WORLD') {
+            // Carry the body home to the entrance first (same heading as a normal
+            // return trip); the cemetery is inside the nest.
+            let targetX, targetY;
+            if (world.nest.height > world.nest.width) { targetX = CONFIG.width; targetY = CONFIG.height / 2; }
+            else { targetX = CONFIG.width / 2; targetY = CONFIG.height; }
+            if (corpse) { corpse.x = ant.x; corpse.y = ant.y; } // the body travels with its bearer
+            ant.angle = Math.atan2(targetY - ant.y, targetX - ant.x);
+            return;
         }
 
-        const dx = graveX - ant.x;
-        const dy = graveY - ant.y;
-        const distSq = dx * dx + dy * dy;
+        // In the nest: take the body to the nearest graveyard chamber and lay it there.
+        const grave = world.nest.nearestChamber('CEMETERY', ant.x, ant.y);
+        if (!grave) {
+            // No graveyard (shouldn't happen — we only undertake when one exists):
+            // recycle the body as protein so it isn't lost.
+            world.proteinStockpile = Math.min(world.storageCapacity(), world.proteinStockpile + CONFIG.proteinValue);
+            ant.carrying = 'NONE';
+            ant.carryingInstance = null;
+            ant.state = 'IDLE';
+            return;
+        }
 
-        if (distSq < 2500) { // Close enough (50px)
-            // Drop Corpse
-            const corpse = ant.carryingInstance;
+        const dx = grave.x - ant.x;
+        const dy = grave.y - ant.y;
+        if (dx * dx + dy * dy < (grave.radius * 0.7) * (grave.radius * 0.7)) {
             if (corpse) {
-                corpse.x = ant.x + (rand() - 0.5) * 20; // Scatter slightly
-                corpse.y = ant.y + (rand() - 0.5) * 20;
-                world.foods.push(corpse);
+                corpse.x = grave.x + (rand() - 0.5) * grave.radius;
+                corpse.y = grave.y + (rand() - 0.5) * grave.radius;
+                world.graveyard.push(corpse); // laid to rest — out of the foraging pool
             }
             ant.carrying = 'NONE';
             ant.carryingInstance = null;
-            ant.state = 'FORAGING';
+            ant.state = 'IDLE';
             ant.angle += Math.PI;
             return;
-        } else {
-            // Move towards Graveyard
-            ant.angle = Math.atan2(dy, dx);
-            ant.angle += (rand() - 0.5) * 0.2;
         }
+        const nextNode = world.nest.getNextNodeTowards(ant.x, ant.y, grave.x, grave.y);
+        ant.angle = nextNode ? Math.atan2(nextNode.y - ant.y, nextNode.x - ant.x) : Math.atan2(dy, dx);
         return;
     }
 
@@ -928,6 +955,9 @@ export function handleReturning(ant: Ant, world: World) {
         ant.angle += diff * biasStrength;
 
     } else {
+        // Deliver to the primary granary (a single stable target — the stockpile is
+        // global anyway, and recomputing "nearest" each frame made ants thrash and
+        // never arrive once the nest had several granaries).
         const storage = world.nest.getChamber('STORAGE');
 
         if (storage) {
@@ -936,8 +966,10 @@ export function handleReturning(ant: Ant, world: World) {
             const distSq = dx * dx + dy * dy;
 
             if (distSq < 2500) {
-                if (ant.carrying === 'SUGAR') world.sugarStockpile += CONFIG.sugarValue;
-                else if (ant.carrying === 'PROTEIN') world.proteinStockpile += CONFIG.proteinValue;
+                // Clamp to the colony's storage capacity (scales with granary count).
+                const cap = world.storageCapacity();
+                if (ant.carrying === 'SUGAR') world.sugarStockpile = Math.min(cap, world.sugarStockpile + CONFIG.sugarValue);
+                else if (ant.carrying === 'PROTEIN') world.proteinStockpile = Math.min(cap, world.proteinStockpile + CONFIG.proteinValue);
 
                 ant.carrying = 'NONE';
 
@@ -977,7 +1009,7 @@ export function handleHungry(ant: Ant, world: World) {
         return;
     }
 
-    // In Nest: Go to Storage and Eat
+    // In Nest: Go to the primary granary and eat (stable target; stockpile is global)
     const storage = world.nest.getChamber('STORAGE');
     if (storage) {
         const dx = storage.x - ant.x;

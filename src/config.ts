@@ -162,8 +162,8 @@ export const CONFIG = {
         mobMinAllies: 2,        // a worker needs at least this many local allies to consider fighting
         mobSuperiority: 1.5,    // …and roughly this much local numerical superiority over enemies
         grappleRadius: 22,      // ants this close to an enemy are "biting/holding" it
-        grappleSlowPerAnt: 0.12,// each holding ant slows the enemy by this (fraction)
-        grappleMaxSlow: 0.7,    // …capped here (a swarmed enemy can still struggle, not fully pinned)
+        grappleSlowPerAnt: 0.15,// each holding ant slows the enemy by this (fraction)
+        grappleMaxSlow: 0.8,    // …capped here (a swarmed enemy can still struggle a little)
         patrolLongChance: 0.2,  // chance a new patrol target is a far-ranging sweep
         patrolLongRangeFrac: 0.35, // long patrols reach up to this fraction of the world size
     },
@@ -171,9 +171,9 @@ export const CONFIG = {
     // Enemy combat stats (HP + per-hit damage to ants). Tuned so a predator is a
     // real threat that takes a few ants with it before the colony swarms it down.
     enemy: {
-        predatorHealth: 55, predatorDamage: 7,
-        spiderHealth: 42,   spiderDamage: 8,
-        beetleHealth: 95,   beetleDamage: 13,
+        predatorHealth: 42, predatorDamage: 6,
+        spiderHealth: 32,   spiderDamage: 7,
+        beetleHealth: 88,   beetleDamage: 12,
     },
 
     // Reference used to size nest chambers (rScale = nestMinDim / nestScaleRef).
@@ -185,6 +185,11 @@ export const CONFIG = {
     nest: {
         excavateEvery: 10,                      // +1 satellite chamber per this many ants
         maxExtraChambers: scaleCount(14),       // more room → more chambers in a bigger nest
+        // Granaries give the colony real storage capacity: the global stockpile is
+        // capped at base + perGranary × (number of STORAGE chambers). Generous, so
+        // it rewards digging granaries (headroom) without ever starving the colony.
+        storageBaseCapacity: 1200,              // cap per resource with no dedicated granary yet
+        storagePerGranary: 600,                 // …each granary chamber raises it by this
     },
 
     // World Generation

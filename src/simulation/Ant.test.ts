@@ -62,7 +62,9 @@ describe('trail strength ∝ food quality', () => {
             amount, maxAmount: amount, type: 'SUGAR', x: 50, y: 50,
             harvest() { this.amount -= 1; },
         };
-        handleHarvesting(a);
+        // SUGAR harvest doesn't touch the world; a minimal stub satisfies the signature.
+        const worldStub = { nest: { getChambers: () => [] }, foods: [] } as any;
+        handleHarvesting(a, worldStub);
         return a;
     }
 

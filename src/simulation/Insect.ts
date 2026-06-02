@@ -266,16 +266,10 @@ export class Insect {
 
             if (minDst < 100) { // Attack range
                 if (this.attackCooldown <= 0) {
-                    // A cornered predator lashes out at the whole swarm: every ant in
-                    // bite range takes damage, so mobbing it is genuinely costly.
-                    for (const ant of world.ants) {
-                        const dx = this.x - ant.x;
-                        const dy = this.y - ant.y;
-                        if (dx * dx + dy * dy < 100) {
-                            ant.health -= damage;
-                            world.addParticle(ant.x, ant.y, 'red', 'BLOOD');
-                        }
-                    }
+                    // Bite the ant it's locked onto. (A whole-swarm AoE bite was too
+                    // punishing — it could wipe a mobbing squad and collapse the colony.)
+                    nearestAnt.health -= damage;
+                    world.addParticle(nearestAnt.x, nearestAnt.y, 'red', 'BLOOD');
                     this.attackCooldown = 30;
                 }
             }

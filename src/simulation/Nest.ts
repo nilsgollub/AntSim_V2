@@ -1,7 +1,7 @@
 import { rand } from '../rng';
 import { CONFIG } from '../config';
 
-export type ChamberRole = 'QUEEN' | 'BROOD' | 'STORAGE';
+export type ChamberRole = 'QUEEN' | 'BROOD' | 'STORAGE' | 'CEMETERY';
 export interface Chamber { x: number; y: number; radius: number; type: ChamberRole; }
 
 export class Nest {
@@ -38,7 +38,10 @@ export class Nest {
         // A single, modest founding chamber that does everything at first.
         const startR = 70 * rScale;
         const founding = this.addChamber(cx, cy, startR, 'QUEEN');
-        this.roles = { QUEEN: founding, BROOD: founding, STORAGE: founding };
+        // The founding chamber fulfils every role at first; CEMETERY defaults to it
+        // too but stays unused until a real graveyard is dug (callers key off
+        // `getChambers('CEMETERY')`/`nearestChamber`, which only see CEMETERY-typed rooms).
+        this.roles = { QUEEN: founding, BROOD: founding, STORAGE: founding, CEMETERY: founding };
 
         // Entrance + connecting tunnel, oriented like the original layout.
         if (this.width > this.height) {
@@ -63,9 +66,33 @@ export class Nest {
         this.nodes.push({ x, y, radius, type });
     }
 
-    /** The chamber currently assigned a given functional role (always defined). */
+    /** The primary chamber for a role (the representative, always defined). */
     getChamber(role: ChamberRole): Chamber {
         return this.roles[role];
+    }
+
+    /** Every chamber of a given role (a colony can have several granaries/nurseries). */
+    getChambers(role: ChamberRole): Chamber[] {
+        return this.chambers.filter(c => c.type === role);
+    }
+
+    /**
+     * The chamber of `role` nearest to (x, y), or null if none of that kind exists
+     * yet. Lets ants deliver to / eat from / drop brood at the closest room of a
+     * kind, so a multi-chamber nest spreads traffic instead of funnelling everyone
+     * to one room.
+     */
+    nearestChamber(role: ChamberRole, x: number, y: number): Chamber | null {
+        let best: Chamber | null = null;
+        let bestD = Infinity;
+        for (const c of this.chambers) {
+            if (c.type !== role) continue;
+            const dx = x - c.x;
+            const dy = y - c.y;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < bestD) { bestD = d2; best = c; }
+        }
+        return best;
     }
 
     // Dig one new chamber branching off an existing one, connected by an organic
@@ -125,22 +152,28 @@ export class Nest {
         return null;
     }
 
-    // Grow the nest by one stage. The first dig becomes a dedicated brood
-    // chamber, the second a dedicated storage chamber (differentiating the
-    // founding chamber, which keeps the queen); further digs add generic space.
-    // Existing navigation and the renderer's node-count cache pick up new nodes.
+    // Grow the nest by one stage, differentiating the colony's rooms as it grows:
+    //   dig 0 → first nursery (BROOD)      dig 1 → first granary (STORAGE)
+    //   dig 2 → the midden / graveyard (CEMETERY, exactly one)
+    //   dig 3+ → mostly more granaries, every 3rd another nursery
+    // so a mature nest has several granaries + nurseries and one cemetery. The
+    // `roles` map keeps the first chamber of each kind as the primary; the plural
+    // accessors (`getChambers`/`nearestChamber`) see them all. Navigation and the
+    // renderer's node-count cache pick up the new nodes automatically.
     growStage(): boolean {
         const chamber = this.digChamber();
         if (!chamber) return false;
 
-        if (this.extraChambers === 0) {
-            chamber.type = 'BROOD';
-            this.roles.BROOD = chamber; // nursery splits off
-        } else if (this.extraChambers === 1) {
-            chamber.type = 'STORAGE';
-            this.roles.STORAGE = chamber; // granary splits off
-        } else {
-            chamber.type = 'STORAGE'; // generic extra space / capacity
+        let role: ChamberRole;
+        if (this.extraChambers === 0) role = 'BROOD';
+        else if (this.extraChambers === 1) role = 'STORAGE';
+        else if (this.extraChambers === 2) role = 'CEMETERY';
+        else role = (this.extraChambers % 3 === 0) ? 'BROOD' : 'STORAGE';
+
+        chamber.type = role;
+        // The first chamber of each kind becomes that role's primary representative.
+        if (!this.chambers.some(c => c !== chamber && c.type === role)) {
+            this.roles[role] = chamber;
         }
 
         this.extraChambers++;
