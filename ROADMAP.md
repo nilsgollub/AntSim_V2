@@ -80,11 +80,15 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
   höherer Unterhalt; Arbeiter (sizeVar ≤ 0.9) → schneller, günstiger. Konsistent mit
   `CONFIG.ant.*`-Multiplikatoren.
 
-- [x] **Dynamischer Nestausbau / Excavation (v1)**: Start mit einer Gründungskammer
+- [x] **Dynamischer Nestausbau / Excavation (v2)**: Start mit einer Gründungskammer
   (alle Rollen), die sich mit Koloniewachstum differenziert — `Nest.growStage()`
-  gräbt nach und nach Nursery/Granary/Erweiterungen aus (Stern-Topologie, in Grenzen,
-  Excavation-Staub). Rollen-Modell `getChamber(role)` statt fixem Typ. Navigation
-  gehärtet (Wall-Sliding). *Offen:* per-Ameise `DIGGING`-Zustand (Ameisen graben physisch).
+  gräbt nach und nach Nursery/Granary/Erweiterungen aus. **Baum-Topologie statt Stern:**
+  neue Kammern docken an *jede* bestehende Kammer an, werden aber strikt **radial nach
+  außen** gesetzt (weiter vom Hub weg als ihr Elternteil). Der alte Stern (alles am Hub)
+  capte physisch bei ~8 Kammern; der Baum passt 25+ rein (Harness: 26/26 in Grenzen +
+  erreichbar), während die Greedy-Navigation robust bleibt (Heimweg ist immer „nach innen",
+  monoton). `excavateEvery` 18→10 + höheres `maxExtraChambers` → sichtbar mehr Kammern.
+  Rollen-Modell `getChamber(role)` statt fixem Typ. *Offen:* per-Ameise `DIGGING`-Zustand.
 
 - [x] **Sammler-Gedächtnis / Site Fidelity**: `Ant.foodMemoryX/Y` + `steerToMemory()`;
   Forager kehrt zur letzten erfolgreichen Quelle zurück (Fallback hinter Pheromon-Spur),

@@ -183,8 +183,8 @@ export const CONFIG = {
 
     // Dynamic nest excavation: the colony digs extra satellite chambers as it grows.
     nest: {
-        excavateEvery: 18,                      // +1 satellite chamber per this many ants
-        maxExtraChambers: scaleCount(8),        // more room → more chambers in a bigger nest
+        excavateEvery: 10,                      // +1 satellite chamber per this many ants
+        maxExtraChambers: scaleCount(14),       // more room → more chambers in a bigger nest
     },
 
     // World Generation

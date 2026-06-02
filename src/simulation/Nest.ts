@@ -76,19 +76,38 @@ export class Nest {
         const rScale = minDim / CONFIG.nestScaleRef;
         const newR = (45 + rand() * 25) * rScale;
         const gap = 15 * rScale;
+        const hub = this.chambers[0];
 
-        // Always branch off the founding hub (chambers[0]) so the nest stays a
-        // simple star: every chamber reaches the entrance through the centre.
-        // This keeps the greedy nest pathfinding robust.
-        const parent = this.chambers[0];
-        for (let attempt = 0; attempt < 24; attempt++) {
-            const angle = rand() * Math.PI * 2;
+        // Grow as a branching *tree*, not a single star ring: a new chamber may
+        // branch off ANY existing chamber, but is always placed radially outward
+        // from the hub (further from the centre than its parent). The old star —
+        // every chamber hung directly off the hub — physically capped the nest at
+        // ~8 chambers (the ring filled up). A tree fits many more, while the
+        // outward-only rule keeps greedy nest pathfinding robust: heading toward
+        // the central entrance hub is always "inward", monotone, with no detours.
+        for (let attempt = 0; attempt < 40; attempt++) {
+            const parent = this.chambers[Math.floor(rand() * this.chambers.length)];
+
+            // Outward direction = hub → parent (random when the parent IS the hub).
+            const ox = parent.x - hub.x;
+            const oy = parent.y - hub.y;
+            const parentDist = Math.hypot(ox, oy);
+            const baseAngle = parentDist < 1 ? rand() * Math.PI * 2 : Math.atan2(oy, ox);
+            // Spread within a cone around the outward direction (full circle at the hub).
+            const spread = parentDist < 1 ? Math.PI * 2 : Math.PI * 0.9;
+            const angle = baseAngle + (rand() - 0.5) * spread;
+
             const d = parent.radius + newR + gap;
             const nx = parent.x + Math.cos(angle) * d;
             const ny = parent.y + Math.sin(angle) * d;
 
             if (nx < newR + 4 || nx > this.width - newR - 4) continue;
             if (ny < newR + 4 || ny > this.height - newR - 4) continue;
+
+            // Must sit further from the hub than its parent → keeps the tree
+            // strictly outward so the inward path home never has to backtrack.
+            const childDist2 = (nx - hub.x) ** 2 + (ny - hub.y) ** 2;
+            if (parentDist >= 1 && childDist2 <= parentDist * parentDist) continue;
 
             let tooClose = false;
             for (const c of this.chambers) {
