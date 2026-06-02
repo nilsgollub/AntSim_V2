@@ -51,8 +51,9 @@ export class Queen {
                     this.energy = Math.min(this.maxEnergy, this.energy + spent * CONFIG.sugarEnergyValue);
                 }
 
-                // Decide to lay eggs if healthy and fed
-                // FIX: Increased brood limit from 50 to 200 to support larger colony sizes
+                // Decide to lay eggs if healthy and fed. (Keeping the pipeline alive even
+                // at low protein is what lets a battered colony recover — a hard protein
+                // reserve here backfired: it froze laying and guaranteed brood→0.)
                 if (this.energy > 500 && this.stress < 20 && world.brood.length < 200) {
                     this.state = 'LAYING';
                     this.layTimer = CONFIG.queenLayInterval;

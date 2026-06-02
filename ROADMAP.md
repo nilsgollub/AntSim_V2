@@ -67,7 +67,19 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
   erster Über-Buff (55/7 + AoE-Biss auf den ganzen Schwarm) wurde zurückgenommen, weil der AoE eine
   mobbende Squad auf einen Schlag auslöschen konnte. Kolonie etabliert sich verlässlich (Soak seed7
   @6000 grün); ein einzelner sehr langer Run kann an einen Räuberangriff verloren gehen (realistisch).
-  *Offen/Ideen:* Kolonie-Resilienz im Protein-Todesspiral (Notfall-Rekrutierung), Rückzug-Sammelpunkt.
+
+- [x] **Kolonie-Resilienz gegen den Protein-Todesspiral**: Diagnose (harness-Trajektorie eines
+  sterbenden Seeds) zeigte den echten Mechanismus — **nicht** Zucker/Energie (bleiben gesund),
+  sondern **Protein**: Income ≈ Demand ohne Puffer, ab Feind-Spawn (~t6000) kippt es → Brut
+  verhungert → keine neuen Ameisen → Population altert aus. Hebel:
+  • Larven-Protein-Drain `broodProteinUpkeep` 0.0015 → 0.0006 (Brut übersteht Engpässe).
+  • Protein-Ertrag pro Jagd `proteinValue` 5→7×WORLD_SCALE (Income-Margin).
+  • Eine harte „Königin-Reserve" (Eierlegen-Stopp bei Protein < N) wurde getestet und **verworfen** —
+    sie fror das Eierlegen ein und garantierte Brut→0. Die Pipeline am Leben zu halten ist resilienter.
+  Harness: zuvor sterbende Seeds (7, 12345) überleben jetzt, keine Regression; Margin dient zugleich
+  dem Pop-Ziel (~200, da Peak vorher nur ~66). *Hinweis:* Rest-Seed-Sterblichkeit ist RNG-Stochastik
+  (siehe Kampf-Item) — ohne Aggregat-Druck (Spawnraten) zu senken nicht weiter wegtunebar.
+  *Offen/Ideen:* Notfall-Rekrutierung, Rückzug-Sammelpunkt.
 
 - [ ] **Trophallaxis / Sozialer Magen**: Ameisen tragen Crop-Inhalt (`cropSugar: number`);
   beim Passieren einer hungrigen Nestgenossin oder Larve wird Nahrung direkt mund-zu-mund

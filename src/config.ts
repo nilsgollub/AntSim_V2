@@ -42,7 +42,11 @@ export const CONFIG = {
     // world means longer round trips, so each trip must carry proportionally more
     // to keep the income *rate* (and thus the carrying capacity) stable.
     sugarValue: Math.round(10 * WORLD_SCALE),
-    proteinValue: Math.round(5 * WORLD_SCALE),
+    // Protein yield per hunt. Raised (5→7 base) to give the protein economy real
+    // margin: the death-spiral diagnosis showed protein income ≈ demand with no
+    // buffer, so any combat disruption tipped the colony. More yield per hunt lets
+    // a battered colony rebuild brood and trend toward the population target.
+    proteinValue: Math.round(7 * WORLD_SCALE),
 
     // Starting stockpiles (a modest founding buffer, not a huge head start)
     startSugar: 600,
@@ -52,7 +56,7 @@ export const CONFIG = {
     sugarEnergyValue: 100,    // energy restored per 1 unit of sugar eaten
     colonyUpkeep: 0.001,      // sugar drained per ant per frame (passive nest metabolism)
     queenSugarRegen: 0.3,     // energy/frame the queen regenerates by consuming sugar
-    broodProteinUpkeep: 0.0015, // protein drained per larva per frame (raising brood)
+    broodProteinUpkeep: 0.0006, // protein drained per larva per frame (raising brood); lowered for resilience
 
     // Ant Stats
     antSpeed: 2.5,
