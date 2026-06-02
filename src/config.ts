@@ -164,6 +164,8 @@ export const CONFIG = {
         grappleRadius: 22,      // ants this close to an enemy are "biting/holding" it
         grappleSlowPerAnt: 0.18,// each holding ant slows the enemy by this (fraction)
         grappleMaxSlow: 0.85,   // …capped here (a heavily swarmed enemy is nearly pinned)
+        patrolLongChance: 0.2,  // chance a new patrol target is a far-ranging sweep
+        patrolLongRangeFrac: 0.35, // long patrols reach up to this fraction of the world size
     },
 
     // Reference used to size nest chambers (rScale = nestMinDim / nestScaleRef).

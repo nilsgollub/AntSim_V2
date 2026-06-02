@@ -395,9 +395,14 @@ export function handlePatrolling(ant: Ant, world: World) {
     }
 
     if (!ant.patrolTarget || distSq < 400 || rand() < 0.005) {
-        // Pick new point
+        // Pick new point — usually near the entrance, occasionally a far sweep so
+        // soldiers also scout the wider territory.
         const angle = rand() * Math.PI * 2;
-        const dist = 50 + rand() * 200;
+        const r = rand(); // single draw: decides near-vs-far AND the distance
+        const longChance = CONFIG.combat.patrolLongChance;
+        const dist = r < longChance
+            ? 200 + (r / longChance) * Math.max(CONFIG.width, CONFIG.height) * CONFIG.combat.patrolLongRangeFrac
+            : 50 + ((r - longChance) / (1 - longChance)) * 200;
 
         let tx = entranceX + Math.cos(angle) * dist;
         let ty = entranceY + Math.sin(angle) * dist;

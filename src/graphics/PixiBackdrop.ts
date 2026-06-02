@@ -7,7 +7,7 @@ import type { Renderer } from './Renderer';
 // ── Baked textures (drawn once to small canvases, then batched as sprites) ──
 // Realistic ant matching the canvas-2D look: 3 body segments, 6 legs, antennae.
 // Drawn in natural colours and shown untinted (no state/cargo recolouring).
-function bakeAnt(type: 'WORKER' | 'SOLDIER'): Texture {
+function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number): Texture {
     const SS = 2; // supersample for crispness
     const c = document.createElement('canvas');
     c.width = 30 * SS; c.height = 30 * SS;
@@ -16,7 +16,7 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER'): Texture {
     ctx.translate(15, 15);
     ctx.lineCap = 'round';
 
-    // Legs (6, static splayed pose)
+    // Legs (6) — `phase` (0..1) swings them for a walk cycle (tripod-ish gait).
     ctx.strokeStyle = type === 'SOLDIER' ? '#2a1410' : '#8a8a8a';
     ctx.lineWidth = 0.7;
     const count = 6, length = 4.5;
@@ -24,7 +24,7 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER'): Texture {
         const side = i % 2 === 0 ? 1 : -1;
         const legIndex = Math.floor(i / 2);
         const legOffset = (legIndex - count / 4 + 0.5) * 2.2;
-        const move = i % 2 === 0 ? 0.4 : -0.4;
+        const move = Math.sin(phase * Math.PI * 2 + (i % 2 === 0 ? 0 : Math.PI) + legIndex * 0.9) * 1.6;
         ctx.beginPath();
         ctx.moveTo(legOffset, 0);
         ctx.quadraticCurveTo(legOffset + move, side * length * 0.5, legOffset + move * 2, side * length);
@@ -112,8 +112,8 @@ export class PixiBackdrop {
     private antPool: Sprite[] = [];
     private particlePool: Sprite[] = [];
 
-    private antWorkerTex!: Texture;
-    private antSoldierTex!: Texture;
+    private antWorkerTex: Texture[] = []; // walk-cycle frames
+    private antSoldierTex: Texture[] = [];
     private insectTex: Record<string, Texture> = {};
     private foodTex: Record<string, Texture> = {};
     private discTex!: Texture;
@@ -152,8 +152,11 @@ export class PixiBackdrop {
         });
         this.app = app;
 
-        this.antWorkerTex = bakeAnt('WORKER');
-        this.antSoldierTex = bakeAnt('SOLDIER');
+        const ANT_FRAMES = 4;
+        for (let f = 0; f < ANT_FRAMES; f++) {
+            this.antWorkerTex.push(bakeAnt('WORKER', f / ANT_FRAMES));
+            this.antSoldierTex.push(bakeAnt('SOLDIER', f / ANT_FRAMES));
+        }
         this.discTex = bakeDisc();
         // Reuse the exact canvas-2D art for insects, food and decoration.
         for (const t of INSECT_TYPES) this.insectTex[t] = Texture.from(renderer.bakeInsectCanvas(t));
@@ -325,15 +328,21 @@ export class PixiBackdrop {
         }
 
         // Ants (world only) — natural look, texture by caste, no state/cargo tint.
+        // Legs animate via a walk-cycle frame; per-ant offset desyncs the colony.
         const ants = world.ants;
-        this.pool(this.antPool, this.antLayer, this.antWorkerTex, ants.length);
+        this.pool(this.antPool, this.antLayer, this.antWorkerTex[0], ants.length);
         let n = 0;
         for (let i = 0; i < ants.length; i++) {
             const a: any = ants[i];
             const s = this.antPool[n++];
             if (a.location !== 'WORLD') { s.visible = false; continue; }
             s.visible = true;
-            s.texture = a.type === 'SOLDIER' ? this.antSoldierTex : this.antWorkerTex;
+            const frames = a.type === 'SOLDIER' ? this.antSoldierTex : this.antWorkerTex;
+            const moving = (a.speedMultiplier ?? 1) > 0.05;
+            const idx = moving
+                ? (Math.floor(a.age * 0.3 + (a.forageSeed ?? 0) * frames.length) % frames.length)
+                : 0;
+            s.texture = frames[idx];
             s.position.set(a.x, a.y);
             s.rotation = a.angle;
             s.scale.set((a.sizeVar ?? 1) * 0.5); // texture is 2× supersampled (bakeAnt SS=2)
