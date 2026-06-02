@@ -162,10 +162,18 @@ export const CONFIG = {
         mobMinAllies: 2,        // a worker needs at least this many local allies to consider fighting
         mobSuperiority: 1.5,    // …and roughly this much local numerical superiority over enemies
         grappleRadius: 22,      // ants this close to an enemy are "biting/holding" it
-        grappleSlowPerAnt: 0.18,// each holding ant slows the enemy by this (fraction)
-        grappleMaxSlow: 0.85,   // …capped here (a heavily swarmed enemy is nearly pinned)
+        grappleSlowPerAnt: 0.12,// each holding ant slows the enemy by this (fraction)
+        grappleMaxSlow: 0.7,    // …capped here (a swarmed enemy can still struggle, not fully pinned)
         patrolLongChance: 0.2,  // chance a new patrol target is a far-ranging sweep
         patrolLongRangeFrac: 0.35, // long patrols reach up to this fraction of the world size
+    },
+
+    // Enemy combat stats (HP + per-hit damage to ants). Tuned so a predator is a
+    // real threat that takes a few ants with it before the colony swarms it down.
+    enemy: {
+        predatorHealth: 55, predatorDamage: 7,
+        spiderHealth: 42,   spiderDamage: 8,
+        beetleHealth: 95,   beetleDamage: 13,
     },
 
     // Reference used to size nest chambers (rScale = nestMinDim / nestScaleRef).

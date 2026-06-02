@@ -38,15 +38,15 @@ export class Insect {
                 this.speed = 1.0;
                 break;
             case 'PREDATOR': // Generic Bug
-                this.health = 30;
+                this.health = CONFIG.enemy.predatorHealth;
                 this.speed = 1.3;
                 break;
             case 'SPIDER':
-                this.health = 25;
+                this.health = CONFIG.enemy.spiderHealth;
                 this.speed = 1.8;
                 break;
             case 'BEETLE':
-                this.health = 80;
+                this.health = CONFIG.enemy.beetleHealth;
                 this.speed = 0.6;
                 break;
             case 'LADYBUG':
@@ -191,15 +191,15 @@ export class Insect {
     }
 
     updatePredator(world: World) {
-        this.huntAnts(world, 15000, 4);
+        this.huntAnts(world, 15000, CONFIG.enemy.predatorDamage);
     }
 
     updateSpider(world: World) {
-        this.huntAnts(world, 20000, 6);
+        this.huntAnts(world, 20000, CONFIG.enemy.spiderDamage);
     }
 
     updateBeetle(world: World) {
-        this.huntAnts(world, 3000, 10); // Only bites if very close
+        this.huntAnts(world, 3000, CONFIG.enemy.beetleDamage); // Only bites if very close
         this.speed = 0.6;
     }
 
@@ -266,8 +266,16 @@ export class Insect {
 
             if (minDst < 100) { // Attack range
                 if (this.attackCooldown <= 0) {
-                    nearestAnt.health -= damage;
-                    world.addParticle(nearestAnt.x, nearestAnt.y, 'red', 'BLOOD');
+                    // A cornered predator lashes out at the whole swarm: every ant in
+                    // bite range takes damage, so mobbing it is genuinely costly.
+                    for (const ant of world.ants) {
+                        const dx = this.x - ant.x;
+                        const dy = this.y - ant.y;
+                        if (dx * dx + dy * dy < 100) {
+                            ant.health -= damage;
+                            world.addParticle(ant.x, ant.y, 'red', 'BLOOD');
+                        }
+                    }
                     this.attackCooldown = 30;
                 }
             }

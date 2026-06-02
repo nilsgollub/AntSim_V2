@@ -68,7 +68,10 @@ Ants use a sensory-based steering algorithm:
     `pheromoneDiffusion` flag (disabled at `ULTRA_LOW`/`LOW` for weak hardware).
 
 ### 3.3. Combat, Alarm & Defence (`CONFIG.combat`)
--   **Enemies:** Spiders, Beetles, Predators (generic bugs).
+-   **Enemies:** Spiders, Beetles, Predators (generic bugs). Their HP and per-hit
+    damage live in `CONFIG.enemy` (predator 55/7, spider 42/8, beetle 95/13) so a
+    lone predator is a real threat — it takes a few ants with it before the colony
+    swarms it down.
 -   **Alarm pheromone:** fleeing ants drop a `DANGER` trail (sharp, fast-decaying).
 -   **Soldier recruitment:** a patrolling soldier that senses `DANGER` above
     `alarmThreshold` switches to ATTACK and follows the danger gradient *to the
@@ -78,8 +81,11 @@ Ants use a sensory-based steering algorithm:
     nearby (`countNearbyAllies` vs `countNearbyEnemies`); otherwise it flees and
     spreads the alarm. Soldiers fight regardless.
 -   **Attack:** in melee range the ant stops and deals `worker/soldierDamage`.
+-   **AoE bite:** when an enemy attacks, *every* ant within bite range takes the hit
+    (not just the nearest) — so mobbing a predator is genuinely costly.
 -   **Grappling/swarming:** an enemy is slowed by `grappleSlowPerAnt` for every ant
-    within `grappleRadius` (capped at `grappleMaxSlow`) — a swarm pins it down.
+    within `grappleRadius` (capped at `grappleMaxSlow`) — a swarm slows it, but no
+    longer fully pins it, so it can still fight/retreat while outnumbered.
 -   **Death:** dead insects drop Protein at their location.
 
 ### 3.4. Nest Logic (`Nest.ts`)

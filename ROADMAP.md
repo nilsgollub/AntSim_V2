@@ -59,6 +59,11 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
   Worker mobben/fliehen nach **lokaler Übermacht** (`countNearbyAllies` vs `countNearbyEnemies`)
   statt fester Zahl; Feinde werden beim **Schwärmen verlangsamt** (Grapple, `Insect.grappleSlow`).
   Harness-verifiziert: Kolonie übersteht Angriffe (seed7 @30k ≈ 152 Ameisen, ~30 % Soldaten).
+  **Räuber-Buff (`CONFIG.enemy`):** Predator/Spider/Beetle haben jetzt config-getriebene HP+Schaden
+  (Predator 30/4 → 55/7, Spider 25/6 → 42/8, Beetle 80/10 → 95/13) und einen **AoE-Biss** — ein
+  umzingelter Räuber trifft beim Zuschlagen *alle* Ameisen in Bissreichweite, statt nur einer.
+  Grapple gelockert (nicht mehr fast komplett gepinnt). Harness: Kolonie überlebt weiter (seed7 @30k
+  ≈ 130 statt 152 Ameisen → Räuber kosten messbar mehr).
   *Offen/Ideen:* Rekruten-Pheromon, Rückzug-Sammelpunkt, Beißen-über-Zeit statt Instant-Schaden.
 
 - [ ] **Trophallaxis / Sozialer Magen**: Ameisen tragen Crop-Inhalt (`cropSugar: number`);
