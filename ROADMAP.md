@@ -163,8 +163,20 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
     **Golden byte-identisch, 76/76 grün**. Erkenntnis: nest-LOKALE Koordinaten sind kolonie-agnostisch
     (jedes Nest gleich groß), nur Welt-Positionen variieren. *Bewusst aufgeschoben:* die Crossing-
     *Erkennung* (Welt-Rand-Trigger) bleibt kantenbasiert; die Radius-Generalisierung kommt mit der 2. Kolonie.
-  - [ ] Später: 2. Kolonie (`CONFIG.colonyCount=2` + Sandbox-Button), per-Kolonie Outdoor-Pheromone,
-    Ant-vs-Ant (Grenz-Scharmützel, wiederverwendet Kampf/Alarm/Mob), Team-Farben.
+  - [x] **Phase 3a — Handler entkoppelt**: alle FSM-Handler lesen `ant.colony.*` (Queen/Nest/Brut/
+    Vorräte/nestGrid) statt globaler World-Singletons; Queen bekam eine `colony`-Rückreferenz.
+  - [x] **Phase 3b — `World.update()` iteriert `colonies[]`**: Queen/Brut/Ants/Upkeep/Excavation je
+    Kolonie; spatialGrid über alle Ameisen; Schwierigkeit nach `totalAntCount()`.
+  - [x] **Phase 4 — per-Kolonie Outdoor-Pheromonfeld** (`colony.outdoorField`): Rivalen folgen nicht
+    den HOME-Spuren der anderen Kolonie. (3a/3b/4 alle byte-identisch bei einer Kolonie.)
+  - [x] **Phase 3c — zweite Kolonie** (`CONFIG.colonyCount=2`, default 1): Rivale am gegenüber-
+    liegenden Eingang (LEFT/TOP), eigenes Nest/Königin/Vorräte/Pheromone; `Colony.entranceSide`
+    generalisiert die Crossing-Erkennung (RIGHT/BOTTOM = Kolonie 0 byte-identisch). Separation +
+    Trophallaxis kolonie-gefiltert (nest-lokale Koordinaten überlappen im spatialGrid). Harness:
+    **beide Kolonien koexistieren, foragen, überleben** (seed42 @12k: C0 pop≈112, C1 pop≈116).
+    Golden bei colonyCount=1 unverändert; 79/79 grün.
+  - [ ] Offen: **Rendering** der 2. Kolonie (2. Nest zeichnen + Team-Farben), **Ant-vs-Ant**
+    (Grenz-Scharmützel: fremde `colonyId` als Feind, wiederverwendet Kampf/Alarm/Mob), Sandbox-Button.
 - [ ] **Mehr Tests für die Ökonomie** (Queen/World-Integration)
 - [ ] Mobile **Touch/Pinch**-Steuerung für die Kamera (aktuell Maus-only)
 - [ ] Screenshot-/Export-Funktion

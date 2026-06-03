@@ -94,15 +94,31 @@ export class World {
         this.insects = [];
         this.foods = [];
 
+        const ls = nest.height > nest.width;
         const queen = new Queen();
         const queenChamber = nest.getChamber('QUEEN');
         queen.x = queenChamber.x;
         queen.y = queenChamber.y;
-        // Colony 0 — the original colony. (Construction draws no rand() before init(),
-        // matching the old order: only `terrain` may, and it stays first.)
-        this.colonies = [new Colony(0, nest, queen, nestGrid)];
+        // Colony 0 — the original colony, on the RIGHT (landscape) / BOTTOM (portrait)
+        // edge, exactly as before. (Construction draws no rand() before init().)
+        this.colonies = [new Colony(0, nest, queen, nestGrid, ls ? 'RIGHT' : 'BOTTOM')];
 
-        this.init();
+        this.init(); // grass + colony 0 population + food (unchanged rand order)
+
+        // Optional rival colony on the OPPOSITE edge. Its construction + population draw
+        // rand() only AFTER colony 0's full init(), so the single-colony stream — and the
+        // golden snapshots — are untouched when colonyCount === 1.
+        if (CONFIG.colonyCount > 1) {
+            const nest1 = new Nest();
+            const nestGrid1 = new PheromoneGrid(CONFIG.nestWidth, CONFIG.nestHeight);
+            const queen1 = new Queen();
+            const qc1 = nest1.getChamber('QUEEN');
+            queen1.x = qc1.x;
+            queen1.y = qc1.y;
+            const colony1 = new Colony(1, nest1, queen1, nestGrid1, ls ? 'LEFT' : 'TOP');
+            this.colonies.push(colony1);
+            this.populateColony(colony1);
+        }
     }
 
     // Recreate the pheromone grids at the current quality's resolution. Called on
@@ -126,38 +142,8 @@ export class World {
             });
         }
 
-        // Spawn initial workers with randomized energy (to prevent mass die-off)
-        for (let i = 0; i < CONFIG.initialWorkers; i++) {
-            this.spawnAnt('WORKER');
-            const ant = this.ants[this.ants.length - 1];
-            // Randomize energy between 50% and 100%
-            ant.energy = CONFIG.antMaxEnergy * (0.5 + rand() * 0.5);
-        }
-        // Spawn one initial soldier
-        this.spawnAnt('SOLDIER');
-
-        // Initial Brood (Staggered Stages)
-        const broodChamber = this.nest.getChamber('BROOD');
-
-        // Helper to spawn brood
-        const spawnBrood = (stage: 'EGG' | 'LARVA' | 'PUPA', count: number) => {
-            for (let i = 0; i < count; i++) {
-                const b = new Brood(
-                    broodChamber.x + (rand() - 0.5) * 40,
-                    broodChamber.y + (rand() - 0.5) * 40
-                );
-                b.stage = stage;
-                // Randomize age to stagger hatching/pupation
-                if (stage === 'EGG') b.age = rand() * Brood.EGG_DURATION;
-                if (stage === 'LARVA') b.age = rand() * Brood.LARVA_DURATION;
-                if (stage === 'PUPA') b.age = rand() * Brood.PUPA_DURATION;
-                this.brood.push(b);
-            }
-        };
-
-        spawnBrood('PUPA', 5);   // 5 Pupae (Will hatch soon)
-        spawnBrood('LARVA', 8);  // 8 Larvae (Need feeding)
-        spawnBrood('EGG', 10);   // 10 Eggs (Future generation)
+        // Colony 0's founding population (same rand sequence as before).
+        this.populateColony(this.colonies[0]);
 
 
 
@@ -167,6 +153,34 @@ export class World {
         for (let i = 0; i < CONFIG.sugarSourceCount; i++) {
             this.spawnFood('SUGAR');
         }
+    }
+
+    // Seed a colony with its founding workers, a soldier, and staggered brood.
+    populateColony(c: Colony) {
+        for (let i = 0; i < CONFIG.initialWorkers; i++) {
+            c.spawnAnt('WORKER');
+            const ant = c.ants[c.ants.length - 1];
+            ant.energy = CONFIG.antMaxEnergy * (0.5 + rand() * 0.5); // 50–100%
+        }
+        c.spawnAnt('SOLDIER');
+
+        const broodChamber = c.nest.getChamber('BROOD');
+        const spawnBrood = (stage: 'EGG' | 'LARVA' | 'PUPA', count: number) => {
+            for (let i = 0; i < count; i++) {
+                const b = new Brood(
+                    broodChamber.x + (rand() - 0.5) * 40,
+                    broodChamber.y + (rand() - 0.5) * 40
+                );
+                b.stage = stage;
+                if (stage === 'EGG') b.age = rand() * Brood.EGG_DURATION;
+                if (stage === 'LARVA') b.age = rand() * Brood.LARVA_DURATION;
+                if (stage === 'PUPA') b.age = rand() * Brood.PUPA_DURATION;
+                c.brood.push(b);
+            }
+        };
+        spawnBrood('PUPA', 5);
+        spawnBrood('LARVA', 8);
+        spawnBrood('EGG', 10);
     }
 
     spawnAnt(type: 'WORKER' | 'SOLDIER') {

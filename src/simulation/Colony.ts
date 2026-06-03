@@ -5,6 +5,9 @@ import { Brood } from './Brood';
 import { Nest } from './Nest';
 import { PheromoneGrid } from './PheromoneGrid';
 
+/** Which world edge a colony's nest entrance sits on. */
+export type EntranceSide = 'RIGHT' | 'LEFT' | 'BOTTOM' | 'TOP';
+
 /**
  * One ant colony's own state — everything that is conceptually "per colony" rather
  * than part of the shared environment (terrain, foods, insects, outdoor pheromones,
@@ -34,13 +37,14 @@ export class Colony {
     // colony-agnostic (every nest is the same CONFIG.nestWidth×nestHeight space with
     // its mouth at a fixed local spot) — only the WORLD-space anchors vary per colony.
     isLandscape: boolean;
-    entranceWorld: { x: number; y: number };    // world point ants steer to when heading home
-    worldExitPoint: { x: number; y: number };   // world point an ant lands on when leaving the nest
-    worldExitAngle: number;                      // facing when it lands outside
-    entranceNestLocal: { x: number; y: number }; // nest-space point an ant lands on when entering
-    entranceNestAngle: number;                   // facing when it lands inside
+    entranceSide: EntranceSide;
+    entranceWorld!: { x: number; y: number };    // world point ants steer to when heading home
+    worldExitPoint!: { x: number; y: number };   // world point an ant lands on when leaving the nest
+    worldExitAngle!: number;                      // facing when it lands outside
+    entranceNestLocal!: { x: number; y: number }; // nest-space point an ant lands on when entering
+    entranceNestAngle!: number;                   // facing when it lands inside
 
-    constructor(id: number, nest: Nest, queen: Queen, nestGrid: PheromoneGrid) {
+    constructor(id: number, nest: Nest, queen: Queen, nestGrid: PheromoneGrid, side: EntranceSide) {
         this.id = id;
         this.nest = nest;
         this.queen = queen;
@@ -50,16 +54,44 @@ export class Colony {
         // follow each other's roads home. (PheromoneGrid draws no rand → no RNG shift.)
         this.outdoorField = new PheromoneGrid(CONFIG.width, CONFIG.height);
 
+        // Navigation anchors derived from which world edge this colony sits on. The
+        // nest-LOCAL mouth is colony-agnostic (always at x≈0 landscape / y≈0 portrait);
+        // only the world-space side + exit facing differ. RIGHT/BOTTOM reproduce the
+        // original single-colony formulas exactly → colony 0 stays byte-identical.
         const ls = nest.height > nest.width;
         this.isLandscape = ls;
-        this.entranceWorld = ls ? { x: CONFIG.width, y: CONFIG.height / 2 }
-                                : { x: CONFIG.width / 2, y: CONFIG.height };
-        this.worldExitPoint = ls ? { x: CONFIG.width - 25, y: CONFIG.height / 2 }
-                                 : { x: CONFIG.width / 2, y: CONFIG.height - 25 };
-        this.worldExitAngle = ls ? Math.PI : -Math.PI / 2;
-        this.entranceNestLocal = ls ? { x: 25, y: nest.height / 2 }
-                                    : { x: nest.width / 2, y: 25 };
-        this.entranceNestAngle = ls ? 0 : Math.PI / 2;
+        this.entranceSide = side;
+        const W = CONFIG.width, H = CONFIG.height;
+        switch (side) {
+            case 'RIGHT':
+                this.entranceWorld = { x: W, y: H / 2 };
+                this.worldExitPoint = { x: W - 25, y: H / 2 };
+                this.worldExitAngle = Math.PI;
+                this.entranceNestLocal = { x: 25, y: nest.height / 2 };
+                this.entranceNestAngle = 0;
+                break;
+            case 'LEFT':
+                this.entranceWorld = { x: 0, y: H / 2 };
+                this.worldExitPoint = { x: 25, y: H / 2 };
+                this.worldExitAngle = 0;
+                this.entranceNestLocal = { x: 25, y: nest.height / 2 };
+                this.entranceNestAngle = 0;
+                break;
+            case 'BOTTOM':
+                this.entranceWorld = { x: W / 2, y: H };
+                this.worldExitPoint = { x: W / 2, y: H - 25 };
+                this.worldExitAngle = -Math.PI / 2;
+                this.entranceNestLocal = { x: nest.width / 2, y: 25 };
+                this.entranceNestAngle = Math.PI / 2;
+                break;
+            case 'TOP':
+                this.entranceWorld = { x: W / 2, y: 0 };
+                this.worldExitPoint = { x: W / 2, y: 25 };
+                this.worldExitAngle = Math.PI / 2;
+                this.entranceNestLocal = { x: nest.width / 2, y: 25 };
+                this.entranceNestAngle = Math.PI / 2;
+                break;
+        }
     }
 
     // Brood stage counts.

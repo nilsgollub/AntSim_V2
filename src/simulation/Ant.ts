@@ -372,13 +372,17 @@ export class Ant {
         const nextY = this.y + Math.sin(this.angle) * speed;
 
         if (this.location === 'WORLD') {
-            const isLandscape = this.colony.nest.height > this.colony.nest.width;
-
-            // Entrance crossing: edge-based trigger (world position of THIS colony's
-            // mouth), landing taken from the colony's nest-local anchor.
-            const hitEntrance = isLandscape
-                ? (nextX > CONFIG.width - 10 && Math.abs(nextY - CONFIG.height / 2) < 50)
-                : (nextY > CONFIG.height - 10 && Math.abs(nextX - CONFIG.width / 2) < 50);
+            // Entrance crossing: edge-based trigger at THIS colony's world entrance
+            // (RIGHT/BOTTOM reproduce the original checks → colony 0 byte-identical);
+            // landing taken from the colony's nest-local anchor.
+            const e0 = this.colony.entranceWorld;
+            let hitEntrance: boolean;
+            switch (this.colony.entranceSide) {
+                case 'RIGHT':  hitEntrance = nextX > CONFIG.width - 10 && Math.abs(nextY - e0.y) < 50; break;
+                case 'LEFT':   hitEntrance = nextX < 10 && Math.abs(nextY - e0.y) < 50; break;
+                case 'BOTTOM': hitEntrance = nextY > CONFIG.height - 10 && Math.abs(nextX - e0.x) < 50; break;
+                default:       hitEntrance = nextY < 10 && Math.abs(nextX - e0.x) < 50; break; // TOP
+            }
             if (hitEntrance) {
                 this.location = 'NEST';
                 const e = this.colony.entranceNestLocal;
@@ -484,6 +488,7 @@ export class Ant {
         const nearby = world.spatialGrid.getNearby(this.x, this.y, t.donateRadius);
         for (const other of nearby) {
             if (other === this || other.location !== 'NEST' || other.type === 'QUEEN') continue;
+            if (other.colony !== this.colony) continue; // never feed the enemy
             if (other.energy >= t.recipientHungry) continue;
             const dx = other.x - this.x;
             const dy = other.y - this.y;
@@ -508,7 +513,10 @@ export class Ant {
         let count = 0;
 
         for (const other of nearby) {
-            if (other !== this && other.location === this.location) {
+            // Only jostle nestmates of the same colony — two colonies' nest ants share
+            // overlapping nest-local coordinates in the spatial grid, so cross-colony
+            // separation there would be spurious.
+            if (other !== this && other.location === this.location && other.colony === this.colony) {
                 const distSq = (this.x - other.x) ** 2 + (this.y - other.y) ** 2;
                 if (distSq < separationRadius * separationRadius && distSq > 0) {
                     const dist = Math.sqrt(distSq);

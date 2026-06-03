@@ -37,6 +37,9 @@ export const CONFIG = {
     // Simulation Settings
     initialWorkers: 15,
     soldierUnlockThreshold: 30,
+    // Number of colonies. 1 = the classic single colony (default). 2 = a rival colony
+    // at the opposite entrance, for territorial competition + (later) warfare.
+    colonyCount: 1,
 
     // Resources. Yield per delivery scales with the linear world size: a bigger
     // world means longer round trips, so each trip must carry proportionally more
