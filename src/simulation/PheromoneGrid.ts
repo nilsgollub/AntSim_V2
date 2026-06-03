@@ -1,6 +1,5 @@
 
 import { CONFIG } from '../config';
-import { PerformanceManager } from '../PerformanceManager';
 
 export class PheromoneGrid {
     width: number;
@@ -17,10 +16,10 @@ export class PheromoneGrid {
     // Allow tests / callers to opt out of the PerformanceManager dependency.
     diffusionEnabled: boolean = true;
 
-    // `scale` defaults to the active quality's pheromone resolution so the grid
-    // and the renderer's pheromone overlay canvas (which uses the same setting)
-    // are sized identically. Pass an explicit value in tests for determinism.
-    constructor(width: number, height: number, scale: number = PerformanceManager.settings.pheromoneResolutionScale) {
+    // `scale` defaults to the FIXED sim resolution (`CONFIG.pheromone.resolutionScale`),
+    // independent of render quality — the renderer's overlay uses the same value so the
+    // two stay sized identically. Pass an explicit value in tests for determinism.
+    constructor(width: number, height: number, scale: number = CONFIG.pheromone.resolutionScale) {
         this.scale = scale;
         this.width = Math.ceil(width * this.scale);
         this.height = Math.ceil(height * this.scale);
@@ -55,8 +54,7 @@ export class PheromoneGrid {
         // Spatial diffusion: smooths the HOME homing field. SUGAR/PROTEIN are kept
         // sharp by default (CONFIG.pheromone.diffuseFood = false) so trails read as
         // crisp roads rather than blurry clouds. DANGER never diffuses (local warning).
-        const profileAllows = PerformanceManager.settings.pheromoneDiffusion !== false;
-        if (this.diffusionEnabled && CONFIG.pheromone.diffusionEnabled && profileAllows) {
+        if (this.diffusionEnabled && CONFIG.pheromone.diffusionEnabled) {
             const rate = CONFIG.pheromone.diffusionRate;
             this.diffuse(this.toHome, rate);
             if (CONFIG.pheromone.diffuseFood) {

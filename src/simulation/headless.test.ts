@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import { runHeadless } from './headless';
-import { PerformanceManager } from '../PerformanceManager';
+import { PerformanceManager, QualityLevel } from '../PerformanceManager';
 
 describe('headless harness — determinism', () => {
     it('reproduces the same run exactly for the same seed', () => {
@@ -63,4 +63,24 @@ describe('headless harness — colony viability (soak)', () => {
     it('keeps the brood pipeline alive (queen is laying)', () => {
         expect(m.brood).toBeGreaterThan(0);
     });
+});
+
+describe('headless harness — sim is independent of render quality', () => {
+    // Pheromone sim fidelity (grid resolution / diffusion / update cadence) lives in
+    // CONFIG, not the quality preset, so colony behaviour must be IDENTICAL on every
+    // graphics setting. At 2500 ticks the colony (~23 ants) stays under even the
+    // ULTRA_LOW ant cap (80), so maxAnts can't bind and the runs must match exactly.
+    afterAll(() => PerformanceManager.setQuality(QualityLevel.MEDIUM));
+
+    function runAt(level: QualityLevel) {
+        PerformanceManager.setQuality(level);
+        return runHeadless(12345, 2500);
+    }
+
+    it('produces identical metrics across all quality presets', () => {
+        const ref = runAt(QualityLevel.ULTRA);
+        for (const level of [QualityLevel.HIGH, QualityLevel.MEDIUM, QualityLevel.LOW, QualityLevel.ULTRA_LOW]) {
+            expect(runAt(level)).toEqual(ref);
+        }
+    }, 20000); // 5 headless runs — needs more than the default 5s test budget
 });

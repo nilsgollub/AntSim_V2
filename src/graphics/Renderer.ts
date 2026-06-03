@@ -135,8 +135,9 @@ export class Renderer {
     }
 
     initPheromoneBuffers(w: number, h: number) {
-        // Setup Pheromone Offscreen Canvas (Scaled by Quality)
-        const scale = PerformanceManager.settings.pheromoneResolutionScale;
+        // Overlay canvas is sized to the pheromone grid (fixed sim resolution, NOT the
+        // render-quality preset) so it indexes the grid 1:1 and stays aligned.
+        const scale = CONFIG.pheromone.resolutionScale;
 
         this.pheromoneCanvas = document.createElement('canvas');
         this.pheromoneCanvas.width = Math.ceil(w * scale);

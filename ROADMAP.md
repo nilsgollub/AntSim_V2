@@ -168,9 +168,15 @@ gezielte Nachrüstung. Nach Hebelwirkung sortiert.
   Verbrauch) dokumentieren; Parameter aus Zielwerten ableiten (z.B. Pop ≈ lifespan/layInterval)
   statt Magic Numbers zu raten. Teilweise vorhanden (config-Gruppen + Tuner), aber nicht als Modell.
 
-- [ ] **Sim-Fidelity von Render-Quality entkoppeln**: Pheromon-Grid-Auflösung/Diffusion hängen
-  aktuell an den Quality-Presets → Verhalten ändert sich je Grafikstufe. Sim sollte
-  quality-unabhängig & deterministisch sein, nur das Rendering skaliert.
+- [x] **Sim-Fidelity von Render-Quality entkoppelt**: Pheromon-Grid-Auflösung, Diffusion und
+  Update-Takt hingen an den Quality-Presets → Verhalten änderte sich je Grafikstufe. Jetzt fest in
+  `CONFIG.pheromone` (`resolutionScale`/`updateSkip`/`diffusionEnabled`, verankert an den früheren
+  MEDIUM-Werten) — die Sim ist **quality-unabhängig & deterministisch**, nur das Rendering skaliert.
+  `PerformanceManager` führt keine Sim-Fidelity-Felder mehr (`pheromoneResolutionScale`/
+  `pheromoneDiffusion` entfernt; `pheromoneUpdateSkip` bleibt rein für die Overlay-Redraw-Frequenz).
+  Harness-Test beweist es: identische Metriken (seed12345 @2500) über ULTRA→ULTRA_LOW. Golden
+  unverändert (an MEDIUM verankert). *Offen:* `maxAnts` ist weiter quality-gekoppelt — eigene Achse
+  (CPU-Skalierung/Population-Cap), bindet im Normalbetrieb (~170 < 300) nicht.
 
 - [x] **`Ant.ts` (FSM) entflechtet**: die 12 State-Handler nach `src/simulation/antStates.ts`
   ausgelagert (freie Funktionen `(ant, world)`); `Ant.ts` 1490 → 486 Zeilen (nur noch Daten +

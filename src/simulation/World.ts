@@ -229,7 +229,7 @@ export class World {
         this.age++;
         this.timeOfDay = (this.age % this.dayLength) / this.dayLength;
 
-        if (this.age % PerformanceManager.settings.pheromoneUpdateSkip === 0) {
+        if (this.age % CONFIG.pheromone.updateSkip === 0) {
             this.grid.update();
             this.nestGrid.update();
         }

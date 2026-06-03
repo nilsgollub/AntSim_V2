@@ -80,12 +80,15 @@ Ants use a sensory-based steering algorithm:
 -   **Dynamics:** Every type evaporates (exponential decay) each update. `HOME`/`SUGAR`/`PROTEIN`
     additionally **diffuse** via a separable box blur so trails spread and soften over time;
     `DANGER` is decay-only (kept sharp + decays faster) so warnings stay local and fade quickly.
-    Diffusion is gated behind `CONFIG.pheromone.diffusionEnabled` and the per-quality
-    `pheromoneDiffusion` flag (disabled at `ULTRA_LOW`/`LOW` for weak hardware).
+-   **Quality-independent fidelity:** grid resolution (`resolutionScale`), update cadence
+    (`updateSkip`) and diffusion (`diffusionEnabled`) are **fixed** in `CONFIG.pheromone`, NOT tied
+    to the render-quality preset — so colony behaviour is identical and deterministic on every
+    graphics setting (a headless test asserts identical metrics across ULTRA→ULTRA_LOW). Only the
+    rendering scales with quality.
 
 ### 3.3. Combat, Alarm & Defence (`CONFIG.combat`)
 -   **Enemies:** Spiders, Beetles, Predators (generic bugs). Their HP and per-hit
-    damage live in `CONFIG.enemy` (predator 55/7, spider 42/8, beetle 95/13) so a
+    damage live in `CONFIG.enemy` (predator 42/6, spider 32/7, beetle 88/12) so a
     lone predator is a real threat — it takes a few ants with it before the colony
     swarms it down.
 -   **Alarm pheromone:** fleeing ants drop a `DANGER` trail (sharp, fast-decaying).

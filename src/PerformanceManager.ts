@@ -15,14 +15,15 @@ export interface PerformanceProfile {
     gradients: boolean;
     simpleInsects: boolean;
     simpleAnts: boolean;
-    pheromoneUpdateSkip: number;
+    pheromoneUpdateSkip: number; // RENDER-only: how often the pheromone overlay image is rebuilt
     renderSkip: number;
     grassAnimation: boolean;
     resolutionScale: number;
-    pheromoneResolutionScale: number;
     legAnimation: boolean;
-    pheromoneDiffusion: boolean;
 }
+// NOTE: pheromone *sim* fidelity (grid resolution, diffusion, update cadence) is NOT
+// here — it lives in CONFIG.pheromone (fixed), so colony behaviour is identical and
+// deterministic across every render-quality preset.
 
 export class PerformanceManager {
     static level: QualityLevel = QualityLevel.MEDIUM;
@@ -42,9 +43,7 @@ export class PerformanceManager {
                     renderSkip: 1,
                     grassAnimation: false,
                     resolutionScale: 0.4,
-                    pheromoneResolutionScale: 0.2, // Very low res pheromones
                     legAnimation: false,
-                    pheromoneDiffusion: false
                 };
             case QualityLevel.LOW:
                 return {
@@ -58,9 +57,7 @@ export class PerformanceManager {
                     renderSkip: 1,
                     grassAnimation: false,
                     resolutionScale: 0.4,
-                    pheromoneResolutionScale: 0.25, // Optimized
                     legAnimation: false,
-                    pheromoneDiffusion: false
                 };
             case QualityLevel.MEDIUM:
                 return {
@@ -74,9 +71,7 @@ export class PerformanceManager {
                     renderSkip: 1,
                     grassAnimation: false,
                     resolutionScale: 0.6, // Sharper (0.5 -> 0.6)
-                    pheromoneResolutionScale: 0.3,
                     legAnimation: false, // Static legs (Cached Sprites)
-                    pheromoneDiffusion: true
                 };
             case QualityLevel.HIGH:
                 return {
@@ -90,9 +85,7 @@ export class PerformanceManager {
                     renderSkip: 1,
                     grassAnimation: false,
                     resolutionScale: 0.85,
-                    pheromoneResolutionScale: 0.5,
                     legAnimation: true,
-                    pheromoneDiffusion: true
                 };
             case QualityLevel.ULTRA:
                 return {
@@ -106,9 +99,7 @@ export class PerformanceManager {
                     renderSkip: 1,
                     grassAnimation: true,
                     resolutionScale: 1.0,
-                    pheromoneResolutionScale: 0.4,
                     legAnimation: true,
-                    pheromoneDiffusion: true
                 };
         }
     }

@@ -81,11 +81,16 @@ export const CONFIG = {
 
     // Grouped pheromone tuning (used by PheromoneGrid + Ant trail deposits)
     pheromone: {
+        // Sim fidelity (FIXED — deliberately NOT tied to the render-quality preset, so
+        // colony behaviour is identical and deterministic on every graphics setting;
+        // only the rendering scales with quality). Anchored at the former MEDIUM values.
+        resolutionScale: 0.3,  // grid cell size (cells per logical px) — drives trail granularity
+        updateSkip: 4,         // frames between pheromone decay/diffusion updates
         decay: 0.990,          // per-update decay for the HOME field
         foodDecay: 0.994,      // SUGAR/PROTEIN trails fade slower → roads persist + get reinforced
         dangerDecay: 0.95,     // DANGER fades faster
         minThreshold: 0.001,   // values below this are clamped to 0
-        diffusionEnabled: true,// master switch for spatial diffusion
+        diffusionEnabled: true,// master switch for spatial diffusion (sim, quality-independent)
         diffuseFood: false,    // keep SUGAR/PROTEIN sharp (roads); only the HOME field diffuses
         diffusionRate: 0.12,   // 0..1 share of a cell that bleeds into neighbours
         depositTrail: 0.5,     // amount dropped on a normal trail (HOME / DANGER)
