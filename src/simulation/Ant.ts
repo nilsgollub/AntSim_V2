@@ -27,6 +27,11 @@ export class Ant {
     // Trail strength to lay on the way home, set from the source's richness (0..1).
     carryingQuality: number = 1;
 
+    // Trophallaxis: crop (social stomach) fuel gathered in the field, shared
+    // mouth-to-mouth with hungry nestmates back home.
+    cropSugar: number = 0;
+    trophTimer: number = 0;
+
     // Stable per-ant value (0..1) used to split the workforce between sugar and
     // protein foraging when both are needed, without per-frame flicker.
     forageSeed: number = rand();
@@ -191,6 +196,12 @@ export class Ant {
                     this.state = 'PATROLLING';
                 }
                 break;
+        }
+
+        // Trophallaxis: share crop with hungry nestmates while in the nest (throttled).
+        if (this.location === 'NEST' && this.type !== 'QUEEN') {
+            if (this.trophTimer > 0) this.trophTimer--;
+            else { this.trophTimer = CONFIG.ant.troph.interval; this.trophallaxis(world); }
         }
 
         this.move(world);
@@ -465,6 +476,28 @@ export class Ant {
         }
         this.lastX = this.x;
         this.lastY = this.y;
+    }
+
+    // Trophallaxis: a fed forager back in the nest shares crop — food gathered in
+    // the field — mouth-to-mouth with a hungry nestmate, so nurses get topped up in
+    // passing instead of all trekking to the storage pile (eases the storage bottleneck).
+    trophallaxis(world: World) {
+        const t = CONFIG.ant.troph;
+        if (this.cropSugar <= 0 || this.energy < t.donorMinEnergy) return;
+        const nearby = world.spatialGrid.getNearby(this.x, this.y, t.donateRadius);
+        for (const other of nearby) {
+            if (other === this || other.location !== 'NEST' || other.type === 'QUEEN') continue;
+            if (other.energy >= t.recipientHungry) continue;
+            const dx = other.x - this.x;
+            const dy = other.y - this.y;
+            if (dx * dx + dy * dy > t.donateRadius * t.donateRadius) continue;
+            const give = Math.min(t.donateChunk, this.cropSugar, CONFIG.antMaxEnergy - other.energy);
+            if (give <= 0) continue;
+            other.energy += give;
+            this.cropSugar -= give;
+            world.trophallaxisCount++;
+            return; // one exchange per attempt
+        }
     }
 
     applySeparation(world: World) {

@@ -172,6 +172,18 @@ export const CONFIG = {
             speedBias: 0.45,   // speed factor = 1 / (speedBias + (1-speedBias)*sizeVar)
             upkeepBase: 0.60,  // upkeep factor = upkeepBase + (1-upkeepBase)*sizeVar
         },
+
+        // Trophallaxis (social stomach): a forager fills its crop while feeding in the
+        // field, then shares it mouth-to-mouth with hungry nestmates in passing — so
+        // nurses get topped up without all trekking to the storage pile (less congestion).
+        troph: {
+            cropCapacity: 600,      // crop fuel (energy units) a forager brings home
+            donorMinEnergy: 1400,   // a donor only shares while itself comfortably fed
+            recipientHungry: 1700,  // …and tops up nestmates below this (before they trek to storage)
+            donateRadius: 16,       // mouth-to-mouth range (px)
+            donateChunk: 200,       // energy passed per exchange
+            interval: 6,            // frames between trophallaxis attempts (throttle)
+        },
     },
 
     // Defence & alarm behaviour (combat, fleeing, recruitment, swarming).

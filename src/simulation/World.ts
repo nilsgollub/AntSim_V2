@@ -46,6 +46,9 @@ export class World {
         return CONFIG.nest.storageBaseCapacity + granaries * CONFIG.nest.storagePerGranary;
     }
 
+    // Count of mouth-to-mouth trophallaxis feedings (a live-sim stat / sanity guard).
+    trophallaxisCount: number = 0;
+
     // Simulation Age
     age: number = 0;
     timeOfDay: number = 0; // 0-1 cycle

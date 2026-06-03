@@ -47,6 +47,14 @@ but slower (`sizeSpeed`) and costlier to run (`sizeUpkeep`); **workers** are sma
 so the caste **averages** (and the tuned combat balance) are unchanged — only intra-caste
 variety is added; speed/upkeep scale with **absolute** size, a real cross-caste difference.
 
+#### 3.2.0b. Trophallaxis (`CONFIG.ant.troph`)
+A forager fills its **crop** (social stomach, `cropSugar`) when it feeds at a source,
+then shares it mouth-to-mouth with hungry nestmates back in the nest (`spatialGrid`
+neighbour lookup, throttled, one hand-off per attempt). Nurses get topped up *in
+passing* instead of all trekking to the storage pile, easing the storage bottleneck.
+Energy-conserving (no resource creation, no RNG → deterministic). `World.trophallaxisCount`
+tracks feedings (live stat + test guard).
+
 #### 3.2.1. States
 -   **FORAGING:** Searching for food (Sugar/Protein). Follows pheromones or wanders.
 -   **RETURNING:** Carrying food back to the nest. Follows `HOME` pheromones or biases towards the nest.

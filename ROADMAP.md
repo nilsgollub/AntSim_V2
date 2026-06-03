@@ -81,9 +81,12 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
   (siehe Kampf-Item) — ohne Aggregat-Druck (Spawnraten) zu senken nicht weiter wegtunebar.
   *Offen/Ideen:* Notfall-Rekrutierung, Rückzug-Sammelpunkt.
 
-- [ ] **Trophallaxis / Sozialer Magen**: Ameisen tragen Crop-Inhalt (`cropSugar: number`);
-  beim Passieren einer hungrigen Nestgenossin oder Larve wird Nahrung direkt mund-zu-mund
-  weitergegeben (`spatialGrid.getNearby` + Energie-Transfer). Reduziert Heimweg-Traffic.
+- [x] **Trophallaxis / Sozialer Magen**: Forager füllen beim Ernten ihren Crop (`Ant.cropSugar`,
+  `CONFIG.ant.troph`) und geben ihn im Nest gedrosselt mund-zu-mund an hungrige Nestgenossinnen ab
+  (`spatialGrid.getNearby` + Energie-Transfer, eine Übergabe pro Versuch). Topt Ammen *im Vorbeigehen*
+  auf, bevor sie zum Lager pilgern → weniger Storage-Andrang. Konservativ (verschiebt Energie, kein
+  `rand()` → Golden stabil). `World.trophallaxisCount` als Live-Stat + Test-Guard (seed7 @8000 ≈ 70
+  Fütterungen, Kolonie gesund). *Offen:* Larven-Trophallaxis, sichtbares Fütter-Partikel.
 
 - [ ] **Larven-Ernährung bestimmt Kaste**: `Brood.cumulativeFood` verfolgt Gesamtfütterung;
   gut gefütterte Larven (`> CONFIG.brood.soldierFoodThreshold`) verpuppen sich zu Soldaten,

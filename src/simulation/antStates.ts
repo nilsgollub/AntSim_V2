@@ -851,6 +851,7 @@ export function handleHarvesting(ant: Ant, world: World) {
             ant.carrying = food.type === 'CORPSE' ? 'PROTEIN' : food.type;
             ant.state = 'RETURNING';
             ant.energy = CONFIG.antMaxEnergy;
+            ant.cropSugar = CONFIG.ant.troph.cropCapacity; // fill the social stomach to share at home
             ant.angle += Math.PI;
             // Site fidelity: remember this productive source to return to later.
             ant.foodMemoryX = food.x;
