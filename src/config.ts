@@ -117,7 +117,9 @@ export const CONFIG = {
         // raises more soldiers, a lean one stays workers — the player's lever.
         soldierProteinLevel: 150,
         soldierFoodThreshold: 1700,
-        maxSoldierFraction: 0.30, // nutrition raises soldiers only up to this share
+        maxSoldierFraction: 0.20, // nutrition raises soldiers only up to this share (≈1 in 5;
+        // was 0.30 but protein-rich colonies rode that cap → felt soldier-heavy, esp. since
+        // polymorphism made soldiers bigger. Harness: 0.20 ≈ 20% soldiers, slightly larger colonies.)
     },
 
     // Ant behaviour tuning (extracted magic numbers; values unchanged)
