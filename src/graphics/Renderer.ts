@@ -347,6 +347,7 @@ export class Renderer {
         // Screen-space post-effects (no camera transform, drawn over everything).
         // Day/night ambient tint — runs at every quality level (cheap fillRects).
         this.drawLighting(world);
+        this.drawRain(world);
         if (PerformanceManager.level === QualityLevel.ULTRA) {
             this.drawGodRays();
             this.drawVignette();
@@ -1676,6 +1677,28 @@ export class Renderer {
 
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, this.width, this.height);
+    }
+
+    drawRain(world: World) {
+        if (!world.raining) return;
+        const ctx = this.ctx;
+        ctx.save();
+        // Overcast darkening.
+        ctx.fillStyle = 'rgba(40, 50, 70, 0.18)';
+        ctx.fillRect(0, 0, this.width, this.height);
+        // Falling streaks (screen-space, render-only randomness → no sim impact).
+        ctx.strokeStyle = 'rgba(180, 200, 230, 0.35)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = 0; i < 140; i++) {
+            const x = Math.random() * this.width;
+            const y = Math.random() * this.height;
+            const len = 8 + Math.random() * 9;
+            ctx.moveTo(x, y);
+            ctx.lineTo(x - 2, y + len); // slight slant
+        }
+        ctx.stroke();
+        ctx.restore();
     }
 
     drawLighting(world: World) {

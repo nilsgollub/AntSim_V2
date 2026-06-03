@@ -209,7 +209,8 @@ export class Ant {
 
     senseAndSteer(world: World, pheromoneType: 'HOME' | 'SUGAR' | 'PROTEIN'): boolean {
         const grid = this.location === 'NEST' ? world.nestGrid : world.grid;
-        const sensorDist = CONFIG.antSensorDist;
+        // Shorter sensing range at night for outdoor ants.
+        const sensorDist = CONFIG.antSensorDist * (this.location === 'WORLD' ? world.activityFactor() : 1);
         const sensorAngle = CONFIG.antSensorAngle;
         const turnSpeed = CONFIG.antTurnSpeed;
 
@@ -361,7 +362,9 @@ export class Ant {
 
     move(world: World) {
         this.applySeparation(world);
-        const speed = CONFIG.antSpeed * this.speedMultiplier * this.sizeSpeed;
+        // Outdoor ants slow down at night (the nest is unaffected — it's dark anyway).
+        const night = this.location === 'WORLD' ? world.activityFactor() : 1;
+        const speed = CONFIG.antSpeed * this.speedMultiplier * this.sizeSpeed * night;
         const nextX = this.x + Math.cos(this.angle) * speed;
         const nextY = this.y + Math.sin(this.angle) * speed;
 

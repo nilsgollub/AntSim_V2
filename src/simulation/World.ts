@@ -54,6 +54,25 @@ export class World {
     timeOfDay: number = 0; // 0-1 cycle
     dayLength: number = 6000; // ~1.5 minutes per day
 
+    // Weather: a passing shower that washes outdoor pheromone trails away.
+    raining: boolean = false;
+    rainTimer: number = 0;
+
+    /** Daylight 0..1 (1 = full day, 0 = deepest night) — mirrors the lighting schedule. */
+    dayBrightness(): number {
+        const t = this.timeOfDay;
+        if (t >= 0.2 && t <= 0.7) return 1;             // day
+        if (t < 0.2) return t / 0.2;                    // dawn 0→1
+        if (t < 0.8) return 1 - (t - 0.7) / 0.1;        // dusk 1→0
+        return 0;                                        // night
+    }
+
+    /** Outdoor activity multiplier (speed + sensing): full by day, reduced at night. */
+    activityFactor(): number {
+        const min = CONFIG.environment.nightActivityMin;
+        return min + (1 - min) * this.dayBrightness();
+    }
+
     // Brood Stats (Getters for compatibility)
     get eggs(): number { return this.brood.filter(b => b.stage === 'EGG').length; }
     get larvae(): number { return this.brood.filter(b => b.stage === 'LARVA').length; }
@@ -228,6 +247,17 @@ export class World {
     update() {
         this.age++;
         this.timeOfDay = (this.age % this.dayLength) / this.dayLength;
+
+        // Weather: start/stop showers, and while it rains wash outdoor trails away so
+        // the colony has to re-scout (the underground nestGrid is sheltered).
+        const env = CONFIG.environment;
+        if (this.raining) {
+            if (--this.rainTimer <= 0) this.raining = false;
+            else this.grid.scaleAll(env.rainWashout);
+        } else if (rand() < env.rainChance) {
+            this.raining = true;
+            this.rainTimer = env.rainMinDuration + Math.floor(rand() * (env.rainMaxDuration - env.rainMinDuration));
+        }
 
         if (this.age % CONFIG.pheromone.updateSkip === 0) {
             this.grid.update();

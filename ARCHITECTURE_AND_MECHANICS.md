@@ -141,6 +141,20 @@ Ants use a sensory-based steering algorithm:
 3.  **Visual Coupling:**
     -   The animation speed of the agent's legs must be directly coupled to its current movement speed (`speedMultiplier`). This ensures that agents appear to walk slower when decelerating and stop moving their legs when stationary.
 
+### 3.5. Environment (`CONFIG.environment`)
+-   **Day/night cycle:** `World.timeOfDay` (0..1, period `dayLength`). `dayBrightness()`
+    derives daylight 0..1 (1 = midday, 0 = deep night) on the same schedule as the
+    lighting render.
+-   **Night activity:** `activityFactor()` scales **outdoor** ants' speed *and* sensing
+    range from `nightActivityMin` (deepest night) up to 1 (full day) — the colony winds
+    down after dark and ramps back up at dawn. Nest ants are unaffected (already dark
+    underground). Deterministic (pure function of time).
+-   **Rain:** random seeded showers (`rainChance`/`rainMinDuration`/`rainMaxDuration`).
+    While it rains, the **outdoor** pheromone grid is scaled down every frame
+    (`grid.scaleAll(rainWashout)`), washing recruitment roads away and forcing the colony
+    to re-scout; the underground `nestGrid` is sheltered. `Renderer.drawRain` adds streaks +
+    an overcast tint (render-only randomness, no sim impact).
+
 ---
 
 ## 4. Key Algorithms & Formulas

@@ -211,6 +211,20 @@ export const CONFIG = {
         beetleHealth: 88,   beetleDamage: 12,
     },
 
+    // Environmental dynamics: day/night activity + rain (deterministic, seeded).
+    environment: {
+        // Night activity: outdoor ants slow down + sense less in the dark. The factor
+        // ramps from `activityMin` (deepest night) to 1 (full day) with daylight.
+        nightActivityMin: 0.5,
+        // Rain: a passing shower washes outdoor pheromone trails away (per-frame
+        // multiplier), forcing the colony to re-scout + re-recruit. Onset is a small
+        // per-frame chance while dry; duration is jittered.
+        rainChance: 0.00015,    // P(a shower starts this frame) while dry (~once per ~1 day)
+        rainMinDuration: 400,
+        rainMaxDuration: 1000,  // frames
+        rainWashout: 0.97,      // outdoor trails ×= this each frame while raining
+    },
+
     // Reference used to size nest chambers (rScale = nestMinDim / nestScaleRef).
     // It tracks WORLD_SCALE and NEST_FRACTION so chambers keep ~the same absolute
     // size as the baseline nest — a bigger nest gains room, not bigger rooms.

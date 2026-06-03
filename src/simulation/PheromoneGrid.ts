@@ -31,6 +31,16 @@ export class PheromoneGrid {
         this.temp = new Float32Array(size);
     }
 
+    // Uniformly scale every field (e.g. rain washing outdoor trails away).
+    scaleAll(factor: number) {
+        for (let i = 0; i < this.toHome.length; i++) {
+            this.toHome[i] *= factor;
+            this.toSugar[i] *= factor;
+            this.toProtein[i] *= factor;
+            this.toDanger[i] *= factor;
+        }
+    }
+
     update() {
         const decay = CONFIG.pheromone.decay;
         const foodDecay = CONFIG.pheromone.foodDecay;

@@ -135,13 +135,17 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
   `CONFIG.pheromone.qualityRef/minQuality`.
 
 ### Umwelt & Dynamik
-- [ ] **Nachtaktivität** (Geschwindigkeit an `timeOfDay` koppeln): Ameisen reduzieren Speed
-  und Sensorreichweite bei `lighting < 0.4`; Kolonie fährt herunter. Bestraft schlechte
-  Vorratshaltung, belohnt tageszeitliches Wirtschaften.
+- [x] **Nachtaktivität**: `World.dayBrightness()` (aus `timeOfDay`) + `activityFactor()` koppeln
+  Speed UND Sensorreichweite der **Außen**-Ameisen an die Tageszeit — tagsüber 100 %, in tiefer
+  Nacht runter auf `CONFIG.environment.nightActivityMin` (0.5). Die Kolonie fährt nachts herunter
+  und wieder hoch. Nest-Ameisen unberührt (unter der Erde eh dunkel). Deterministisch (reine
+  Funktion der Zeit).
 
-- [ ] **Wetter / Regen**: Regen-Event (zufällig oder per Sandbox-Button) dämpft alle
-  Pheromon-Grids (`toSugar *= 0.98` pro Frame für Dauer des Regens), wäscht Straßen weg
-  und erzwingt Neu-Rekrutierung. Visuell: Regen-Partikel + abgedunkelter Himmel.
+- [x] **Wetter / Regen**: zufällige Schauer (`CONFIG.environment.rain*`, seeded → deterministisch)
+  waschen die **Außen**-Pheromon-Grids pro Frame weg (`grid.scaleAll(rainWashout)`) → Straßen
+  verblassen, die Kolonie muss neu auskundschaften/rekrutieren. Der unterirdische `nestGrid` bleibt
+  geschützt. Visuell: Regen-Streifen + abgedunkelter Himmel (`Renderer.drawRain`, render-only-Zufall).
+  *Offen:* Sandbox-Button zum manuellen Auslösen, Pfützen/Bodennässe.
 
 ### Technik & Struktur
 - [ ] **Rivalisierende Kolonie + Krieg** (`colonyId`, 2. Nest/Königin) — großer struktureller Eingriff
