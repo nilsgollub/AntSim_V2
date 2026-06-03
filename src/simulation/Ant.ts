@@ -213,7 +213,7 @@ export class Ant {
     }
 
     senseAndSteer(world: World, pheromoneType: 'HOME' | 'SUGAR' | 'PROTEIN'): boolean {
-        const grid = this.location === 'NEST' ? world.nestGrid : world.grid;
+        const grid = this.location === 'NEST' ? this.colony.nestGrid : world.grid;
         // Shorter sensing range at night for outdoor ants.
         const sensorDist = CONFIG.antSensorDist * (this.location === 'WORLD' ? world.activityFactor() : 1);
         const sensorAngle = CONFIG.antSensorAngle;
@@ -256,7 +256,7 @@ export class Ant {
     }
 
     senseAndAvoid(world: World, pheromoneType: 'HOME' | 'SUGAR' | 'PROTEIN') {
-        const grid = this.location === 'NEST' ? world.nestGrid : world.grid;
+        const grid = this.location === 'NEST' ? this.colony.nestGrid : world.grid;
         const sensorDist = CONFIG.antSensorDist;
         const sensorAngle = CONFIG.antSensorAngle;
         const turnSpeed = CONFIG.antTurnSpeed;
@@ -354,12 +354,12 @@ export class Ant {
     // proportion to the energy actually restored (CONFIG.sugarEnergyValue energy
     // per unit), so a meal has a real cost and a low stockpile only partially
     // refills the ant — instead of the old "5 sugar → full energy" freebie.
-    eatFromStockpile(world: World) {
+    eatFromStockpile(_world: World) {
         const deficit = CONFIG.antMaxEnergy - this.energy;
-        if (deficit <= 0 || world.sugarStockpile <= 0) return;
+        if (deficit <= 0 || this.colony.sugarStockpile <= 0) return;
         const sugarNeeded = deficit / CONFIG.sugarEnergyValue;
-        const sugarEaten = Math.min(world.sugarStockpile, sugarNeeded);
-        world.sugarStockpile -= sugarEaten;
+        const sugarEaten = Math.min(this.colony.sugarStockpile, sugarNeeded);
+        this.colony.sugarStockpile -= sugarEaten;
         this.energy += sugarEaten * CONFIG.sugarEnergyValue;
     }
 
@@ -372,7 +372,7 @@ export class Ant {
         const nextY = this.y + Math.sin(this.angle) * speed;
 
         if (this.location === 'WORLD') {
-            const isLandscape = world.nest.height > world.nest.width;
+            const isLandscape = this.colony.nest.height > this.colony.nest.width;
 
             // Entrance crossing: edge-based trigger (world position of THIS colony's
             // mouth), landing taken from the colony's nest-local anchor.
@@ -399,13 +399,13 @@ export class Ant {
             }
         } else {
             // NEST
-            const isLandscape = world.nest.height > world.nest.width;
+            const isLandscape = this.colony.nest.height > this.colony.nest.width;
 
             // Exit crossing: nest-local trigger (mouth at x/y≈0), landing taken from
             // the colony's world-space exit anchor.
             const hitExit = isLandscape
-                ? (nextX < 5 && Math.abs(nextY - world.nest.height / 2) < 50)
-                : (nextY < 5 && Math.abs(nextX - world.nest.width / 2) < 50);
+                ? (nextX < 5 && Math.abs(nextY - this.colony.nest.height / 2) < 50)
+                : (nextY < 5 && Math.abs(nextX - this.colony.nest.width / 2) < 50);
             if (hitExit) {
                 this.location = 'WORLD';
                 const x = this.colony.worldExitPoint;
@@ -418,7 +418,7 @@ export class Ant {
 
             const NEST_BUFFER = 5;
 
-            if (world.nest.isInside(nextX, nextY, NEST_BUFFER)) {
+            if (this.colony.nest.isInside(nextX, nextY, NEST_BUFFER)) {
                 this.x = nextX;
                 this.y = nextY;
             } else {
@@ -433,7 +433,7 @@ export class Ant {
                         const a = this.angle + dir * off;
                         const tx = this.x + Math.cos(a) * probe;
                         const ty = this.y + Math.sin(a) * probe;
-                        if (world.nest.isInside(tx, ty, NEST_BUFFER)) {
+                        if (this.colony.nest.isInside(tx, ty, NEST_BUFFER)) {
                             this.angle = a;
                             this.x = tx;
                             this.y = ty;
@@ -444,7 +444,7 @@ export class Ant {
                 }
                 if (!slid) {
                     // Last resort: ease back toward the nearest node centre.
-                    const nearest = world.nest.getNearestNode(this.x, this.y);
+                    const nearest = this.colony.nest.getNearestNode(this.x, this.y);
                     if (nearest) {
                         const angleToCenter = Math.atan2(nearest.y - this.y, nearest.x - this.x);
                         this.x += Math.cos(angleToCenter) * 2;
@@ -457,7 +457,7 @@ export class Ant {
             // Nest stuck-recovery: if wedged for a while, steer toward the nearest
             // node centre to break free of a concave pocket.
             if (this.stuckTimer > 25) {
-                const nearest = world.nest.getNearestNode(this.x, this.y);
+                const nearest = this.colony.nest.getNearestNode(this.x, this.y);
                 if (nearest) {
                     this.angle = Math.atan2(nearest.y - this.y, nearest.x - this.x) + (rand() - 0.5) * 0.8;
                 }
@@ -492,7 +492,7 @@ export class Ant {
             if (give <= 0) continue;
             other.energy += give;
             this.cropSugar -= give;
-            world.trophallaxisCount++;
+            this.colony.trophallaxisCount++;
             return; // one exchange per attempt
         }
     }

@@ -2,6 +2,7 @@ import { rand } from '../rng';
 import { CONFIG } from '../config';
 import { World } from './World';
 import { Brood } from './Brood';
+import type { Colony } from './Colony';
 
 export type QueenState = 'IDLE' | 'LAYING' | 'STRESSED';
 
@@ -16,6 +17,10 @@ export class Queen {
 
     layTimer: number = 0;
     age: number = 0;
+
+    // The colony this queen heads (set in Colony's constructor). Egg-laying + sugar
+    // regen draw on this colony's own stockpiles + brood.
+    colony!: Colony;
 
     constructor() {
         this.x = 0;
@@ -43,11 +48,11 @@ export class Queen {
             case 'IDLE':
                 // Recover energy by consuming sugar from the colony stockpile.
                 // (Protein feeding by nurses tops her up separately.)
-                if (this.energy < this.maxEnergy && world.sugarStockpile > 0) {
+                if (this.energy < this.maxEnergy && this.colony.sugarStockpile > 0) {
                     const regen = CONFIG.queenSugarRegen;
                     const cost = regen / CONFIG.sugarEnergyValue;
-                    const spent = Math.min(world.sugarStockpile, cost);
-                    world.sugarStockpile -= spent;
+                    const spent = Math.min(this.colony.sugarStockpile, cost);
+                    this.colony.sugarStockpile -= spent;
                     this.energy = Math.min(this.maxEnergy, this.energy + spent * CONFIG.sugarEnergyValue);
                 }
 
@@ -64,16 +69,16 @@ export class Queen {
                 this.layTimer--;
                 if (this.layTimer <= 0) {
                     // Try to lay egg
-                    if (this.energy >= CONFIG.eggCost && world.proteinStockpile >= 5) {
+                    if (this.energy >= CONFIG.eggCost && this.colony.proteinStockpile >= 5) {
                         this.energy -= CONFIG.eggCost;
-                        world.proteinStockpile -= 5; // Eggs need protein too
+                        this.colony.proteinStockpile -= 5; // Eggs need protein too
 
                         // Spawn Egg
                         // Spawn Egg at the tip of the abdomen (Queen is vertical, head up)
                         // Abdomen tip is approx +45px down
                         const eggX = this.x + (rand() - 0.5) * 10;
                         const eggY = this.y + 45 + (rand() * 5);
-                        world.brood.push(new Brood(eggX, eggY));
+                        this.colony.brood.push(new Brood(eggX, eggY));
 
                         this.state = 'IDLE';
                     } else {

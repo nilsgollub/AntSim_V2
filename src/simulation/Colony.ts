@@ -43,6 +43,7 @@ export class Colony {
         this.id = id;
         this.nest = nest;
         this.queen = queen;
+        queen.colony = this;
         this.nestGrid = nestGrid;
 
         const ls = nest.height > nest.width;

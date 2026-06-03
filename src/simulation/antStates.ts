@@ -7,7 +7,7 @@ import type { World } from './World';
 // (and world where needed); the Ant class keeps the low-level primitives
 // (move, sensing, separation, steering helpers) these call via ant.*.
 
-export function handleNursing(ant: Ant, world: World) {
+export function handleNursing(ant: Ant, _world: World) {
     // If not carrying protein, go get some (via IDLE state)
     if (ant.carrying !== 'PROTEIN') {
         ant.state = 'IDLE';
@@ -22,16 +22,16 @@ export function handleNursing(ant: Ant, world: World) {
 
     let target: any = null;
 
-    if (world.queen.energy < CONFIG.ant.queenCriticalEnergy) {
-        target = world.queen;
+    if (ant.colony.queen.energy < CONFIG.ant.queenCriticalEnergy) {
+        target = ant.colony.queen;
     } else {
-        const criticalLarva = world.brood.find(b => b.stage === 'LARVA' && b.hunger > 50);
+        const criticalLarva = ant.colony.brood.find(b => b.stage === 'LARVA' && b.hunger > 50);
         if (criticalLarva) {
             target = criticalLarva;
-        } else if (world.queen.energy < CONFIG.ant.queenMaintainEnergy) {
-            target = world.queen;
+        } else if (ant.colony.queen.energy < CONFIG.ant.queenMaintainEnergy) {
+            target = ant.colony.queen;
         } else {
-            const hungryLarva = world.brood.find(b => b.stage === 'LARVA' && b.hunger > 20);
+            const hungryLarva = ant.colony.brood.find(b => b.stage === 'LARVA' && b.hunger > 20);
             if (hungryLarva) {
                 target = hungryLarva;
             }
@@ -54,8 +54,8 @@ export function handleNursing(ant: Ant, world: World) {
 
     if (dist < 10) {
         // Feed
-        if (target === world.queen) {
-            world.queen.energy += CONFIG.ant.queenFeedAmount; // Feed queen
+        if (target === ant.colony.queen) {
+            ant.colony.queen.energy += CONFIG.ant.queenFeedAmount; // Feed queen
         } else {
             target.feed(CONFIG.ant.larvaFeedAmount); // Feed larva
         }
@@ -85,14 +85,14 @@ export function handleResting(ant: Ant, world: World) {
         // 1. If not already targeting a spot, find one
         if (!ant.patrolTarget) {
             // Check if we are currently inside a chamber
-            const currentChamber = world.nest.chambers.find(c => (ant.x - c.x) ** 2 + (ant.y - c.y) ** 2 < (c.radius * 0.9) ** 2);
+            const currentChamber = ant.colony.nest.chambers.find(c => (ant.x - c.x) ** 2 + (ant.y - c.y) ** 2 < (c.radius * 0.9) ** 2);
 
             if (currentChamber) {
                 // If we are in STORAGE, we probably just finished work. Don't sleep here!
                 // 80% chance to go find another room (dispersal)
                 if (currentChamber.type === 'STORAGE' && rand() < 0.8) {
                     // Just leave the current chamber!
-                    const otherChambers = world.nest.chambers.filter(c => c !== currentChamber);
+                    const otherChambers = ant.colony.nest.chambers.filter(c => c !== currentChamber);
                     if (otherChambers.length > 0) {
                         ant.wander();
                         ant.applySeparation(world);
@@ -159,7 +159,7 @@ export function handleNurseIdle(ant: Ant, world: World) {
     // In Nest
     // 0. Self-Preservation (Eat if hungry)
     if (ant.energy < CONFIG.ant.nurseEatThreshold) {
-        const storage = world.nest.getChamber('STORAGE');
+        const storage = ant.colony.nest.getChamber('STORAGE');
         if (storage) {
             const dx = storage.x - ant.x;
             const dy = storage.y - ant.y;
@@ -179,10 +179,10 @@ export function handleNurseIdle(ant: Ant, world: World) {
     if (ant.carrying === 'NONE') {
         // 1. Check for Misplaced Brood (Priority). With several nurseries, brood is
         // "misplaced" only if it lies outside *every* brood chamber.
-        const broodChambers = world.nest.getChambers('BROOD');
-        const broodHomes = broodChambers.length > 0 ? broodChambers : [world.nest.getChamber('BROOD')];
+        const broodChambers = ant.colony.nest.getChambers('BROOD');
+        const broodHomes = broodChambers.length > 0 ? broodChambers : [ant.colony.nest.getChamber('BROOD')];
         if (broodHomes[0]) {
-            const misplacedBrood = world.brood.find(b => {
+            const misplacedBrood = ant.colony.brood.find(b => {
                 if (b.carrier) return false;
                 for (const ch of broodHomes) {
                     const dx = b.x - ch.x;
@@ -205,8 +205,8 @@ export function handleNurseIdle(ant: Ant, world: World) {
                     ant.state = 'TRANSPORTING';
                     // Commit to one nursery (nearest to the brood) for the whole haul,
                     // so the target can't flip between rooms frame-to-frame.
-                    const home = world.nest.nearestChamber('BROOD', misplacedBrood.x, misplacedBrood.y)
-                        ?? world.nest.getChamber('BROOD');
+                    const home = ant.colony.nest.nearestChamber('BROOD', misplacedBrood.x, misplacedBrood.y)
+                        ?? ant.colony.nest.getChamber('BROOD');
                     ant.carryTarget = home ? { x: home.x, y: home.y } : null;
                 } else {
                     ant.angle = Math.atan2(dy, dx);
@@ -216,14 +216,14 @@ export function handleNurseIdle(ant: Ant, world: World) {
         }
 
         // 2. Check if Queen or Larva needs food AND we have stockpile
-        if (world.proteinStockpile >= 10) {
+        if (ant.colony.proteinStockpile >= 10) {
             // FIXED: Aggressive check for Queen (keep her > 1800 energy)
-            const queenHungry = world.queen.energy < CONFIG.ant.queenHungryEnergy;
-            const larvaHungry = world.brood.some(b => b.stage === 'LARVA' && b.hunger > 20);
+            const queenHungry = ant.colony.queen.energy < CONFIG.ant.queenHungryEnergy;
+            const larvaHungry = ant.colony.brood.some(b => b.stage === 'LARVA' && b.hunger > 20);
 
             if (queenHungry || larvaHungry) {
                 // Go to the primary granary (stable target; stockpile is global)
-                const storage = world.nest.getChamber('STORAGE');
+                const storage = ant.colony.nest.getChamber('STORAGE');
                 if (!storage) return;
 
                 const dx = storage.x - ant.x;
@@ -231,7 +231,7 @@ export function handleNurseIdle(ant: Ant, world: World) {
 
                 if (dx * dx + dy * dy < CONFIG.ant.arriveRangeSq) {
                     // Grab from stockpile
-                    world.proteinStockpile -= 10;
+                    ant.colony.proteinStockpile -= 10;
                     ant.carrying = 'PROTEIN';
                     ant.carryingAmount = 10;
                     ant.state = 'NURSING';
@@ -248,8 +248,8 @@ export function handleNurseIdle(ant: Ant, world: World) {
     // always pulls workers out; otherwise the urge to forage is age-weighted
     // (temporal polyethism: young ants nurse, old ants forage).
     if (ant.type === 'WORKER') {
-        const emergency = world.sugarStockpile < CONFIG.ant.forageEmergencySugar
-            || world.proteinStockpile < CONFIG.ant.forageEmergencyProtein;
+        const emergency = ant.colony.sugarStockpile < CONFIG.ant.forageEmergencySugar
+            || ant.colony.proteinStockpile < CONFIG.ant.forageEmergencyProtein;
         if (emergency || rand() < ant.forageUrge()) {
             ant.state = 'FORAGING';
             return;
@@ -270,7 +270,7 @@ export function handleNurseIdle(ant: Ant, world: World) {
 }
 
 
-export function handleTransporting(ant: Ant, world: World) {
+export function handleTransporting(ant: Ant, _world: World) {
     if (!ant.carryingInstance) {
         ant.state = 'IDLE';
         ant.carrying = 'NONE';
@@ -285,8 +285,8 @@ export function handleTransporting(ant: Ant, world: World) {
     // Head to the nursery committed at pickup (resolving from the fixed target coord
     // keeps the chamber — and thus the destination — stable for the whole haul).
     const target = ant.carryTarget;
-    const broodChamber = (target ? world.nest.nearestChamber('BROOD', target.x, target.y) : null)
-        ?? world.nest.getChamber('BROOD');
+    const broodChamber = (target ? ant.colony.nest.nearestChamber('BROOD', target.x, target.y) : null)
+        ?? ant.colony.nest.getChamber('BROOD');
     if (!broodChamber) return;
     const dx = broodChamber.x - ant.x;
     const dy = broodChamber.y - ant.y;
@@ -343,7 +343,7 @@ export function handlePatrolling(ant: Ant, world: World) {
 
     // Check if colony needs protein
     // If low on protein, Soldiers go hunting (FORAGING state handles hunting if protein is needed)
-    if (world.proteinStockpile < 20) {
+    if (ant.colony.proteinStockpile < 20) {
         ant.state = 'FORAGING';
         return;
     }
@@ -356,8 +356,8 @@ export function handlePatrolling(ant: Ant, world: World) {
 
     if (ant.location === 'NEST') {
         // If in nest, go to entrance to start patrol
-        const entrance = world.nest.getEntrance();
-        const nextNode = world.nest.getNextNodeTowards(ant.x, ant.y, entrance.x, entrance.y);
+        const entrance = ant.colony.nest.getEntrance();
+        const nextNode = ant.colony.nest.getNextNodeTowards(ant.x, ant.y, entrance.x, entrance.y);
         if (nextNode) {
             const angle = Math.atan2(nextNode.y - ant.y, nextNode.x - ant.x);
             ant.angle = angle + (rand() - 0.5) * 0.5;
@@ -460,7 +460,7 @@ export function handleFleeing(ant: Ant, world: World) {
 
     // Drop Danger trail while fleeing to warn others
     if (ant.fleeTimer % 5 === 0) {
-        const grid = ant.location === 'NEST' ? world.nestGrid : world.grid;
+        const grid = ant.location === 'NEST' ? ant.colony.nestGrid : world.grid;
         grid.depositCircle(ant.x, ant.y, 'DANGER', CONFIG.pheromone.depositTrail, 10); // Increased trail size
     }
 
@@ -596,11 +596,11 @@ export function handleForaging(ant: Ant, world: World) {
 
     if (ant.location === 'NEST') {
         // Go to Exit
-        const entrance = world.nest.getEntrance();
+        const entrance = ant.colony.nest.getEntrance();
         const targetX = entrance.x;
         const targetY = entrance.y;
 
-        const nextNode = world.nest.getNextNodeTowards(ant.x, ant.y, targetX, targetY);
+        const nextNode = ant.colony.nest.getNextNodeTowards(ant.x, ant.y, targetX, targetY);
         if (nextNode) {
             const angle = Math.atan2(nextNode.y - ant.y, nextNode.x - ant.x);
             ant.angle = angle + (rand() - 0.5) * 0.5;
@@ -620,8 +620,8 @@ export function handleForaging(ant: Ant, world: World) {
         return;
     }
 
-    const proteinLow = world.proteinStockpile < CONFIG.eggCost * 25;
-    const sugarLow = world.sugarStockpile < 1000;
+    const proteinLow = ant.colony.proteinStockpile < CONFIG.eggCost * 25;
+    const sugarLow = ant.colony.sugarStockpile < 1000;
 
     let prioritizeProtein = false;
     if (ant.type === 'SOLDIER') {
@@ -798,7 +798,7 @@ export function handleHarvesting(ant: Ant, world: World) {
             // exists) for sanitation, rather than eaten. Insect corpses — and any
             // corpse before a cemetery is dug — stay food and are harvested as protein.
             if (food.type === 'CORPSE' && food.corpseType === 'ANT'
-                && world.nest.getChambers('CEMETERY').length > 0) {
+                && ant.colony.nest.getChambers('CEMETERY').length > 0) {
                 ant.carrying = 'CORPSE';
                 ant.carryingInstance = food;          // keep it to drop at the cemetery
                 const idx = world.foods.indexOf(food); // remove so it isn't re-grabbed mid-haul
@@ -855,11 +855,11 @@ export function handleReturning(ant: Ant, world: World) {
         }
 
         // In the nest: take the body to the nearest graveyard chamber and lay it there.
-        const grave = world.nest.nearestChamber('CEMETERY', ant.x, ant.y);
+        const grave = ant.colony.nest.nearestChamber('CEMETERY', ant.x, ant.y);
         if (!grave) {
             // No graveyard (shouldn't happen — we only undertake when one exists):
             // recycle the body as protein so it isn't lost.
-            world.proteinStockpile = Math.min(world.storageCapacity(), world.proteinStockpile + CONFIG.proteinValue);
+            ant.colony.proteinStockpile = Math.min(ant.colony.storageCapacity(), ant.colony.proteinStockpile + CONFIG.proteinValue);
             ant.carrying = 'NONE';
             ant.carryingInstance = null;
             ant.state = 'IDLE';
@@ -880,12 +880,12 @@ export function handleReturning(ant: Ant, world: World) {
             ant.angle += Math.PI;
             return;
         }
-        const nextNode = world.nest.getNextNodeTowards(ant.x, ant.y, grave.x, grave.y);
+        const nextNode = ant.colony.nest.getNextNodeTowards(ant.x, ant.y, grave.x, grave.y);
         ant.angle = nextNode ? Math.atan2(nextNode.y - ant.y, nextNode.x - ant.x) : Math.atan2(dy, dx);
         return;
     }
 
-    const grid = ant.location === 'NEST' ? world.nestGrid : world.grid;
+    const grid = ant.location === 'NEST' ? ant.colony.nestGrid : world.grid;
 
     const trail = CONFIG.pheromone.depositFood * ant.carryingQuality;
     if (ant.carrying === 'SUGAR') {
@@ -910,7 +910,7 @@ export function handleReturning(ant: Ant, world: World) {
         // Deliver to the primary granary (a single stable target — the stockpile is
         // global anyway, and recomputing "nearest" each frame made ants thrash and
         // never arrive once the nest had several granaries).
-        const storage = world.nest.getChamber('STORAGE');
+        const storage = ant.colony.nest.getChamber('STORAGE');
 
         if (storage) {
             const dx = storage.x - ant.x;
@@ -919,9 +919,9 @@ export function handleReturning(ant: Ant, world: World) {
 
             if (distSq < 2500) {
                 // Clamp to the colony's storage capacity (scales with granary count).
-                const cap = world.storageCapacity();
-                if (ant.carrying === 'SUGAR') world.sugarStockpile = Math.min(cap, world.sugarStockpile + CONFIG.sugarValue);
-                else if (ant.carrying === 'PROTEIN') world.proteinStockpile = Math.min(cap, world.proteinStockpile + CONFIG.proteinValue);
+                const cap = ant.colony.storageCapacity();
+                if (ant.carrying === 'SUGAR') ant.colony.sugarStockpile = Math.min(cap, ant.colony.sugarStockpile + CONFIG.sugarValue);
+                else if (ant.carrying === 'PROTEIN') ant.colony.proteinStockpile = Math.min(cap, ant.colony.proteinStockpile + CONFIG.proteinValue);
 
                 ant.carrying = 'NONE';
 
@@ -935,7 +935,7 @@ export function handleReturning(ant: Ant, world: World) {
                 ant.angle += Math.PI;
                 return;
             } else {
-                const nextNode = world.nest.getNextNodeTowards(ant.x, ant.y, storage.x, storage.y);
+                const nextNode = ant.colony.nest.getNextNodeTowards(ant.x, ant.y, storage.x, storage.y);
                 if (nextNode) {
                     const dx = nextNode.x - ant.x;
                     const dy = nextNode.y - ant.y;
@@ -962,7 +962,7 @@ export function handleHungry(ant: Ant, world: World) {
     }
 
     // In Nest: Go to the primary granary and eat (stable target; stockpile is global)
-    const storage = world.nest.getChamber('STORAGE');
+    const storage = ant.colony.nest.getChamber('STORAGE');
     if (storage) {
         const dx = storage.x - ant.x;
         const dy = storage.y - ant.y;
@@ -976,7 +976,7 @@ export function handleHungry(ant: Ant, world: World) {
             else ant.state = 'FORAGING';
         } else {
             // Move to storage
-            const nextNode = world.nest.getNextNodeTowards(ant.x, ant.y, storage.x, storage.y);
+            const nextNode = ant.colony.nest.getNextNodeTowards(ant.x, ant.y, storage.x, storage.y);
             if (nextNode) {
                 ant.angle = Math.atan2(nextNode.y - ant.y, nextNode.x - ant.x);
             } else {
