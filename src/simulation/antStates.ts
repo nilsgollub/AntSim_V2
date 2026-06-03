@@ -75,20 +75,9 @@ export function handleResting(ant: Ant, world: World) {
         ant.speedMultiplier = 1.0;
         ant.patrolTarget = null; // Clear any existing target
 
-        let homeX, homeY;
-
-        // Use Nest Dimensions to determine orientation reliably
-        // If Nest is Taller than Wide -> Landscape Mode (Nest Right)
-        if (world.nest.height > world.nest.width) {
-            homeX = CONFIG.width;
-            homeY = CONFIG.height / 2;
-        } else {
-            homeX = CONFIG.width / 2;
-            homeY = CONFIG.height;
-        }
-
-        const dx = homeX - ant.x;
-        const dy = homeY - ant.y;
+        const home = ant.colony.entranceWorld;
+        const dx = home.x - ant.x;
+        const dy = home.y - ant.y;
         ant.angle = Math.atan2(dy, dx);
     } else {
         // In Nest: Find a cozy spot
@@ -153,16 +142,9 @@ export function handleResting(ant: Ant, world: World) {
 
 export function handleNurseIdle(ant: Ant, world: World) {
     if (ant.location === 'WORLD') {
-        // Go to Entrance (Right edge of World)
-        let dx, dy;
-        if (world.nest.height > world.nest.width) { // Landscape
-            dx = CONFIG.width - ant.x;
-            dy = (CONFIG.height / 2) - ant.y;
-        } else { // Portrait
-            dx = (CONFIG.width / 2) - ant.x;
-            dy = CONFIG.height - ant.y;
-        }
-        ant.angle = Math.atan2(dy, dx);
+        // Go to this colony's entrance
+        const home = ant.colony.entranceWorld;
+        ant.angle = Math.atan2(home.y - ant.y, home.x - ant.x);
         return;
     }
 
@@ -388,18 +370,10 @@ export function handlePatrolling(ant: Ant, world: World) {
         return;
     }
 
-    // Patrol near Entrance (World side)
-    let entranceX, entranceY;
-
-    if (world.nest.height > world.nest.width) {
-        // Landscape: Entrance at Right Edge
-        entranceX = CONFIG.width - 150;
-        entranceY = CONFIG.height / 2;
-    } else {
-        // Portrait: Entrance at Bottom Edge
-        entranceX = CONFIG.width / 2;
-        entranceY = CONFIG.height - 150;
-    }
+    // Patrol near this colony's entrance (world side), set back ~150px from the mouth.
+    const eW = ant.colony.entranceWorld;
+    const entranceX = ant.colony.isLandscape ? eW.x - 150 : eW.x;
+    const entranceY = ant.colony.isLandscape ? eW.y : eW.y - 150;
 
     // Initialize or Update Patrol Target
     let distSq = 0;
@@ -457,16 +431,8 @@ export function handleFleeing(ant: Ant, world: World) {
     let homeX, homeY;
 
     if (ant.location === 'WORLD') {
-        // Determine orientation based on world dimensions
-        if (world.nest.height > world.nest.width) {
-            // Landscape: Nest is on the Right
-            homeX = CONFIG.width;
-            homeY = CONFIG.height / 2;
-        } else {
-            // Portrait: Nest is on the Bottom
-            homeX = CONFIG.width / 2;
-            homeY = CONFIG.height;
-        }
+        homeX = ant.colony.entranceWorld.x;
+        homeY = ant.colony.entranceWorld.y;
     } else {
         // Nest Location: Determine exit based on nest shape
         // Tall Nest (Landscape Mode) -> Exit is Left (x=0)
@@ -648,13 +614,8 @@ export function handleForaging(ant: Ant, world: World) {
     // If just exited nest, keep moving forward to clear the entrance area
     if (ant.exitTimer > 0) {
         ant.exitTimer--;
-        // Move generally away from nest center (towards world center)
-        const isLandscape = CONFIG.width > CONFIG.height;
-        if (isLandscape) {
-            ant.angle = Math.PI; // Move Left (away from right wall)
-        } else {
-            ant.angle = -Math.PI / 2; // Move Up (away from bottom wall)
-        }
+        // Keep moving away from the nest mouth to clear the entrance area.
+        ant.angle = ant.colony.worldExitAngle;
         ant.angle += (rand() - 0.5) * 1.0; // Spread out
         return;
     }
@@ -886,13 +847,10 @@ export function handleReturning(ant: Ant, world: World) {
         const corpse = ant.carryingInstance;
 
         if (ant.location === 'WORLD') {
-            // Carry the body home to the entrance first (same heading as a normal
-            // return trip); the cemetery is inside the nest.
-            let targetX, targetY;
-            if (world.nest.height > world.nest.width) { targetX = CONFIG.width; targetY = CONFIG.height / 2; }
-            else { targetX = CONFIG.width / 2; targetY = CONFIG.height; }
+            // Carry the body home to this colony's entrance first (the cemetery is inside the nest).
+            const home = ant.colony.entranceWorld;
             if (corpse) { corpse.x = ant.x; corpse.y = ant.y; } // the body travels with its bearer
-            ant.angle = Math.atan2(targetY - ant.y, targetX - ant.x);
+            ant.angle = Math.atan2(home.y - ant.y, home.x - ant.x);
             return;
         }
 
@@ -937,15 +895,8 @@ export function handleReturning(ant: Ant, world: World) {
     }
 
     if (ant.location === 'WORLD') {
-        let targetX, targetY;
-        if (world.nest.height > world.nest.width) {
-            targetX = CONFIG.width;
-            targetY = CONFIG.height / 2;
-        } else {
-            targetX = CONFIG.width / 2;
-            targetY = CONFIG.height;
-        }
-        const angleToHome = Math.atan2(targetY - ant.y, targetX - ant.x);
+        const home = ant.colony.entranceWorld;
+        const angleToHome = Math.atan2(home.y - ant.y, home.x - ant.x);
         const foundTrail = ant.senseAndSteer(world, 'HOME');
         const biasStrength = foundTrail ? 0.15 : 0.3;
 

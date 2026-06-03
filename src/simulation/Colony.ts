@@ -26,11 +26,35 @@ export class Colony {
     proteinStockpile: number = CONFIG.startProtein;
     trophallaxisCount: number = 0;     // mouth-to-mouth feedings (live stat / test guard)
 
+    // Navigation anchors — where this colony's nest meets the world. Decouples
+    // "go home / leave the nest" from hardcoded world edges, so a second colony can
+    // sit anywhere. For colony 0 these equal the former CONFIG.width/height formulas
+    // exactly, so behaviour is byte-identical. NOTE: nest-LOCAL coords are
+    // colony-agnostic (every nest is the same CONFIG.nestWidth×nestHeight space with
+    // its mouth at a fixed local spot) — only the WORLD-space anchors vary per colony.
+    isLandscape: boolean;
+    entranceWorld: { x: number; y: number };    // world point ants steer to when heading home
+    worldExitPoint: { x: number; y: number };   // world point an ant lands on when leaving the nest
+    worldExitAngle: number;                      // facing when it lands outside
+    entranceNestLocal: { x: number; y: number }; // nest-space point an ant lands on when entering
+    entranceNestAngle: number;                   // facing when it lands inside
+
     constructor(id: number, nest: Nest, queen: Queen, nestGrid: PheromoneGrid) {
         this.id = id;
         this.nest = nest;
         this.queen = queen;
         this.nestGrid = nestGrid;
+
+        const ls = nest.height > nest.width;
+        this.isLandscape = ls;
+        this.entranceWorld = ls ? { x: CONFIG.width, y: CONFIG.height / 2 }
+                                : { x: CONFIG.width / 2, y: CONFIG.height };
+        this.worldExitPoint = ls ? { x: CONFIG.width - 25, y: CONFIG.height / 2 }
+                                 : { x: CONFIG.width / 2, y: CONFIG.height - 25 };
+        this.worldExitAngle = ls ? Math.PI : -Math.PI / 2;
+        this.entranceNestLocal = ls ? { x: 25, y: nest.height / 2 }
+                                    : { x: nest.width / 2, y: 25 };
+        this.entranceNestAngle = ls ? 0 : Math.PI / 2;
     }
 
     // Brood stage counts.

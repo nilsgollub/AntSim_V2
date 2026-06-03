@@ -293,12 +293,10 @@ export class Ant {
         }
     }
 
-    disperseFromNest(world: World): boolean {
-        const isLandscape = world.nest.height > world.nest.width;
-        const ex = isLandscape ? CONFIG.width : CONFIG.width / 2;
-        const ey = isLandscape ? CONFIG.height / 2 : CONFIG.height;
-        const dx = this.x - ex;
-        const dy = this.y - ey;
+    disperseFromNest(_world: World): boolean {
+        const e = this.colony.entranceWorld;
+        const dx = this.x - e.x;
+        const dy = this.y - e.y;
         const distSq = dx * dx + dy * dy;
         const r = CONFIG.ant.dispersalRadius;
         if (distSq > r * r || distSq < 1) return false; // far enough out → free wander
@@ -376,22 +374,18 @@ export class Ant {
         if (this.location === 'WORLD') {
             const isLandscape = world.nest.height > world.nest.width;
 
-            if (isLandscape) {
-                if (nextX > CONFIG.width - 10 && Math.abs(nextY - CONFIG.height / 2) < 50) {
-                    this.location = 'NEST';
-                    this.x = 25;
-                    this.y = world.nest.height / 2;
-                    this.angle = 0;
-                    return;
-                }
-            } else {
-                if (nextY > CONFIG.height - 10 && Math.abs(nextX - CONFIG.width / 2) < 50) {
-                    this.location = 'NEST';
-                    this.x = world.nest.width / 2;
-                    this.y = 25;
-                    this.angle = Math.PI / 2;
-                    return;
-                }
+            // Entrance crossing: edge-based trigger (world position of THIS colony's
+            // mouth), landing taken from the colony's nest-local anchor.
+            const hitEntrance = isLandscape
+                ? (nextX > CONFIG.width - 10 && Math.abs(nextY - CONFIG.height / 2) < 50)
+                : (nextY > CONFIG.height - 10 && Math.abs(nextX - CONFIG.width / 2) < 50);
+            if (hitEntrance) {
+                this.location = 'NEST';
+                const e = this.colony.entranceNestLocal;
+                this.x = e.x;
+                this.y = e.y;
+                this.angle = this.colony.entranceNestAngle;
+                return;
             }
 
             if (!world.terrain.isBlocked(nextX, nextY) && nextX > 0 && nextX < CONFIG.width && nextY > 0 && nextY < CONFIG.height) {
@@ -407,24 +401,19 @@ export class Ant {
             // NEST
             const isLandscape = world.nest.height > world.nest.width;
 
-            if (isLandscape) {
-                if (nextX < 5 && Math.abs(nextY - world.nest.height / 2) < 50) {
-                    this.location = 'WORLD';
-                    this.x = CONFIG.width - 25;
-                    this.y = CONFIG.height / 2;
-                    this.angle = Math.PI;
-                    this.exitTimer = 45; // Force move away
-                    return;
-                }
-            } else {
-                if (nextY < 5 && Math.abs(nextX - world.nest.width / 2) < 50) {
-                    this.location = 'WORLD';
-                    this.x = CONFIG.width / 2;
-                    this.y = CONFIG.height - 25;
-                    this.angle = -Math.PI / 2;
-                    this.exitTimer = 45; // Force move away
-                    return;
-                }
+            // Exit crossing: nest-local trigger (mouth at x/y≈0), landing taken from
+            // the colony's world-space exit anchor.
+            const hitExit = isLandscape
+                ? (nextX < 5 && Math.abs(nextY - world.nest.height / 2) < 50)
+                : (nextY < 5 && Math.abs(nextX - world.nest.width / 2) < 50);
+            if (hitExit) {
+                this.location = 'WORLD';
+                const x = this.colony.worldExitPoint;
+                this.x = x.x;
+                this.y = x.y;
+                this.angle = this.colony.worldExitAngle;
+                this.exitTimer = 45; // Force move away
+                return;
             }
 
             const NEST_BUFFER = 5;

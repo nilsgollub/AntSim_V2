@@ -156,7 +156,13 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
     Handlern noch nicht konsultiert). `World.update()`-Orchestrierung bewusst unverändert (die
     Kolonie-Arbeit ist mit globaler verschachtelt → ein monolithisches `colony.update()` würde den
     RNG-Stream umsortieren). **Golden byte-identisch, 76/76 grün** = Beweis der Verhaltens-Neutralität.
-  - [ ] Phase 2 — Heimweg/Eingang von Welt-Rändern (`CONFIG.width/height`) auf `colony.entrance*` entkoppeln.
+  - [x] **Phase 2 — Heimweg/Eingang entkoppelt**: alle hartkodierten `CONFIG.width/height`-Eingangs-
+    Koordinaten (in `handleResting/NurseIdle/Patrolling/Fleeing/Returning/Foraging-Exit` + `Ant.move()`
+    Crossing-Landung + `disperseFromNest`) lesen jetzt aus `colony.entranceWorld/worldExitPoint/
+    worldExitAngle/entranceNestLocal/...`. Für Kolonie 0 numerisch identisch zu den alten Formeln →
+    **Golden byte-identisch, 76/76 grün**. Erkenntnis: nest-LOKALE Koordinaten sind kolonie-agnostisch
+    (jedes Nest gleich groß), nur Welt-Positionen variieren. *Bewusst aufgeschoben:* die Crossing-
+    *Erkennung* (Welt-Rand-Trigger) bleibt kantenbasiert; die Radius-Generalisierung kommt mit der 2. Kolonie.
   - [ ] Später: 2. Kolonie (`CONFIG.colonyCount=2` + Sandbox-Button), per-Kolonie Outdoor-Pheromone,
     Ant-vs-Ant (Grenz-Scharmützel, wiederverwendet Kampf/Alarm/Mob), Team-Farben.
 - [ ] **Mehr Tests für die Ökonomie** (Queen/World-Integration)
