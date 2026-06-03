@@ -1,6 +1,7 @@
 import { rand } from '../rng';
 import { CONFIG } from '../config';
 import { World } from './World';
+import type { Colony } from './Colony';
 import { handleNursing, handleResting, handleNurseIdle, handleTransporting, handlePatrolling, handleFleeing, handleCombat, handleForaging, handleHarvesting, handleReturning, handleHungry, handleMilking } from './antStates';
 
 export class Ant {
@@ -15,6 +16,10 @@ export class Ant {
     energy: number;
     health: number;
     location: 'WORLD' | 'NEST';
+
+    // The colony this ant belongs to (set in Colony.spawnAnt). Phase 1: present but
+    // not yet consulted by the FSM handlers — they still read world.* (= colony 0).
+    colony!: Colony;
 
     // Ageing: ants die of old age once `age` exceeds `maxAge` (jittered per ant).
     age: number = 0;

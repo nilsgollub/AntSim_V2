@@ -12,10 +12,10 @@ import { PerformanceManager } from '../PerformanceManager';
 
 import { Nest } from './Nest';
 import { SimObserver } from './SimObserver';
+import { Colony } from './Colony';
 
 export class World {
-    ants: Ant[];
-    queen: Queen;
+    // Shared environment (NOT per-colony).
     insects: Insect[];
     foods: Food[];
     // Corpses laid to rest in a graveyard chamber. Kept OUT of `foods` so foragers
@@ -23,31 +23,30 @@ export class World {
     // as the dead pile up) — they're only decayed + drawn from here.
     graveyard: Food[] = [];
     terrain: Terrain;
-    grid: PheromoneGrid;
-    nestGrid: PheromoneGrid;
+    grid: PheromoneGrid;       // outdoor pheromone field (shared in Phase 1)
     spatialGrid: SpatialGrid;
-    nest: Nest;
 
-    brood: Brood[];
-
-    // Resources. Both stockpiles have real sinks: sugar fuels worker energy +
-    // queen regen + passive colony upkeep; protein fuels egg-laying, larva
-    // feeding + passive brood upkeep (see World.update / Queen / Ant).
-    proteinStockpile: number = CONFIG.startProtein;
-    sugarStockpile: number = CONFIG.startSugar;
-
-    /**
-     * Per-resource storage ceiling. Scales with the number of granary (STORAGE)
-     * chambers, so digging more granaries lets the colony stockpile more — giving
-     * those chambers a concrete function. Deliveries clamp to this.
-     */
-    storageCapacity(): number {
-        const granaries = this.nest.getChambers('STORAGE').length;
-        return CONFIG.nest.storageBaseCapacity + granaries * CONFIG.nest.storagePerGranary;
-    }
-
-    // Count of mouth-to-mouth trophallaxis feedings (a live-sim stat / sanity guard).
-    trophallaxisCount: number = 0;
+    // Per-colony state lives on `Colony`. `World` holds the colonies and proxies
+    // colony 0 through the back-compat getters below, so every existing call site
+    // and test is untouched while a single colony runs (Phase 1 of rival-colony work).
+    colonies: Colony[] = [];
+    get queen(): Queen { return this.colonies[0].queen; }
+    get nest(): Nest { return this.colonies[0].nest; }
+    get nestGrid(): PheromoneGrid { return this.colonies[0].nestGrid; }
+    set nestGrid(g: PheromoneGrid) { this.colonies[0].nestGrid = g; }
+    get ants(): Ant[] { return this.colonies[0].ants; }
+    get brood(): Brood[] { return this.colonies[0].brood; }
+    get eggs(): number { return this.colonies[0].eggs; }
+    get larvae(): number { return this.colonies[0].larvae; }
+    get pupae(): number { return this.colonies[0].pupae; }
+    get sugarStockpile(): number { return this.colonies[0].sugarStockpile; }
+    set sugarStockpile(v: number) { this.colonies[0].sugarStockpile = v; }
+    get proteinStockpile(): number { return this.colonies[0].proteinStockpile; }
+    set proteinStockpile(v: number) { this.colonies[0].proteinStockpile = v; }
+    get trophallaxisCount(): number { return this.colonies[0].trophallaxisCount; }
+    set trophallaxisCount(v: number) { this.colonies[0].trophallaxisCount = v; }
+    /** Storage ceiling of colony 0 (proxy). */
+    storageCapacity(): number { return this.colonies[0].storageCapacity(); }
 
     // Simulation Age
     age: number = 0;
@@ -73,11 +72,6 @@ export class World {
         return min + (1 - min) * this.dayBrightness();
     }
 
-    // Brood Stats (Getters for compatibility)
-    get eggs(): number { return this.brood.filter(b => b.stage === 'EGG').length; }
-    get larvae(): number { return this.brood.filter(b => b.stage === 'LARVA').length; }
-    get pupae(): number { return this.brood.filter(b => b.stage === 'PUPA').length; }
-
     // Particles
     particles: { x: number, y: number, vx: number, vy: number, life: number, color: string, type: 'DEFAULT' | 'BLOOD' | 'DUST' }[] = [];
 
@@ -92,18 +86,20 @@ export class World {
 
     constructor() {
         this.terrain = new Terrain();
-        this.nest = new Nest();
+        const nest = new Nest();
         this.grid = new PheromoneGrid(CONFIG.width, CONFIG.height);
-        this.nestGrid = new PheromoneGrid(CONFIG.nestWidth, CONFIG.nestHeight);
+        const nestGrid = new PheromoneGrid(CONFIG.nestWidth, CONFIG.nestHeight);
         this.spatialGrid = new SpatialGrid(CONFIG.width, CONFIG.height, 50);
-        this.ants = [];
         this.insects = [];
         this.foods = [];
-        this.brood = [];
-        this.queen = new Queen();
-        const queenChamber = this.nest.getChamber('QUEEN');
-        this.queen.x = queenChamber.x;
-        this.queen.y = queenChamber.y;
+
+        const queen = new Queen();
+        const queenChamber = nest.getChamber('QUEEN');
+        queen.x = queenChamber.x;
+        queen.y = queenChamber.y;
+        // Colony 0 — the original colony. (Construction draws no rand() before init(),
+        // matching the old order: only `terrain` may, and it stays first.)
+        this.colonies = [new Colony(0, nest, queen, nestGrid)];
 
         this.init();
     }
@@ -171,9 +167,7 @@ export class World {
     }
 
     spawnAnt(type: 'WORKER' | 'SOLDIER') {
-        const ant = new Ant(this.queen.x, this.queen.y, type);
-        ant.location = 'NEST';
-        this.ants.push(ant);
+        this.colonies[0].spawnAnt(type);
     }
 
     addParticle(x: number, y: number, color: string, type: 'DEFAULT' | 'BLOOD' | 'DUST' = 'DEFAULT') {

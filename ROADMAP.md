@@ -148,7 +148,17 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
   *Offen:* Sandbox-Button zum manuellen Auslösen, Pfützen/Bodennässe.
 
 ### Technik & Struktur
-- [ ] **Rivalisierende Kolonie + Krieg** (`colonyId`, 2. Nest/Königin) — großer struktureller Eingriff
+- [~] **Rivalisierende Kolonie + Krieg** (`colonyId`, 2. Nest/Königin) — großer struktureller Eingriff, phasiert.
+  - [x] **Phase 1 — `Colony` extrahiert**: kolonie-eigener Zustand (Queen, Nest, Brut, Ameisen,
+    `nestGrid`, Vorräte, `trophallaxisCount`, Brut-Getter, `spawnAnt`, `storageCapacity`) lebt jetzt
+    auf `src/simulation/Colony.ts`; `World` hält `colonies[]` + **Back-Compat-Getter/Setter** auf
+    colony 0, sodass jeder Aufrufer/Test unberührt bleibt. `ant.colony`-Rückreferenz gesetzt (von
+    Handlern noch nicht konsultiert). `World.update()`-Orchestrierung bewusst unverändert (die
+    Kolonie-Arbeit ist mit globaler verschachtelt → ein monolithisches `colony.update()` würde den
+    RNG-Stream umsortieren). **Golden byte-identisch, 76/76 grün** = Beweis der Verhaltens-Neutralität.
+  - [ ] Phase 2 — Heimweg/Eingang von Welt-Rändern (`CONFIG.width/height`) auf `colony.entrance*` entkoppeln.
+  - [ ] Später: 2. Kolonie (`CONFIG.colonyCount=2` + Sandbox-Button), per-Kolonie Outdoor-Pheromone,
+    Ant-vs-Ant (Grenz-Scharmützel, wiederverwendet Kampf/Alarm/Mob), Team-Farben.
 - [ ] **Mehr Tests für die Ökonomie** (Queen/World-Integration)
 - [ ] Mobile **Touch/Pinch**-Steuerung für die Kamera (aktuell Maus-only)
 - [ ] Screenshot-/Export-Funktion
