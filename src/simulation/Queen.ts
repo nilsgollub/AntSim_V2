@@ -27,9 +27,9 @@ export class Queen {
         this.y = 0;
     }
 
-    update(world: World) {
+    update(_world: World) {
         // 1. Check for Danger (Stress)
-        const danger = world.grid.get(this.x, this.y, 'DANGER');
+        const danger = this.colony.outdoorField.get(this.x, this.y, 'DANGER');
         if (danger > 0.1) {
             this.stress += 1.0;
             this.state = 'STRESSED';
@@ -59,7 +59,7 @@ export class Queen {
                 // Decide to lay eggs if healthy and fed. (Keeping the pipeline alive even
                 // at low protein is what lets a battered colony recover — a hard protein
                 // reserve here backfired: it froze laying and guaranteed brood→0.)
-                if (this.energy > 500 && this.stress < 20 && world.brood.length < 200) {
+                if (this.energy > 500 && this.stress < 20 && this.colony.brood.length < 200) {
                     this.state = 'LAYING';
                     this.layTimer = CONFIG.queenLayInterval;
                 }

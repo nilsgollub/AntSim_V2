@@ -213,7 +213,7 @@ export class Ant {
     }
 
     senseAndSteer(world: World, pheromoneType: 'HOME' | 'SUGAR' | 'PROTEIN'): boolean {
-        const grid = this.location === 'NEST' ? this.colony.nestGrid : world.grid;
+        const grid = this.location === 'NEST' ? this.colony.nestGrid : this.colony.outdoorField;
         // Shorter sensing range at night for outdoor ants.
         const sensorDist = CONFIG.antSensorDist * (this.location === 'WORLD' ? world.activityFactor() : 1);
         const sensorAngle = CONFIG.antSensorAngle;
@@ -255,8 +255,8 @@ export class Ant {
         return true;
     }
 
-    senseAndAvoid(world: World, pheromoneType: 'HOME' | 'SUGAR' | 'PROTEIN') {
-        const grid = this.location === 'NEST' ? this.colony.nestGrid : world.grid;
+    senseAndAvoid(_world: World, pheromoneType: 'HOME' | 'SUGAR' | 'PROTEIN') {
+        const grid = this.location === 'NEST' ? this.colony.nestGrid : this.colony.outdoorField;
         const sensorDist = CONFIG.antSensorDist;
         const sensorAngle = CONFIG.antSensorAngle;
         const turnSpeed = CONFIG.antTurnSpeed;

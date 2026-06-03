@@ -19,7 +19,8 @@ export class Colony {
     id: number;
     queen: Queen;
     nest: Nest;
-    nestGrid: PheromoneGrid;          // underground pheromone field (already per-nest)
+    nestGrid: PheromoneGrid;          // underground pheromone field (per nest)
+    outdoorField: PheromoneGrid;      // this colony's OWN outdoor HOME/SUGAR/PROTEIN/DANGER trails
     ants: Ant[] = [];
     brood: Brood[] = [];
     sugarStockpile: number = CONFIG.startSugar;
@@ -45,6 +46,9 @@ export class Colony {
         this.queen = queen;
         queen.colony = this;
         this.nestGrid = nestGrid;
+        // Each colony scouts + recruits on its OWN outdoor field, so rivals don't
+        // follow each other's roads home. (PheromoneGrid draws no rand → no RNG shift.)
+        this.outdoorField = new PheromoneGrid(CONFIG.width, CONFIG.height);
 
         const ls = nest.height > nest.width;
         this.isLandscape = ls;

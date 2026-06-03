@@ -23,7 +23,6 @@ export class World {
     // as the dead pile up) — they're only decayed + drawn from here.
     graveyard: Food[] = [];
     terrain: Terrain;
-    grid: PheromoneGrid;       // outdoor pheromone field (shared in Phase 1)
     spatialGrid: SpatialGrid;
 
     // Per-colony state lives on `Colony`. `World` holds the colonies and proxies
@@ -34,6 +33,9 @@ export class World {
     get nest(): Nest { return this.colonies[0].nest; }
     get nestGrid(): PheromoneGrid { return this.colonies[0].nestGrid; }
     set nestGrid(g: PheromoneGrid) { this.colonies[0].nestGrid = g; }
+    /** Colony 0's outdoor pheromone field (proxy — rendering + tests read this one). */
+    get grid(): PheromoneGrid { return this.colonies[0].outdoorField; }
+    set grid(g: PheromoneGrid) { this.colonies[0].outdoorField = g; }
     get ants(): Ant[] { return this.colonies[0].ants; }
     get brood(): Brood[] { return this.colonies[0].brood; }
     get eggs(): number { return this.colonies[0].eggs; }
@@ -87,7 +89,6 @@ export class World {
     constructor() {
         this.terrain = new Terrain();
         const nest = new Nest();
-        this.grid = new PheromoneGrid(CONFIG.width, CONFIG.height);
         const nestGrid = new PheromoneGrid(CONFIG.nestWidth, CONFIG.nestHeight);
         this.spatialGrid = new SpatialGrid(CONFIG.width, CONFIG.height, 50);
         this.insects = [];
@@ -108,8 +109,10 @@ export class World {
     // quality change so the grid scale stays in sync with the renderer's overlay
     // canvas. Transient trail state is intentionally discarded.
     rebuildPheromoneGrids() {
-        this.grid = new PheromoneGrid(CONFIG.width, CONFIG.height);
-        this.nestGrid = new PheromoneGrid(CONFIG.nestWidth, CONFIG.nestHeight);
+        for (const c of this.colonies) {
+            c.outdoorField = new PheromoneGrid(CONFIG.width, CONFIG.height);
+            c.nestGrid = new PheromoneGrid(CONFIG.nestWidth, CONFIG.nestHeight);
+        }
     }
 
     init() {
@@ -247,15 +250,17 @@ export class World {
         const env = CONFIG.environment;
         if (this.raining) {
             if (--this.rainTimer <= 0) this.raining = false;
-            else this.grid.scaleAll(env.rainWashout);
+            else for (const c of this.colonies) c.outdoorField.scaleAll(env.rainWashout);
         } else if (rand() < env.rainChance) {
             this.raining = true;
             this.rainTimer = env.rainMinDuration + Math.floor(rand() * (env.rainMaxDuration - env.rainMinDuration));
         }
 
         if (this.age % CONFIG.pheromone.updateSkip === 0) {
-            this.grid.update();                                  // shared outdoor field
-            for (const c of this.colonies) c.nestGrid.update();  // per-colony underground
+            for (const c of this.colonies) {
+                c.outdoorField.update();  // each colony's own outdoor trails
+                c.nestGrid.update();      // …and underground
+            }
         }
 
         for (const c of this.colonies) c.queen.update(this);

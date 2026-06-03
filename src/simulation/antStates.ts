@@ -330,7 +330,7 @@ export function handlePatrolling(ant: Ant, world: World) {
         }
         // Alarm response: rally toward a DANGER trail even without a visible enemy
         // (ATTACKING then follows the danger gradient to the alarm source).
-        if (world.grid.get(ant.x, ant.y, 'DANGER') > CONFIG.combat.alarmThreshold) {
+        if (ant.colony.outdoorField.get(ant.x, ant.y, 'DANGER') > CONFIG.combat.alarmThreshold) {
             ant.state = 'ATTACKING';
             return;
         }
@@ -421,7 +421,7 @@ export function handlePatrolling(ant: Ant, world: World) {
 }
 
 
-export function handleFleeing(ant: Ant, world: World) {
+export function handleFleeing(ant: Ant, _world: World) {
     ant.speedMultiplier = 2.5; // Run fast!
     ant.fleeTimer--;
 
@@ -460,7 +460,7 @@ export function handleFleeing(ant: Ant, world: World) {
 
     // Drop Danger trail while fleeing to warn others
     if (ant.fleeTimer % 5 === 0) {
-        const grid = ant.location === 'NEST' ? ant.colony.nestGrid : world.grid;
+        const grid = ant.location === 'NEST' ? ant.colony.nestGrid : ant.colony.outdoorField;
         grid.depositCircle(ant.x, ant.y, 'DANGER', CONFIG.pheromone.depositTrail, 10); // Increased trail size
     }
 
@@ -555,7 +555,7 @@ export function handleCombat(ant: Ant, world: World) {
             // Follow gradient strongly
             const sensorDist = CONFIG.antSensorDist;
             const sensorAngle = CONFIG.antSensorAngle;
-            const getDanger = (a: number) => world.grid.get(ant.x + Math.cos(ant.angle + a) * sensorDist, ant.y + Math.sin(ant.angle + a) * sensorDist, 'DANGER');
+            const getDanger = (a: number) => ant.colony.outdoorField.get(ant.x + Math.cos(ant.angle + a) * sensorDist, ant.y + Math.sin(ant.angle + a) * sensorDist, 'DANGER');
 
             const l = getDanger(-sensorAngle);
             const c = getDanger(0);
@@ -701,7 +701,7 @@ export function handleForaging(ant: Ant, world: World) {
 
         // 0. Alarm response: graduated. With local numerical superiority, a forager
         // joins the defence (mob); otherwise it flees and spreads the alarm.
-        const dangerLevel = world.grid.get(ant.x, ant.y, 'DANGER');
+        const dangerLevel = ant.colony.outdoorField.get(ant.x, ant.y, 'DANGER');
         if (dangerLevel > CONFIG.combat.alarmThreshold) {
             const allies = ant.countNearbyAllies(world, 100);
             const enemies = ant.countNearbyEnemies(world, 100);
@@ -778,7 +778,7 @@ export function handleForaging(ant: Ant, world: World) {
         if (!ant.steerToMemory() && !ant.disperseFromNest(world)) ant.wander();
     }
 
-    world.grid.depositCircle(ant.x, ant.y, 'HOME', CONFIG.pheromone.depositTrail, CONFIG.pheromone.trailRadius);
+    ant.colony.outdoorField.depositCircle(ant.x, ant.y, 'HOME', CONFIG.pheromone.depositTrail, CONFIG.pheromone.trailRadius);
 }
 
 // Steer a trail-less explorer radially away from the nest entrance while it
@@ -885,7 +885,7 @@ export function handleReturning(ant: Ant, world: World) {
         return;
     }
 
-    const grid = ant.location === 'NEST' ? ant.colony.nestGrid : world.grid;
+    const grid = ant.location === 'NEST' ? ant.colony.nestGrid : ant.colony.outdoorField;
 
     const trail = CONFIG.pheromone.depositFood * ant.carryingQuality;
     if (ant.carrying === 'SUGAR') {
