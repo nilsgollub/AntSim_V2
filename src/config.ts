@@ -158,6 +158,20 @@ export const CONFIG = {
         // Fraction of foragers that fetch protein (brood food) when both resources
         // are short — stops protein collapsing and capping the population.
         proteinForagerShare: 0.4,
+
+        // Functional polymorphism: caste-correlated body size (`sizeVar`) that drives
+        // both the draw scale AND real stats. Soldiers are bigger (tougher + harder
+        // hitting, but slower + costlier to run); workers smaller (faster + cheaper).
+        poly: {
+            workerSizeMin: 0.80, workerSizeRange: 0.25,   // sizeVar 0.80–1.05
+            soldierSizeMin: 1.25, soldierSizeRange: 0.25,  // sizeVar 1.25–1.50
+            // HP + bite scale with size, but centred on each caste's MEAN size — so the
+            // caste averages (and the tuned combat balance) are unchanged; only
+            // intra-caste variety is added. Speed + upkeep scale with ABSOLUTE size,
+            // giving a real cross-caste difference (soldiers genuinely lumber + cost more).
+            speedBias: 0.45,   // speed factor = 1 / (speedBias + (1-speedBias)*sizeVar)
+            upkeepBase: 0.60,  // upkeep factor = upkeepBase + (1-upkeepBase)*sizeVar
+        },
     },
 
     // Defence & alarm behaviour (combat, fleeing, recruitment, swarming).

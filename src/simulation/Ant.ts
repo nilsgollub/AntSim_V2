@@ -31,8 +31,12 @@ export class Ant {
     // protein foraging when both are needed, without per-frame flicker.
     forageSeed: number = rand();
 
-    // Cosmetic per-ant variety (set once, purely visual).
-    sizeVar: number = 0.85 + rand() * 0.3; // 0.85–1.15× draw scale
+    // Functional polymorphism: caste-correlated body size driving draw scale AND
+    // real stats (HP/bite/speed/upkeep). Assigned in the constructor from `type`.
+    sizeVar: number = 1;
+    attackDamage: number = CONFIG.workerDamage; // melee bite, scaled by size
+    sizeSpeed: number = 1;   // movement speed factor (bigger = slower)
+    sizeUpkeep: number = 1;  // energy-decay factor (bigger = costlier)
     shade: number = Math.floor(rand() * 4); // cached-sprite brightness variant
 
     // Pathfinding/Movement
@@ -65,7 +69,26 @@ export class Ant {
         this.type = type;
         this.angle = rand() * Math.PI * 2;
         this.energy = CONFIG.antMaxEnergy;
-        this.health = type === 'SOLDIER' ? CONFIG.soldierHealth : CONFIG.workerHealth;
+
+        // Functional polymorphism (size → stats). Soldiers are bigger, workers smaller.
+        const poly = CONFIG.ant.poly;
+        let sizeMin: number, sizeRange: number;
+        if (type === 'SOLDIER') { sizeMin = poly.soldierSizeMin; sizeRange = poly.soldierSizeRange; }
+        else if (type === 'WORKER') { sizeMin = poly.workerSizeMin; sizeRange = poly.workerSizeRange; }
+        else { sizeMin = 1.55; sizeRange = 0.1; } // queen-typed ant (rare/cosmetic)
+        this.sizeVar = sizeMin + rand() * sizeRange;
+
+        const baseHealth = type === 'SOLDIER' ? CONFIG.soldierHealth : CONFIG.workerHealth;
+        const baseDamage = type === 'SOLDIER' ? CONFIG.soldierDamage : CONFIG.workerDamage;
+        // HP + bite: scaled by size but centred on the caste mean, so caste *averages*
+        // (and the tuned combat balance) stay put — only intra-caste variety is added.
+        const sizeRel = this.sizeVar / (sizeMin + sizeRange / 2);
+        this.health = Math.round(baseHealth * sizeRel);
+        this.attackDamage = baseDamage * sizeRel;
+        // Speed + upkeep: scaled by absolute size → a real cross-caste difference.
+        this.sizeSpeed = 1 / (poly.speedBias + (1 - poly.speedBias) * this.sizeVar);
+        this.sizeUpkeep = poly.upkeepBase + (1 - poly.upkeepBase) * this.sizeVar;
+
         this.maxAge = CONFIG.ant.lifespan + rand() * CONFIG.ant.lifespanJitter;
         this.carrying = 'NONE';
         this.location = 'WORLD'; // Start in world
@@ -94,9 +117,9 @@ export class Ant {
 
         // Metabolism
         if (this.state === 'RESTING') {
-            this.energy -= CONFIG.antEnergyDecay * 0.1; // Sleep: Low energy usage
+            this.energy -= CONFIG.antEnergyDecay * 0.1 * this.sizeUpkeep; // Sleep: low usage
         } else {
-            this.energy -= CONFIG.antEnergyDecay;
+            this.energy -= CONFIG.antEnergyDecay * this.sizeUpkeep;
         }
 
         if (this.energy <= 0) {
@@ -327,7 +350,7 @@ export class Ant {
 
     move(world: World) {
         this.applySeparation(world);
-        const speed = CONFIG.antSpeed * this.speedMultiplier;
+        const speed = CONFIG.antSpeed * this.speedMultiplier * this.sizeSpeed;
         const nextX = this.x + Math.cos(this.angle) * speed;
         const nextY = this.y + Math.sin(this.angle) * speed;
 
@@ -394,7 +417,7 @@ export class Ant {
                 // Blocked by a wall. Wall-slide: rotate the heading just enough to
                 // find a walkable direction and step there, so ants flow around
                 // curved chamber/tunnel boundaries instead of oscillating.
-                const probe = CONFIG.antSpeed * Math.max(0.5, this.speedMultiplier);
+                const probe = CONFIG.antSpeed * Math.max(0.5, this.speedMultiplier) * this.sizeSpeed;
                 let slid = false;
                 for (let k = 1; k <= 6 && !slid; k++) {
                     const off = k * 0.4; // up to ~2.4 rad either way

@@ -90,10 +90,14 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
   unterversorgte zu Arbeitern. Gibt dem Spieler Einfluss auf Kastenzusammensetzung via
   Protein-Angebot.
 
-- [ ] **Funktionale Polymorphie** (`sizeVar` → echte Stats): `sizeVar` beeinflusst aktuell nur
-  Optik. Erweiterung: Soldat (sizeVar ≥ 1.3) → +50 % HP, +30 % Angriffsschaden, −20 % Speed,
-  höherer Unterhalt; Arbeiter (sizeVar ≤ 0.9) → schneller, günstiger. Konsistent mit
-  `CONFIG.ant.*`-Multiplikatoren.
+- [x] **Funktionale Polymorphie** (`sizeVar` → echte Stats): `sizeVar` ist jetzt kasten-korreliert
+  (`CONFIG.ant.poly`) und treibt sowohl Zeichengröße ALS AUCH echte Stats. **Soldaten** sind größer
+  (sizeVar 1.25–1.50) → mehr HP/Biss, aber langsamer + höherer Unterhalt; **Arbeiter** kleiner
+  (0.80–1.05) → schneller + günstiger. HP/Schaden skalieren **kasten-zentriert** (auf den jeweiligen
+  Mittelwert normiert), sodass die Kasten-*Durchschnitte* — und die getunte Kampfbalance — exakt
+  erhalten bleiben; nur Intra-Kasten-Varianz kommt dazu. Speed/Upkeep skalieren mit der *absoluten*
+  Größe → echter kastenübergreifender Unterschied. `Ant.attackDamage/sizeSpeed/sizeUpkeep` aus
+  Konstruktor. Tests (3) sichern: Soldaten zäher/stärker/langsamer/teurer + Kasten-Durchschnitt = Basis.
 
 - [x] **Dynamischer Nestausbau / Excavation (v2)**: Start mit einer Gründungskammer
   (alle Rollen), die sich mit Koloniewachstum differenziert — `Nest.growStage()`

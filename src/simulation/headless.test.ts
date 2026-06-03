@@ -23,7 +23,7 @@ describe('headless harness — golden (behaviour pinned)', () => {
     it('matches the pinned snapshot at 1000 ticks', () => {
         expect(runHeadless(12345, 1000)).toEqual({
             ticks: 1000, population: 21, workers: 20, soldiers: 1,
-            brood: 23, larvae: 16, sugar: 683, protein: 238,
+            brood: 23, larvae: 16, sugar: 659, protein: 238,
             queenEnergy: 2201, extraChambers: 2, peakPopulation: 21, minPopulation: 16,
         });
     });
@@ -31,7 +31,7 @@ describe('headless harness — golden (behaviour pinned)', () => {
     it('matches the pinned snapshot at 2500 ticks', () => {
         expect(runHeadless(12345, 2500)).toEqual({
             ticks: 2500, population: 23, workers: 22, soldiers: 1,
-            brood: 29, larvae: 15, sugar: 720, protein: 244,
+            brood: 29, larvae: 15, sugar: 683, protein: 184,
             queenEnergy: 2242, extraChambers: 2, peakPopulation: 23, minPopulation: 16,
         });
     });

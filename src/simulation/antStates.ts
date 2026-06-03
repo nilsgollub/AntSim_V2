@@ -562,7 +562,7 @@ export function handleCombat(ant: Ant, world: World) {
         if (minDist < CONFIG.ant.attackRangeSq) { // Attack range (30px)
             ant.speedMultiplier = 0; // Stop moving to attack!
             if (ant.attackCooldown <= 0) {
-                const dmg = ant.type === 'SOLDIER' ? CONFIG.soldierDamage : CONFIG.workerDamage;
+                const dmg = ant.attackDamage; // size-scaled bite (see Ant constructor)
                 nearestEnemy.health -= dmg;
                 world.addParticle(nearestEnemy.x, nearestEnemy.y, 'red', 'BLOOD');
                 ant.attackCooldown = 20;

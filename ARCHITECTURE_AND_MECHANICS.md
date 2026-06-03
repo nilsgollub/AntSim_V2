@@ -39,6 +39,14 @@ AntSim V2 is a complex, agent-based simulation of an ant colony, built with Type
 ### 3.2. The Ant Agent (`Ant.ts`)
 Ants are autonomous agents driven by a Finite State Machine (FSM).
 
+#### 3.2.0. Castes & polymorphism (`CONFIG.ant.poly`)
+Body size (`sizeVar`) is caste-correlated and drives both the draw scale and real
+stats. **Soldiers** are bigger (sizeVar 1.25–1.50) → more HP and bite (`attackDamage`)
+but slower (`sizeSpeed`) and costlier to run (`sizeUpkeep`); **workers** are smaller
+(0.80–1.05) → faster and cheaper. HP/damage scale *centred on each caste's mean size*,
+so the caste **averages** (and the tuned combat balance) are unchanged — only intra-caste
+variety is added; speed/upkeep scale with **absolute** size, a real cross-caste difference.
+
 #### 3.2.1. States
 -   **FORAGING:** Searching for food (Sugar/Protein). Follows pheromones or wanders.
 -   **RETURNING:** Carrying food back to the nest. Follows `HOME` pheromones or biases towards the nest.
