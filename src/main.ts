@@ -207,6 +207,7 @@ function saveUiState() {
             dayNightIntensity: renderer.dayNightIntensity,
             bloom: bloomEnabled,
             bloomIntensity,
+            webgl: !!backdrop,
         }));
     } catch { /* storage unavailable */ }
 }
@@ -238,6 +239,7 @@ if (!webglAvailable()) {
 }
 webglToggle.addEventListener('change', () => {
     if (webglToggle.checked) enableWebGL(); else disableWebGL();
+    saveUiState();
 });
 
 // ── Graphics settings panel ──────────────────────────────────────────────────
@@ -610,6 +612,20 @@ function drawStats() {
     if (typeof saved.bloomIntensity === 'number' && Number.isFinite(saved.bloomIntensity)) {
         bloomIntensity = saved.bloomIntensity;
         bloomRange.value = String(saved.bloomIntensity);
+    }
+})();
+
+// WebGL is the default renderer (richer visuals); honour an explicit opt-out from a
+// previous session, and fall back silently to canvas-2D where WebGL is unavailable (Pi-safe).
+(function initWebGL() {
+    let wantWebGL = true;
+    try {
+        const raw = localStorage.getItem(UI_KEY);
+        if (raw) { const s = JSON.parse(raw); if (typeof s.webgl === 'boolean') wantWebGL = s.webgl; }
+    } catch { /* default on */ }
+    if (wantWebGL && webglAvailable()) {
+        webglToggle.checked = true;
+        enableWebGL();
     }
 })();
 
