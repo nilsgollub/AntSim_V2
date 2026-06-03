@@ -66,6 +66,14 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number): Texture {
 // Subtle per-ant darkening for variety (multiply tint; lighter is impossible).
 const SHADE_TINT = [0xffffff, 0xeeeeee, 0xdddddd, 0xcccccc];
 
+// Per-channel multiply of two 0xRRGGBB tints (combine shade variety with team colour).
+function mulTint(a: number, b: number): number {
+    const r = (((a >> 16) & 0xff) * ((b >> 16) & 0xff) / 255) | 0;
+    const g = (((a >> 8) & 0xff) * ((b >> 8) & 0xff) / 255) | 0;
+    const bl = ((a & 0xff) * (b & 0xff) / 255) | 0;
+    return (r << 16) | (g << 8) | bl;
+}
+
 function bakeDisc(): Texture {
     const c = document.createElement('canvas');
     c.width = 32; c.height = 32;
@@ -327,26 +335,31 @@ export class PixiBackdrop {
             s.tint = 0xffffff;
         }
 
-        // Ants (world only) — natural look, texture by caste, no state/cargo tint.
-        // Legs animate via a walk-cycle frame; per-ant offset desyncs the colony.
-        const ants = world.ants;
-        this.pool(this.antPool, this.antLayer, this.antWorkerTex[0], ants.length);
+        // Ants (world only) — natural look, texture by caste; per-colony team tint so
+        // rival armies read apart. Legs animate via a walk-cycle frame.
+        let total = 0;
+        for (const c of world.colonies) total += c.ants.length;
+        this.pool(this.antPool, this.antLayer, this.antWorkerTex[0], total);
         let n = 0;
-        for (let i = 0; i < ants.length; i++) {
-            const a: any = ants[i];
-            const s = this.antPool[n++];
-            if (a.location !== 'WORLD') { s.visible = false; continue; }
-            s.visible = true;
-            const frames = a.type === 'SOLDIER' ? this.antSoldierTex : this.antWorkerTex;
-            const moving = (a.speedMultiplier ?? 1) > 0.05;
-            const idx = moving
-                ? (Math.floor(a.age * 0.3 + (a.forageSeed ?? 0) * frames.length) % frames.length)
-                : 0;
-            s.texture = frames[idx];
-            s.position.set(a.x, a.y);
-            s.rotation = a.angle;
-            s.scale.set((a.sizeVar ?? 1) * 0.5); // texture is 2× supersampled (bakeAnt SS=2)
-            s.tint = SHADE_TINT[(a.shade ?? 0) % SHADE_TINT.length];
+        for (const c of world.colonies) {
+            const team = c.teamTint;
+            for (let i = 0; i < c.ants.length; i++) {
+                const a: any = c.ants[i];
+                const s = this.antPool[n++];
+                if (a.location !== 'WORLD') { s.visible = false; continue; }
+                s.visible = true;
+                const frames = a.type === 'SOLDIER' ? this.antSoldierTex : this.antWorkerTex;
+                const moving = (a.speedMultiplier ?? 1) > 0.05;
+                const idx = moving
+                    ? (Math.floor(a.age * 0.3 + (a.forageSeed ?? 0) * frames.length) % frames.length)
+                    : 0;
+                s.texture = frames[idx];
+                s.position.set(a.x, a.y);
+                s.rotation = a.angle;
+                s.scale.set((a.sizeVar ?? 1) * 0.5); // texture is 2× supersampled (bakeAnt SS=2)
+                const shade = SHADE_TINT[(a.shade ?? 0) % SHADE_TINT.length];
+                s.tint = team === 0xffffff ? shade : mulTint(shade, team);
+            }
         }
         for (let i = n; i < this.antPool.length; i++) this.antPool[i].visible = false;
 

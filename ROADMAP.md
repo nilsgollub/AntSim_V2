@@ -175,8 +175,12 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
     Trophallaxis kolonie-gefiltert (nest-lokale Koordinaten überlappen im spatialGrid). Harness:
     **beide Kolonien koexistieren, foragen, überleben** (seed42 @12k: C0 pop≈112, C1 pop≈116).
     Golden bei colonyCount=1 unverändert; 79/79 grün.
-  - [ ] Offen: **Rendering** der 2. Kolonie (2. Nest zeichnen + Team-Farben), **Ant-vs-Ant**
-    (Grenz-Scharmützel: fremde `colonyId` als Feind, wiederverwendet Kampf/Alarm/Mob), Sandbox-Button.
+  - [x] **Phase 6 (Teil) — Rendering der Rivalen-Ameisen**: beide Renderer iterieren `colonies[]`;
+    Team-Tint (Pixi `sprite.tint` × Shade; 2D Team-Halo unter der Ameise). Kolonie 0 neutral, Rivale
+    blau. `?colonies=2` aktiviert die zweite Kolonie. *Offen:* 2. **Nest-Innenansicht** (der einzelne
+    nestCanvas zeigt nur Kolonie 0 — beide Nester teilen nest-lokale Koordinaten).
+  - [ ] Offen: **Ant-vs-Ant** (Grenz-Scharmützel: fremde `colonyId` als Feind, wiederverwendet
+    Kampf/Alarm/Mob), zweite Nest-Innenansicht, Sandbox-Button/UI-Toggle für `colonyCount`.
 - [ ] **Mehr Tests für die Ökonomie** (Queen/World-Integration)
 - [ ] Mobile **Touch/Pinch**-Steuerung für die Kamera (aktuell Maus-only)
 - [ ] Screenshot-/Export-Funktion

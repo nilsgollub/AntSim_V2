@@ -22,6 +22,13 @@ seedRng(seed);
 // Apply persisted parameter overrides to CONFIG before anything reads it.
 loadOverrides();
 
+// Rival colony: ?colonies=2 spawns a second colony on the opposite edge.
+const coloniesParam = new URLSearchParams(location.search).get('colonies');
+if (coloniesParam !== null) {
+    const n = Math.max(1, Math.min(2, Number(coloniesParam) | 0));
+    if (Number.isFinite(n)) CONFIG.colonyCount = n;
+}
+
 // ── Canvas setup ────────────────────────────────────────────────────────────
 const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
 

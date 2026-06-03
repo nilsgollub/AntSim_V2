@@ -317,10 +317,10 @@ export class Renderer {
             this.drawInsect(insect);
         }
 
-        // 6. Ants (World only)
-        for (const ant of world.ants) {
-            if (ant.location === 'WORLD') {
-                this.drawAnt(ant, this.ctx);
+        // 6. Ants (World only) — every colony.
+        for (const c of world.colonies) {
+            for (const ant of c.ants) {
+                if (ant.location === 'WORLD') this.drawAnt(ant, this.ctx);
             }
         }
         // 7. Particles
@@ -408,10 +408,10 @@ export class Renderer {
             this.drawBrood(b, ctx);
         }
 
-        for (const ant of world.ants) {
-            if (ant.location === 'NEST') {
-                this.drawAnt(ant, ctx);
-            }
+        // Nest interior shows colony 0 (the single nest canvas can't hold two nests
+        // at the same nest-local coords — rival nest rendering is a later step).
+        for (const ant of world.colonies[0].ants) {
+            if (ant.location === 'NEST') this.drawAnt(ant, ctx);
         }
 
         // Excavation dust
@@ -849,6 +849,19 @@ export class Renderer {
         // Subtle per-ant size variance so the colony isn't uniform.
         const sv = ant.sizeVar || 1;
         if (sv !== 1) ctx.scale(sv, sv);
+
+        // Team aura for rival colonies — a path-independent colour halo under the ant
+        // so the two armies read apart at every quality level. Colony 0 = no aura.
+        const team = ant.colony?.teamColor;
+        if (team) {
+            ctx.save();
+            ctx.globalAlpha = 0.5;
+            ctx.fillStyle = team;
+            ctx.beginPath();
+            ctx.arc(0, 0, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
 
         if (PerformanceManager.settings.simpleAnts) {
             // OPTIMIZED (Body Only, No Legs, Flat Colors)
@@ -1768,12 +1781,14 @@ export class Renderer {
         ctx.save();
         ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
 
-        // Draw Shadows for Ants
-        for (const ant of world.ants) {
-            if (ant.location === 'WORLD') {
-                ctx.beginPath();
-                ctx.ellipse(ant.x + shadowOffsetX, ant.y + shadowOffsetY, 3, 3, 0, 0, Math.PI * 2);
-                ctx.fill();
+        // Draw Shadows for Ants (every colony)
+        for (const c of world.colonies) {
+            for (const ant of c.ants) {
+                if (ant.location === 'WORLD') {
+                    ctx.beginPath();
+                    ctx.ellipse(ant.x + shadowOffsetX, ant.y + shadowOffsetY, 3, 3, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
         }
 
