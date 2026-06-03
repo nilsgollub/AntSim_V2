@@ -254,51 +254,20 @@ export class World {
         }
 
         if (this.age % CONFIG.pheromone.updateSkip === 0) {
-            this.grid.update();
-            this.nestGrid.update();
+            this.grid.update();                                  // shared outdoor field
+            for (const c of this.colonies) c.nestGrid.update();  // per-colony underground
         }
 
-        this.queen.update(this);
+        for (const c of this.colonies) c.queen.update(this);
 
-        // Update Spatial Grid
+        // Update Spatial Grid (over EVERY colony's ants, so ants sense each other).
         this.spatialGrid.clear();
-        for (const ant of this.ants) {
-            this.spatialGrid.add(ant);
+        for (const c of this.colonies) {
+            for (const ant of c.ants) this.spatialGrid.add(ant);
         }
 
-        // Update Brood
-        const proteinRich = this.proteinStockpile > CONFIG.brood.soldierProteinLevel;
-        for (let i = this.brood.length - 1; i >= 0; i--) {
-            const b = this.brood[i];
-            // Larvae raised during protein-rich times accumulate toward the soldier
-            // caste (no protein consumed here — the cost is broodProteinUpkeep).
-            if (proteinRich) b.provision();
-            const readyToHatch = b.update();
-            if (readyToHatch) {
-                // Hatch!
-                // Dynamic Caste Production
-                // Check Population Limit
-                if (this.ants.length < PerformanceManager.settings.maxAnts) {
-                    // Caste is set by how well the larva was provisioned (nutrition),
-                    // but soldiers stay locked until the colony is established.
-                    const workers = this.ants.filter(a => a.type === 'WORKER').length;
-                    let caste = b.destinedCaste ?? 'WORKER';
-                    if (caste === 'SOLDIER') {
-                        // Locked until the colony is established, and capped so the
-                        // workforce never collapses even when protein is abundant.
-                        const soldiers = this.ants.length - workers;
-                        const tooMany = soldiers >= this.ants.length * CONFIG.brood.maxSoldierFraction;
-                        if (workers <= CONFIG.soldierUnlockThreshold || tooMany) caste = 'WORKER';
-                    }
-                    this.spawnAnt(caste);
-                }
-
-                this.brood.splice(i, 1);
-            } else if (b.stage === 'LARVA' && b.hunger > 100) {
-                // Starved to death
-                this.brood.splice(i, 1);
-            }
-        }
+        // Update Brood (per colony).
+        for (const c of this.colonies) this.updateBrood(c);
 
         // Update Particles
         for (let i = this.particles.length - 1; i >= 0; i--) {
@@ -328,25 +297,12 @@ export class World {
             if (p.life <= 0) this.nestParticles.splice(i, 1);
         }
 
-        // Update Ants
-        for (let i = this.ants.length - 1; i >= 0; i--) {
-            const ant = this.ants[i];
-            ant.update(this);
-            if (ant.health <= 0) {
-                // Spawn Corpse
-                if (ant.location === 'WORLD') {
-                    const corpse = new Food(ant.x, ant.y, 'CORPSE', 100);
-                    corpse.corpseType = 'ANT';
-                    corpse.corpseAngle = ant.angle;
-                    this.foods.push(corpse);
-                }
-                this.ants.splice(i, 1);
-            }
-        }
+        // Update Ants (per colony).
+        for (const c of this.colonies) this.updateAnts(c);
 
         // Update Insects
-        // Dynamic Difficulty Scaling
-        const antCount = this.ants.length;
+        // Dynamic Difficulty Scaling (scales with the TOTAL ant population).
+        const antCount = this.totalAntCount();
         const currentMaxPredators = CONFIG.maxPredators + Math.floor(antCount / 50);
         const currentMaxSpiders = CONFIG.maxSpiders + Math.floor(antCount / 100);
         const currentMaxBeetles = CONFIG.maxBeetles + Math.floor(antCount / 150);
@@ -464,33 +420,90 @@ export class World {
             if (rand() < 0.05) this.spawnFood('SUGAR');
         }
 
-        // Passive colony upkeep: the nest steadily burns resources proportional
-        // to its size, so stockpiles no longer only grow.
-        //  - Sugar (energy) scales with the worker population.
-        //  - Protein (growth) scales with the number of larvae being raised.
-        if (this.sugarStockpile > 0) {
-            this.sugarStockpile = Math.max(0, this.sugarStockpile - CONFIG.colonyUpkeep * this.ants.length);
-        }
-        if (this.proteinStockpile > 0) {
-            this.proteinStockpile = Math.max(0, this.proteinStockpile - CONFIG.broodProteinUpkeep * this.larvae);
-        }
+        // Passive colony upkeep + dynamic excavation (per colony).
+        for (const c of this.colonies) {
+            //  - Sugar (energy) scales with the worker population.
+            //  - Protein (growth) scales with the number of larvae being raised.
+            if (c.sugarStockpile > 0) {
+                c.sugarStockpile = Math.max(0, c.sugarStockpile - CONFIG.colonyUpkeep * c.ants.length);
+            }
+            if (c.proteinStockpile > 0) {
+                c.proteinStockpile = Math.max(0, c.proteinStockpile - CONFIG.broodProteinUpkeep * c.larvae);
+            }
 
-        // Dynamic nest excavation: as the colony grows, dig extra satellite
-        // chambers. Renderer + navigation pick up the new nodes automatically.
-        const targetExtra = Math.min(
-            CONFIG.nest.maxExtraChambers,
-            Math.floor(this.ants.length / CONFIG.nest.excavateEvery),
-        );
-        while (this.nest.extraChambers < targetExtra) {
-            if (!this.nest.growStage()) break;
-            this.spawnNestDust();
+            // As the colony grows, dig extra satellite chambers. Renderer + navigation
+            // pick up the new nodes automatically.
+            const targetExtra = Math.min(
+                CONFIG.nest.maxExtraChambers,
+                Math.floor(c.ants.length / CONFIG.nest.excavateEvery),
+            );
+            while (c.nest.extraChambers < targetExtra) {
+                if (!c.nest.growStage()) break;
+                this.spawnNestDust(c.nest);
+            }
+        }
+    }
+
+    // Total ants across all colonies (drives shared difficulty scaling).
+    totalAntCount(): number {
+        let n = 0;
+        for (const c of this.colonies) n += c.ants.length;
+        return n;
+    }
+
+    // Brood lifecycle for one colony: provision toward caste, hatch (capped), starve.
+    private updateBrood(c: Colony) {
+        const proteinRich = c.proteinStockpile > CONFIG.brood.soldierProteinLevel;
+        for (let i = c.brood.length - 1; i >= 0; i--) {
+            const b = c.brood[i];
+            // Larvae raised during protein-rich times accumulate toward the soldier
+            // caste (no protein consumed here — the cost is broodProteinUpkeep).
+            if (proteinRich) b.provision();
+            const readyToHatch = b.update();
+            if (readyToHatch) {
+                // Hatch, subject to the population cap.
+                if (c.ants.length < PerformanceManager.settings.maxAnts) {
+                    // Caste is set by how well the larva was provisioned (nutrition),
+                    // but soldiers stay locked until the colony is established.
+                    const workers = c.ants.filter(a => a.type === 'WORKER').length;
+                    let caste = b.destinedCaste ?? 'WORKER';
+                    if (caste === 'SOLDIER') {
+                        // Locked until established, and capped so the workforce never
+                        // collapses even when protein is abundant.
+                        const soldiers = c.ants.length - workers;
+                        const tooMany = soldiers >= c.ants.length * CONFIG.brood.maxSoldierFraction;
+                        if (workers <= CONFIG.soldierUnlockThreshold || tooMany) caste = 'WORKER';
+                    }
+                    c.spawnAnt(caste);
+                }
+                c.brood.splice(i, 1);
+            } else if (b.stage === 'LARVA' && b.hunger > 100) {
+                c.brood.splice(i, 1); // starved to death
+            }
+        }
+    }
+
+    // Movement + lifecycle for one colony's ants; dead ants drop a corpse outdoors.
+    private updateAnts(c: Colony) {
+        for (let i = c.ants.length - 1; i >= 0; i--) {
+            const ant = c.ants[i];
+            ant.update(this);
+            if (ant.health <= 0) {
+                if (ant.location === 'WORLD') {
+                    const corpse = new Food(ant.x, ant.y, 'CORPSE', 100);
+                    corpse.corpseType = 'ANT';
+                    corpse.corpseAngle = ant.angle;
+                    this.foods.push(corpse);
+                }
+                c.ants.splice(i, 1);
+            }
         }
     }
 
     // A short burst of dust particles at the most recently dug chamber, drawn on
     // the nest canvas, as visual feedback for excavation.
-    spawnNestDust() {
-        const c = this.nest.chambers[this.nest.chambers.length - 1];
+    spawnNestDust(nest: Nest = this.nest) {
+        const c = nest.chambers[nest.chambers.length - 1];
         if (!c) return;
         for (let i = 0; i < 14; i++) {
             const a = rand() * Math.PI * 2;
