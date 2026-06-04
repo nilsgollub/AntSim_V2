@@ -22,11 +22,18 @@ seedRng(seed);
 // Apply persisted parameter overrides to CONFIG before anything reads it.
 loadOverrides();
 
-// Rival colony: ?colonies=2 spawns a second colony on the opposite edge.
-const coloniesParam = new URLSearchParams(location.search).get('colonies');
-if (coloniesParam !== null) {
-    const n = Math.max(1, Math.min(2, Number(coloniesParam) | 0));
-    if (Number.isFinite(n)) CONFIG.colonyCount = n;
+// Rival colony is the DEFAULT in the app. (The sim/test default in config.ts stays 1
+// so the golden snapshots — pinned at a single colony — remain frozen; only the app
+// opts into two.) Honour an explicit ?colonies=N and a saved preference.
+{
+    let n = 2; // default: rival colony on
+    try {
+        const s = JSON.parse(localStorage.getItem('antsim.ui.v1') || '{}');
+        if (typeof s.colonies === 'number') n = s.colonies;
+    } catch { /* default */ }
+    const param = new URLSearchParams(location.search).get('colonies');
+    if (param !== null) n = Number(param) | 0;
+    CONFIG.colonyCount = Math.max(1, Math.min(2, Number.isFinite(n) ? n : 2));
 }
 
 // ── Canvas setup ────────────────────────────────────────────────────────────
@@ -230,6 +237,7 @@ function saveUiState() {
             bloom: bloomEnabled,
             bloomIntensity,
             webgl: !!backdrop,
+            colonies: CONFIG.colonyCount,
         }));
     } catch { /* storage unavailable */ }
 }
@@ -307,9 +315,10 @@ restartBtn.addEventListener('click', () => {
 
 // Rival colony toggle: set the colony count and restart so the change takes effect.
 const rivalToggle = document.getElementById('rivalToggle') as HTMLInputElement;
-rivalToggle.checked = CONFIG.colonyCount > 1; // reflect ?colonies=2 / current state
+rivalToggle.checked = CONFIG.colonyCount > 1; // reflect default / ?colonies / saved
 rivalToggle.addEventListener('change', () => {
     CONFIG.colonyCount = rivalToggle.checked ? 2 : 1;
+    saveUiState();
     world = new World();
     clearSelection();
     camera.reset();
