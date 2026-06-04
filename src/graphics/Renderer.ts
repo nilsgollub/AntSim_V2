@@ -1080,6 +1080,7 @@ export class Renderer {
             ctx.ellipse(-3, 0, 2.5, 1.5, 0, 0, Math.PI * 2);
             ctx.fill();
         }
+        tintBody();
 
         // Carrying Food
         if (ant.carrying === 'SUGAR') {
