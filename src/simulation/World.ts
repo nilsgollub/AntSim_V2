@@ -316,6 +316,10 @@ export class World {
             if (p.life <= 0) this.nestParticles.splice(i, 1);
         }
 
+        // Rival warfare: a dominant colony musters a raid party against its rival.
+        // No-op (returns before any rand()) with a single colony → golden frozen.
+        for (const c of this.colonies) this.maybeLaunchRaid(c);
+
         // Update Ants (per colony).
         for (const c of this.colonies) this.updateAnts(c);
 
@@ -468,6 +472,33 @@ export class World {
         let n = 0;
         for (const c of this.colonies) n += c.ants.length;
         return n;
+    }
+
+    // A colony that is clearly stronger than its rival musters a raid party: a handful
+    // of patrolling soldiers march on the enemy entrance (handleRaiding). Deliberately
+    // deterministic (no rand) and gated on a second colony existing, so a single-colony
+    // run never enters this path and the golden snapshots stay byte-identical.
+    private maybeLaunchRaid(c: Colony) {
+        if (this.colonies.length < 2) return;
+        if (c.raidCooldown > 0) { c.raidCooldown--; return; }
+
+        const enemy = this.colonies[c.id === 0 ? 1 : 0];
+        if (enemy.ants.length === 0) return;
+
+        // Only raid from a position of strength: a population edge over the rival AND
+        // a critical mass of soldiers currently free (out patrolling) to spare.
+        if (c.ants.length <= enemy.ants.length * CONFIG.combat.raidPopEdge) return;
+        const available = c.ants.filter(a =>
+            a.type === 'SOLDIER' && a.location === 'WORLD' && a.state === 'PATROLLING' && a.health > 0);
+        if (available.length < CONFIG.combat.raidMinSoldiers) return;
+
+        const party = available.slice(0, CONFIG.combat.raidPartySize);
+        for (const a of party) {
+            a.state = 'RAIDING';
+            a.raidTarget = { x: enemy.entranceWorld.x, y: enemy.entranceWorld.y };
+            a.patrolTarget = null;
+        }
+        c.raidCooldown = CONFIG.combat.raidCooldown;
     }
 
     // Brood lifecycle for one colony: provision toward caste, hatch (capped), starve.

@@ -204,8 +204,13 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
     Reine Wiederverwendung der bestehenden Kampf-/Alarm-/Mob-Mechanik. Bei einer Kolonie alles No-Op
     → Golden eingefroren. Harness: zwei Kolonien kämpfen (Ameisenleichen erscheinen) und beide
     überleben (seed42 @15k ≈ 85 vs 92). 81/81 grün.
-  - [ ] Offen: Tuning der Kriegs-Balance, Brut-/Vorrats-Raub. (UI-Toggle für `colonyCount` ist
-    erledigt — der „Rivalenkolonie"-Schalter.)
+  - [~] **Brut-/Vorrats-Raub**: *Inkrement 1* — eine überlegene Kolonie (Pop-Vorsprung +
+    `raidMinSoldiers` freie Patrouillen-Soldaten) mustert eine Raid-Party (`RAIDING`), die zum
+    gegnerischen Eingang marschiert und unterwegs kämpft (Trigger `World.maybeLaunchRaid`,
+    deterministisch, No-Op bei 1 Kolonie → Golden eingefroren). *Offen:* Inkrement 2 — am Eingang
+    Vorräte stehlen + heimtragen; Inkrement 3 — Brut-Raub.
+  - [ ] Offen: Tuning der Kriegs-Balance. (UI-Toggle für `colonyCount` ist erledigt — der
+    „Rivalenkolonie"-Schalter.)
 - [x] **Mehr Tests für die Ökonomie** (Queen/World-Integration): Multi-Seed-Invarianten (Seeds 1/3/42
   @4000) — Königin lebt, Kolonie wuchs, Vorräte nicht negativ + mind. eine Ressource fließt, Brut-
   Pipeline lebt, Population unter Cap. Bewusst moderater Horizont (Überleben wird bei hohen Ticks

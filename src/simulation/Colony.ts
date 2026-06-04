@@ -29,6 +29,7 @@ export class Colony {
     sugarStockpile: number = CONFIG.startSugar;
     proteinStockpile: number = CONFIG.startProtein;
     trophallaxisCount: number = 0;     // mouth-to-mouth feedings (live stat / test guard)
+    raidCooldown: number = 0;          // ticks until this colony may launch its next raid
 
     // Navigation anchors — where this colony's nest meets the world. Decouples
     // "go home / leave the nest" from hardcoded world edges, so a second colony can

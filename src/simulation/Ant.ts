@@ -2,14 +2,14 @@ import { rand } from '../rng';
 import { CONFIG } from '../config';
 import { World } from './World';
 import type { Colony } from './Colony';
-import { handleNursing, handleResting, handleNurseIdle, handleTransporting, handlePatrolling, handleFleeing, handleCombat, handleForaging, handleHarvesting, handleReturning, handleHungry, handleMilking } from './antStates';
+import { handleNursing, handleResting, handleNurseIdle, handleTransporting, handlePatrolling, handleFleeing, handleCombat, handleForaging, handleHarvesting, handleReturning, handleHungry, handleMilking, handleRaiding } from './antStates';
 
 export class Ant {
     x: number;
     y: number;
     angle: number;
     type: 'WORKER' | 'SOLDIER' | 'QUEEN';
-    state: 'FORAGING' | 'RETURNING' | 'IDLE' | 'NURSING' | 'PATROLLING' | 'FLEEING' | 'ATTACKING' | 'TRANSPORTING' | 'HARVESTING' | 'HUNGRY' | 'MILKING' | 'RESTING';
+    state: 'FORAGING' | 'RETURNING' | 'IDLE' | 'NURSING' | 'PATROLLING' | 'FLEEING' | 'ATTACKING' | 'TRANSPORTING' | 'HARVESTING' | 'HUNGRY' | 'MILKING' | 'RESTING' | 'RAIDING';
     carrying: 'NONE' | 'SUGAR' | 'PROTEIN' | 'BROOD' | 'CORPSE';
     carryingAmount: number = 0;
     carryingInstance: any = null;
@@ -65,6 +65,9 @@ export class Ant {
     patrolAngle: number = 0;
     patrolRadius: number = 100;
     patrolTarget: { x: number, y: number } | null = null;
+    // Raid: the rival nest entrance (world point) this ant is marching on, set when
+    // its colony launches a raid (rival-colony mode only). null = not raiding.
+    raidTarget: { x: number, y: number } | null = null;
     // A chamber target committed once (e.g. which nursery a carried brood goes to),
     // so per-frame "nearest chamber" recomputation can't make the ant thrash between
     // rooms and never arrive.
@@ -186,6 +189,9 @@ export class Ant {
                 break;
             case 'ATTACKING':
                 handleCombat(this, world);
+                break;
+            case 'RAIDING':
+                handleRaiding(this, world);
                 break;
             case 'TRANSPORTING':
                 handleTransporting(this, world);

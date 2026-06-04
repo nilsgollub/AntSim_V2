@@ -206,6 +206,13 @@ export const CONFIG = {
         grappleMaxSlow: 0.8,    // …capped here (a swarmed enemy can still struggle a little)
         patrolLongChance: 0.2,  // chance a new patrol target is a far-ranging sweep
         patrolLongRangeFrac: 0.35, // long patrols reach up to this fraction of the world size
+        // Rival raids (only active with a second colony). A dominant colony musters a
+        // raid party of patrolling soldiers to march on the enemy nest entrance.
+        raidPopEdge: 1.25,      // need >25% more ants than the rival to raid (raid from strength)
+        raidMinSoldiers: 6,     // …and at least this many soldiers free (out patrolling)
+        raidPartySize: 8,       // how many soldiers join one raid
+        raidCooldown: 1500,     // ticks between a colony's raids (~25s at 60fps)
+        raidArriveRangeSq: 70 * 70, // "at the enemy doorstep" radius (squared)
     },
 
     // Enemy combat stats (HP + per-hit damage to ants). Tuned so a predator is a

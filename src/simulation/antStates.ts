@@ -433,6 +433,40 @@ export function handlePatrolling(ant: Ant, world: World) {
 }
 
 
+// Raiders march on the rival nest entrance. Any rival met en route is engaged with
+// the existing combat (→ ATTACKING). On reaching the enemy doorstep they (Increment 1)
+// abandon the push; Increment 2 loots the rival's stockpile here. Rival-colony mode
+// only — never reached with a single colony, so the golden run is unaffected.
+export function handleRaiding(ant: Ant, world: World) {
+    // Engage any nearby rival (same trigger the patrol uses).
+    if (ant.location === 'WORLD') {
+        const foes = world.spatialGrid.getNearby(ant.x, ant.y, 100);
+        for (const o of foes) {
+            if (o.colony !== ant.colony && o.location === 'WORLD' && o.type !== 'QUEEN' && o.health > 0) {
+                if ((ant.x - o.x) ** 2 + (ant.y - o.y) ** 2 < CONFIG.ant.detectEnemyRangeSq) {
+                    ant.state = 'ATTACKING';
+                    return;
+                }
+            }
+        }
+    }
+
+    const t = ant.raidTarget;
+    if (!t) { ant.state = 'PATROLLING'; return; }
+
+    const dx = t.x - ant.x;
+    const dy = t.y - ant.y;
+    if (dx * dx + dy * dy < CONFIG.combat.raidArriveRangeSq) {
+        // Reached the enemy doorstep with no defenders in range. (Increment 2 loots
+        // the stockpile here.) For now: end the push and fall back to patrol.
+        ant.raidTarget = null;
+        ant.state = 'PATROLLING';
+        return;
+    }
+    ant.angle = Math.atan2(dy, dx);
+}
+
+
 export function handleFleeing(ant: Ant, _world: World) {
     ant.speedMultiplier = 2.5; // Run fast!
     ant.fleeTimer--;
