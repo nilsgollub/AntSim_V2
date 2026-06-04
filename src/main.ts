@@ -293,6 +293,16 @@ restartBtn.addEventListener('click', () => {
     camera.reset();
 });
 
+// Rival colony toggle: set the colony count and restart so the change takes effect.
+const rivalToggle = document.getElementById('rivalToggle') as HTMLInputElement;
+rivalToggle.checked = CONFIG.colonyCount > 1; // reflect ?colonies=2 / current state
+rivalToggle.addEventListener('change', () => {
+    CONFIG.colonyCount = rivalToggle.checked ? 2 : 1;
+    world = new World();
+    clearSelection();
+    camera.reset();
+});
+
 // ── Camera mouse input ───────────────────────────────────────────────────────
 let isDragging   = false;
 let dragStartX   = 0;
