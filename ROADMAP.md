@@ -204,7 +204,10 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
     überleben (seed42 @15k ≈ 85 vs 92). 81/81 grün.
   - [ ] Offen: Tuning der Kriegs-Balance, Brut-/Vorrats-Raub. (UI-Toggle für `colonyCount` ist
     erledigt — der „Rivalenkolonie"-Schalter.)
-- [ ] **Mehr Tests für die Ökonomie** (Queen/World-Integration)
+- [x] **Mehr Tests für die Ökonomie** (Queen/World-Integration): Multi-Seed-Invarianten (Seeds 1/3/42
+  @4000) — Königin lebt, Kolonie wuchs, Vorräte nicht negativ + mind. eine Ressource fließt, Brut-
+  Pipeline lebt, Population unter Cap. Bewusst moderater Horizont (Überleben wird bei hohen Ticks
+  RNG-dominiert), fängt Balance-Regressionen, die nur einzelne Seeds treffen. 93/93 grün.
 - [x] Mobile **Touch/Pinch**-Steuerung für die Kamera: 1 Finger Pan, 2 Finger Pinch-Zoom (Anker =
   Mittelpunkt), Tap = Tool/Inspect. Nutzt dieselbe `Camera`-API wie der Maus-Pfad; `touch-action:none`
   unterdrückt native Gesten.
