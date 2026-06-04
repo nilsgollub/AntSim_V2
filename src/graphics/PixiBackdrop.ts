@@ -17,7 +17,7 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
     ctx.lineCap = 'round';
 
     // Legs (6) — `phase` (0..1) swings them for a walk cycle (tripod-ish gait).
-    ctx.strokeStyle = enemy ? '#9a9a9a' : (type === 'SOLDIER' ? '#2a1410' : '#8a8a8a');
+    ctx.strokeStyle = enemy ? '#707070' : (type === 'SOLDIER' ? '#2a1410' : '#8a8a8a');
     ctx.lineWidth = 0.7;
     const count = 6, length = 4.5;
     for (let i = 0; i < count; i++) {
@@ -36,13 +36,13 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
         // terrain (drawn untinted, so the outline isn't darkened by a team tint).
         const head = () => { ctx.beginPath(); ctx.moveTo(1, -4.5); ctx.lineTo(6, -4.5); ctx.quadraticCurveTo(8, -4.5, 8, 0); ctx.quadraticCurveTo(8, 4.5, 6, 4.5); ctx.lineTo(1, 4.5); ctx.quadraticCurveTo(0, 0, 1, -4.5); };
         ctx.lineJoin = 'round';
-        ctx.strokeStyle = '#f0f0f0'; ctx.lineWidth = 1.3;
-        ctx.fillStyle = '#0d0d0d';
+        ctx.strokeStyle = '#9a9a9a'; ctx.lineWidth = 0.7;
+        ctx.fillStyle = '#141414';
         ctx.beginPath(); ctx.ellipse(-6, 0, 3.6, 2.6, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); // abdomen
         ctx.beginPath(); ctx.ellipse(-1, 0, 2.6, 2.1, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); // thorax
-        ctx.fillStyle = '#1a1a1a';
+        ctx.fillStyle = '#222';
         head(); ctx.fill(); ctx.stroke(); // big head
-        ctx.strokeStyle = '#dddddd'; ctx.lineWidth = 1.4;
+        ctx.strokeStyle = '#888'; ctx.lineWidth = 1.0;
         ctx.beginPath();
         ctx.moveTo(8, 3); ctx.quadraticCurveTo(11, 3, 12, 0.5);
         ctx.moveTo(8, -3); ctx.quadraticCurveTo(11, -3, 12, -0.5); ctx.stroke(); // mandibles
@@ -193,7 +193,7 @@ export class PixiBackdrop {
         // Bloom: bright things (pheromone glow, particles, food glints) get a soft
         // halo. A low threshold lets the glowing trails through; the dark dirt
         // (~0.16 luminance) stays below it and remains crisp.
-        this.bloom = new AdvancedBloomFilter({ threshold: 0.3, bloomScale: this.bloomIntensity, brightness: 1, blur: 8, quality: 5 });
+        this.bloom = new AdvancedBloomFilter({ threshold: 0.5, bloomScale: this.bloomIntensity, brightness: 1, blur: 8, quality: 5 });
         this.applyBloom();
 
         this.bgSprite = new Sprite(Texture.from(renderer.bgCanvas));
