@@ -94,8 +94,23 @@ let simSpeed  = 1;
 let paused    = false;
 
 // ── UI elements ─────────────────────────────────────────────────────────────
-const speedRange     = document.getElementById('speedRange')     as HTMLInputElement;
+const speedDownBtn   = document.getElementById('speedDown')      as HTMLButtonElement;
+const speedUpBtn     = document.getElementById('speedUp')        as HTMLButtonElement;
 const speedVal       = document.getElementById('speedVal')       as HTMLElement;
+// Discrete speed steps (0 = pause). +/- step through these — less fiddly than a slider.
+const SPEED_STEPS = [0, 0.5, 1, 2, 4, 8];
+function applySpeed(s: number, save = true) {
+    simSpeed = s;
+    speedVal.innerText = s + 'x';
+    if (save) saveUiState();
+}
+function stepSpeed(dir: 1 | -1) {
+    // Snap to the nearest step, then move one in `dir`.
+    let i = 0, best = Infinity;
+    SPEED_STEPS.forEach((v, k) => { const d = Math.abs(v - simSpeed); if (d < best) { best = d; i = k; } });
+    i = Math.max(0, Math.min(SPEED_STEPS.length - 1, i + dir));
+    applySpeed(SPEED_STEPS[i]);
+}
 const restartBtn     = document.getElementById('restartBtn')     as HTMLButtonElement;
 const fpsDisplay     = document.getElementById('fps')            as HTMLElement;
 const popStat        = document.getElementById('popStat')        as HTMLElement;
@@ -229,11 +244,8 @@ function applyQuality(level: QualityLevel) {
 }
 
 // ── Speed / pheromone / quality ──────────────────────────────────────────────
-speedRange.addEventListener('input', () => {
-    simSpeed = parseFloat(speedRange.value);
-    speedVal.innerText = simSpeed + 'x';
-    saveUiState();
-});
+speedDownBtn.addEventListener('click', () => stepSpeed(-1));
+speedUpBtn.addEventListener('click', () => stepSpeed(1));
 pheromoneToggle.addEventListener('change', () => {
     renderer.showPheromones = pheromoneToggle.checked;
     saveUiState();
@@ -610,9 +622,7 @@ function drawStats() {
         pheromoneToggle.checked = saved.pheromones;
     }
     if (typeof saved.speed === 'number' && Number.isFinite(saved.speed)) {
-        simSpeed = saved.speed;
-        speedRange.value = String(saved.speed);
-        speedVal.innerText = saved.speed + 'x';
+        applySpeed(saved.speed, false);
     }
     if (typeof saved.dayNight === 'boolean') {
         renderer.dayNight = saved.dayNight;
