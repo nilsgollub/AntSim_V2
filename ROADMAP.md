@@ -41,6 +41,15 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
 - [x] HUD/Control-Panel-Shell, Inspector-Panel, Tuner-/Slider-Panels
 - [x] Pheromon-Overlay deckungsgleich unter Kamera (Logik-Space-Rework)
 - [x] Nest-Pheromon-Overlay-Mapping gefixt → **dann komplett ausgeblendet** (im Nest zu dicht)
+- [x] **WebGL-Renderer (Pixi.js v8) als Standard** — gebackene Ant-Texturen + Multiply-Tints,
+  Bloom (nur WebGL); stiller Fallback auf Canvas-2D, wo WebGL fehlt (Pi-sicher). UI-Toggle + Opt-out
+  überleben via `localStorage`.
+- [x] **Speed-Slider durch +/−-Buttons ersetzt** (`SPEED_STEPS=[0,0.5,1,2,4,8]`) — am Touch-Kiosk
+  zielsicherer als der fummelige Slider.
+- [x] **URL-Parameter** zum Vorkonfigurieren ohne UI: `?seed=<n>` (reproduzierbarer Run),
+  `?colonies=1|2` (Rivalenkolonie), `?quality=ULTRA_LOW…ULTRA` (pinnt die Render-Qualität,
+  überschreibt `localStorage` — vom Pi-Kiosk-Screensaver genutzt, damit er auch auf einem frischen
+  Chromium-Profil auf einem Pi-freundlichen Level startet).
 
 ### Optische Politur
 - [x] Tag/Nacht-Beleuchtung sichtbar (drawLighting verdrahtet, alle Stufen)
@@ -176,9 +185,16 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
     **beide Kolonien koexistieren, foragen, überleben** (seed42 @12k: C0 pop≈112, C1 pop≈116).
     Golden bei colonyCount=1 unverändert; 79/79 grün.
   - [x] **Phase 6 (Teil) — Rendering der Rivalen-Ameisen**: beide Renderer iterieren `colonies[]`;
-    Team-Tint (Pixi `sprite.tint` × Shade; 2D Team-Halo unter der Ameise). Kolonie 0 neutral, Rivale
-    blau. `?colonies=2` aktiviert die zweite Kolonie. *Offen:* 2. **Nest-Innenansicht** (der einzelne
-    nestCanvas zeigt nur Kolonie 0 — beide Nester teilen nest-lokale Koordinaten).
+    Team-Tint (Pixi `sprite.tint` × Shade; 2D Team-Halo unter der Ameise). Kolonie 0 = eigene Ameisen
+    (warm-braune Worker, natürliche Soldaten), Rivale = **gedämpftes Bernstein/Gelb** (das frühere
+    Blau wirkte unnatürlich) mit eigener, dunkler Soldaten-Textur. Die Rivalenkolonie ist jetzt
+    **App-Default** (`colonyCount=2`, via UI-Toggle/`localStorage` umschaltbar; `?colonies=1/2`
+    überschreibt). *Offen:* 2. **Nest-Innenansicht** (der einzelne nestCanvas zeigt nur Kolonie 0 —
+    beide Nester teilen nest-lokale Koordinaten).
+  - [x] **Phase 6 — Optische Politur** (`PixiBackdrop`): Kontakt-Schatten unter jeder Ameise,
+    Fracht-Punkt am Kopf (Zucker/Protein/Brut/Leiche farbcodiert), additiver Kampf-Funke beim Biss,
+    abgerundete Soldatenköpfe, zurückgenommener Bloom-Schwellenwert. Nest-Ameisen werden leicht
+    erdig getönt gerendert (nicht mehr reinweiß).
   - [x] **Phase 5 — Ant-vs-Ant-Krieg**: fremde `colonyId` zählt als Feind. `countNearbyEnemies`
     bezieht Rivalen-Ameisen (draußen) ein, `countNearbyAllies` filtert auf die eigene Kolonie;
     `handleCombat` zielt auch auf Rivalen (Biss via `attackDamage`); Soldaten-Patrouille + Forager
@@ -227,9 +243,16 @@ gezielte Nachrüstung. Nach Hebelwirkung sortiert.
   unverändert) — der Harness hat den Refactor lückenlos abgesichert. *Offen:* `Renderer.ts`
   analog in Layer aufteilen.
 
-- [ ] **Robuste Nest-Navigation**: Kreis-Union + Greedy-Pfadsuche war die Wurzel des Hängens.
+- [~] **Robuste Nest-Navigation**: Kreis-Union + Greedy-Pfadsuche war die Wurzel des Hängens.
   Ersetzbar durch Raum-Graph mit expliziten Kanten + A* (robust by design). Teil-entschärft
-  (Stern-Topologie + Wall-Sliding, bereits im Hauptbranch); eine echte Graph-Pfadsuche steht aus.
+  (Stern-Topologie + Wall-Sliding, bereits im Hauptbranch). **Anti-Jitter ergänzt**: Nest-Ameisen
+  blieben an konkaven Ecken hängen und zitterten dort ein paar Pixel hin und her — die alte
+  Stuck-Erkennung mass nur die Bewegung *pro Frame* und übersah das (Oszillation „bewegt sich"
+  ja jeden Frame), und eine einmalige Recovery-Drehung wurde vom FSM-Handler sofort überschrieben.
+  Jetzt: **Fenster-Erkennung** (< 6 px Netto-Fortschritt über 20 Frames, schlafende Ameisen
+  ausgenommen) + eine kurze **Escape-Phase**, die in `move()` das Handler-Heading überschreibt und
+  zur nächsten offenen Node-Mitte lenkt. Deterministisch (kein neues `rand()`); Golden bewusst neu
+  gepinnt (Population/Brut identisch). Eine echte Graph-A*-Pfadsuche steht weiter aus.
 
 - [ ] **Daten-orientiert für Skalierung (ECS / Structure-of-Arrays)**: Objekt-pro-Ameise ist
   GC-/Cache-unfreundlich; für >500 Ameisen oder Kolonienkrieg deutlich schneller in SoA/ECS.
@@ -242,3 +265,13 @@ gezielte Nachrüstung. Nach Hebelwirkung sortiert.
 - Build: `npm run build` (strenges `tsc`) · Dev: `npm run dev` · Tests: `npm run test`
 - Tunable-Parameter zentral in `src/config.ts`; Laufzeit-Overrides via `src/configStore.ts`
 - Läuft auf Raspberry Pi 4: Quality `Ultra Low`/`Low` (Diffusion aus, 0.4× Auflösung); Auto-Downgrade bei <20 FPS
+
+## Deployment
+- **Home Assistant** (statisch via `www`): `npm run build` → `dist/` nach `config/www/antsim/`
+  spiegeln, erreichbar unter `/local/antsim/`. Braucht `vite.config base: './'` (relative Pfade
+  für Subpath-Hosting). Details: [DEPLOYMENT_HAOS.md](DEPLOYMENT_HAOS.md).
+- **Raspberry-Pi-Kiosk** ([nilsgollub/Ameisennest](https://github.com/nilsgollub/Ameisennest), Ordner
+  `kiosk/`): läuft als **Bildschirmschoner** in einem iframe. Der Kiosk-nginx proxied `/antsim/` auf
+  die HA-Instanz und schneidet `X-Frame-Options` raus (sonst blockt HA das Einbetten → Weißbild) —
+  so wird AntSim **nur einmal** (auf HA) deployed, der Kiosk zeigt es nur an. Screensaver-URL:
+  `./antsim/index.html?colonies=2&quality=LOW`.
