@@ -751,10 +751,26 @@ export class Renderer {
     private antSprites: Record<string, HTMLCanvasElement> = {};
     private static readonly ANT_SHADES = [1.0, 0.85, 1.13, 0.93];
 
-    private getCachedAnt(type: 'WORKER' | 'SOLDIER', variant: number = 0): HTMLCanvasElement {
+    private getCachedAnt(type: 'WORKER' | 'SOLDIER', variant: number = 0, tint?: string): HTMLCanvasElement {
         const v = ((variant % Renderer.ANT_SHADES.length) + Renderer.ANT_SHADES.length) % Renderer.ANT_SHADES.length;
-        const key = `${type}_${v}`;
+        const key = `${type}_${v}_${tint || ''}`;
         if (this.antSprites[key]) return this.antSprites[key];
+
+        // Colony tint: clip-tint the shaded base on a TRANSPARENT buffer (source-atop
+        // clips to the sprite pixels → no square halo over the opaque nest floor).
+        if (tint) {
+            const base = this.getCachedAnt(type, v);
+            const out = document.createElement('canvas');
+            out.width = base.width; out.height = base.height;
+            const octx = out.getContext('2d')!;
+            octx.drawImage(base, 0, 0);
+            octx.globalCompositeOperation = 'source-atop';
+            octx.globalAlpha = 0.6;
+            octx.fillStyle = tint;
+            octx.fillRect(0, 0, out.width, out.height);
+            this.antSprites[key] = out;
+            return out;
+        }
 
         // Variants other than the base are brightness-shifted copies of the base.
         if (v !== 0) {
@@ -863,18 +879,10 @@ export class Renderer {
             ctx.restore();
         }
 
-        // Body tint (so nest ants aren't plain white, and to colour rivals). Applied
-        // 'source-atop' after the sprite/body is drawn, in each return path below.
-        const bodyTint: string = (ant.type === 'SOLDIER' ? ant.colony?.soldierColor2D : ant.colony?.workerColor2D) || '';
-        const tintBody = () => {
-            if (!bodyTint) return;
-            ctx.save();
-            ctx.globalCompositeOperation = 'source-atop';
-            ctx.globalAlpha = 0.55;
-            ctx.fillStyle = bodyTint;
-            ctx.fillRect(-15, -15, 30, 30);
-            ctx.restore();
-        };
+        // Body colour for this ant (so nest ants aren't plain white + to colour rivals).
+        // Applied as the actual fill colour below — NOT as an overlay rect, which would
+        // tint the opaque nest floor under the ant (the "square halo" bug).
+        const workerCol: string = ant.colony?.workerColor2D || '#cccccc';
 
         if (PerformanceManager.settings.simpleAnts) {
             // OPTIMIZED (Body Only, No Legs, Flat Colors)
@@ -892,8 +900,8 @@ export class Renderer {
                 ctx.beginPath(); ctx.rect(1, -3, 5, 6); ctx.fill();
 
             } else {
-                // Worker: Light Gray (matching HIGH/ULTRA)
-                ctx.fillStyle = '#CCC';
+                // Worker: colony body colour (own warm brown, rival amber).
+                ctx.fillStyle = workerCol;
 
                 // Abdomen
                 ctx.beginPath(); ctx.ellipse(-3, 0, 2.5, 1.5, 0, 0, Math.PI * 2); ctx.fill();
@@ -902,7 +910,6 @@ export class Renderer {
                 // Head
                 ctx.beginPath(); ctx.arc(2, 0, 1.5, 0, Math.PI * 2); ctx.fill();
             }
-            tintBody();
 
             // Carrying Indicator (Simple dot)
             if (ant.carrying !== 'NONE') {
@@ -920,9 +927,8 @@ export class Renderer {
 
         // Optimization for MEDIUM: Use Cached Sprite if legs are static
         if (!PerformanceManager.settings.legAnimation && (ant.type === 'WORKER' || ant.type === 'SOLDIER')) {
-            const sprite = this.getCachedAnt(ant.type, ant.shade || 0);
+            const sprite = this.getCachedAnt(ant.type, ant.shade || 0, ant.type === 'WORKER' ? workerCol : undefined);
             ctx.drawImage(sprite, -15, -15);
-            tintBody();
 
             // Draw Carrying Item on top
             if (ant.carrying !== 'NONE') {
@@ -1054,18 +1060,9 @@ export class Renderer {
             ctx.stroke();
 
         } else {
-            // WORKER
+            // WORKER — colony body colour (own warm brown, rival amber).
+            ctx.fillStyle = workerCol;
             // Head
-            // WORKER
-            // Head
-            if (PerformanceManager.settings.gradients) {
-                const gradHead = ctx.createRadialGradient(2, 0, 0, 2, 0, 2);
-                gradHead.addColorStop(0, '#FFF');
-                gradHead.addColorStop(1, '#AAA');
-                ctx.fillStyle = gradHead;
-            } else {
-                ctx.fillStyle = '#CCC';
-            }
             ctx.beginPath();
             ctx.arc(2, 0, 1.5, 0, Math.PI * 2);
             ctx.fill();
@@ -1080,7 +1077,6 @@ export class Renderer {
             ctx.ellipse(-3, 0, 2.5, 1.5, 0, 0, Math.PI * 2);
             ctx.fill();
         }
-        tintBody();
 
         // Carrying Food
         if (ant.carrying === 'SUGAR') {
