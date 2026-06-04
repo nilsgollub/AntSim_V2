@@ -97,10 +97,12 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
   `rand()` → Golden stabil). `World.trophallaxisCount` als Live-Stat + Test-Guard (seed7 @8000 ≈ 70
   Fütterungen, Kolonie gesund). *Offen:* Larven-Trophallaxis, sichtbares Fütter-Partikel.
 
-- [ ] **Larven-Ernährung bestimmt Kaste**: `Brood.cumulativeFood` verfolgt Gesamtfütterung;
-  gut gefütterte Larven (`> CONFIG.brood.soldierFoodThreshold`) verpuppen sich zu Soldaten,
-  unterversorgte zu Arbeitern. Gibt dem Spieler Einfluss auf Kastenzusammensetzung via
-  Protein-Angebot.
+- [x] **Larven-Ernährung bestimmt Kaste**: `Brood.cumulativeFood` verfolgt Gesamtfütterung;
+  gut gefütterte Larven (`≥ CONFIG.brood.soldierFoodThreshold`) verpuppen sich zu Soldaten,
+  unterversorgte zu Arbeitern. Verdrahtet in `World.updateBrood`: bei Protein-Überschuss
+  (`> soldierProteinLevel`) ruft jede Larve `provision()`; beim Schlupf entscheidet `destinedCaste`
+  die Kaste (mit `maxSoldierFraction`-Cap). Gibt dem Spieler Einfluss auf die Kastenmischung via
+  Protein-Angebot. Tests in `Brood.test.ts`.
 
 - [x] **Funktionale Polymorphie** (`sizeVar` → echte Stats): `sizeVar` ist jetzt kasten-korreliert
   (`CONFIG.ant.poly`) und treibt sowohl Zeichengröße ALS AUCH echte Stats. **Soldaten** sind größer
@@ -214,7 +216,6 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
 - [x] Screenshot-/Export-Funktion: 📷-Button komponiert die Weltansicht (WebGL-Layer via Pixi
   `extract` + 2D-Overlay) zu einem PNG-Download (`antsim_seed<n>_t<tick>.png`). Funktioniert in
   WebGL- *und* 2D-Modus.
-- [ ] WebWorker für den Sim-Step (Render entkoppeln)
 - [~] **Robuste Nest-Navigation**: Kreis-Union + Greedy-Pfadsuche war die Wurzel des Hängens.
   Ersetzbar durch Raum-Graph mit expliziten Kanten + A* (robust by design). Teil-entschärft
   (Stern-Topologie + Wall-Sliding, bereits im Hauptbranch). **Anti-Jitter ergänzt**: Nest-Ameisen
