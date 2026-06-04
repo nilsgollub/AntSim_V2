@@ -72,6 +72,16 @@ export class Ant {
     stuckTimer: number = 0;
     lastX: number = 0;
     lastY: number = 0;
+    // Nest anti-jitter: a short "escape" burst that overrides the handler's heading
+    // and walks the ant to an open node centre, breaking corner-oscillation. Plus a
+    // windowed progress anchor that detects net-zero movement the per-frame test
+    // misses (an ant vibrating a few px back and forth still "moves" each frame).
+    nestEscapeTimer: number = 0;
+    nestEscapeX: number = 0;
+    nestEscapeY: number = 0;
+    progressX: number = 0;
+    progressY: number = 0;
+    progressTimer: number = 0;
 
     constructor(x: number, y: number, type: 'WORKER' | 'SOLDIER' | 'QUEEN') {
         this.x = x;
@@ -365,9 +375,19 @@ export class Ant {
 
     move(world: World) {
         this.applySeparation(world);
+        // Nest escape burst: if we flagged this ant as wedged/oscillating, steer it to a
+        // committed open node centre for a few frames, overriding whatever the FSM handler
+        // aimed at this frame (the handler re-aims at the unreachable spot every frame, so
+        // a one-off recovery angle gets clobbered — this wins until the burst expires).
+        let speedMul = this.speedMultiplier;
+        if (this.location === 'NEST' && this.nestEscapeTimer > 0) {
+            this.nestEscapeTimer--;
+            this.angle = Math.atan2(this.nestEscapeY - this.y, this.nestEscapeX - this.x);
+            speedMul = Math.max(speedMul, 0.6); // don't crawl out at sleep speed
+        }
         // Outdoor ants slow down at night (the nest is unaffected — it's dark anyway).
         const night = this.location === 'WORLD' ? world.activityFactor() : 1;
-        const speed = CONFIG.antSpeed * this.speedMultiplier * this.sizeSpeed * night;
+        const speed = CONFIG.antSpeed * speedMul * this.sizeSpeed * night;
         const nextX = this.x + Math.cos(this.angle) * speed;
         const nextY = this.y + Math.sin(this.angle) * speed;
 
@@ -458,17 +478,15 @@ export class Ant {
                 }
             }
 
-            // Nest stuck-recovery: if wedged for a while, steer toward the nearest
-            // node centre to break free of a concave pocket.
-            if (this.stuckTimer > 25) {
-                const nearest = this.colony.nest.getNearestNode(this.x, this.y);
-                if (nearest) {
-                    this.angle = Math.atan2(nearest.y - this.y, nearest.x - this.x) + (rand() - 0.5) * 0.8;
-                }
+            // Nest stuck-recovery: if wedged solid (barely moving) for a while, start an
+            // escape burst toward the nearest open node centre to break out of a concave
+            // pocket. The burst overrides the handler heading (see top of move()).
+            if (this.stuckTimer > 25 && this.nestEscapeTimer === 0) {
+                this.startNestEscape();
                 this.stuckTimer = 0;
             }
         }
-        // Stuck Detection
+        // Stuck Detection (per-frame): catches an ant wedged near-solid against a wall.
         const movedDist = (this.x - this.lastX) ** 2 + (this.y - this.lastY) ** 2;
         if (movedDist < 0.25) {
             this.stuckTimer++;
@@ -477,6 +495,40 @@ export class Ant {
         }
         this.lastX = this.x;
         this.lastY = this.y;
+
+        // Stuck Detection (windowed): an ant oscillating a few px back and forth still
+        // "moves" each frame, so the per-frame test never fires. Compare net displacement
+        // over a window instead. Only for nest ants that INTEND to move — a sleeping ant
+        // (speedMultiplier 0) sits still on purpose and must not be disturbed.
+        if (this.location === 'NEST' && speedMul > 0 && this.nestEscapeTimer === 0) {
+            if (++this.progressTimer >= 20) {
+                const pdx = this.x - this.progressX;
+                const pdy = this.y - this.progressY;
+                if (pdx * pdx + pdy * pdy < 36) { // < 6px net over 20 frames → jittering
+                    this.startNestEscape();
+                }
+                this.progressX = this.x;
+                this.progressY = this.y;
+                this.progressTimer = 0;
+            }
+        } else {
+            // Stationary, mid-escape, or outdoors: keep the anchor fresh so resuming
+            // movement doesn't immediately false-trigger against a stale position.
+            this.progressX = this.x;
+            this.progressY = this.y;
+            this.progressTimer = 0;
+        }
+    }
+
+    // Begin a short escape burst toward the nearest open node centre. move() steers
+    // there (overriding the handler) until the timer expires, walking the ant out of
+    // the concave corner it was stuck in. No rand() → deterministic.
+    startNestEscape() {
+        const node = this.colony.nest.getNearestNode(this.x, this.y);
+        if (!node) return;
+        this.nestEscapeX = node.x;
+        this.nestEscapeY = node.y;
+        this.nestEscapeTimer = 25;
     }
 
     // Trophallaxis: a fed forager back in the nest shares crop — food gathered in
