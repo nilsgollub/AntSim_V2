@@ -212,6 +212,36 @@ document.addEventListener('keydown', e => {
 });
 cameraResetBtn.addEventListener('click', () => camera.reset());
 
+// ── Screenshot / Export: composite the world view to a PNG download ───────────
+// WebGL mode: the Pixi world (glCanvas) sits under the 2D effects (gameCanvas) —
+// composite both. The WebGL canvas can't be read back directly (no
+// preserveDrawingBuffer), so pull it via Pixi's extract. 2D mode: gameCanvas
+// already holds the full render.
+function takeScreenshot() {
+    const w = canvas.width, h = canvas.height;
+    const out = document.createElement('canvas');
+    out.width = w; out.height = h;
+    const ctx = out.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, w, h); // opaque background (layers have alpha)
+    if (backdrop) {
+        const gl = backdrop.snapshotCanvas();
+        if (gl) ctx.drawImage(gl, 0, 0, w, h);
+    }
+    ctx.drawImage(canvas, 0, 0, w, h);
+    out.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `antsim_seed${seed}_t${world.age}.png`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, 'image/png');
+}
+document.getElementById('screenshotBtn')?.addEventListener('click', takeScreenshot);
+
 // Zoom buttons (keyboard +/- too) — zoom toward the current view centre.
 const zoomInBtn  = document.getElementById('zoomInBtn')  as HTMLButtonElement;
 const zoomOutBtn = document.getElementById('zoomOutBtn') as HTMLButtonElement;

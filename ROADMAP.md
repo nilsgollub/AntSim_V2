@@ -208,7 +208,9 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
 - [x] Mobile **Touch/Pinch**-Steuerung für die Kamera: 1 Finger Pan, 2 Finger Pinch-Zoom (Anker =
   Mittelpunkt), Tap = Tool/Inspect. Nutzt dieselbe `Camera`-API wie der Maus-Pfad; `touch-action:none`
   unterdrückt native Gesten.
-- [ ] Screenshot-/Export-Funktion
+- [x] Screenshot-/Export-Funktion: 📷-Button komponiert die Weltansicht (WebGL-Layer via Pixi
+  `extract` + 2D-Overlay) zu einem PNG-Download (`antsim_seed<n>_t<tick>.png`). Funktioniert in
+  WebGL- *und* 2D-Modus.
 - [ ] WebWorker für den Sim-Step (Render entkoppeln)
 - [~] **Robuste Nest-Navigation**: Kreis-Union + Greedy-Pfadsuche war die Wurzel des Hängens.
   Ersetzbar durch Raum-Graph mit expliziten Kanten + A* (robust by design). Teil-entschärft

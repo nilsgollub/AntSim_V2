@@ -443,6 +443,14 @@ export class PixiBackdrop {
         this.app.render();
     }
 
+    // Snapshot the current WebGL world to a 2D canvas for screenshot/export. Uses
+    // Pixi's extract (re-renders the stage to a render texture), so it works without
+    // preserveDrawingBuffer. Returns null when the backdrop isn't ready.
+    snapshotCanvas(): HTMLCanvasElement | null {
+        if (!this.ready || !this.app) return null;
+        return this.app.renderer.extract.canvas(this.app.stage) as HTMLCanvasElement;
+    }
+
     destroy() {
         this.ready = false;
         if (this.app) {
