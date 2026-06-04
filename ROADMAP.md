@@ -217,7 +217,13 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
   Jetzt: **Fenster-Erkennung** (< 6 px Netto-Fortschritt über 20 Frames, schlafende Ameisen
   ausgenommen) + eine kurze **Escape-Phase**, die in `move()` das Handler-Heading überschreibt und
   zur nächsten offenen Node-Mitte lenkt. Deterministisch (kein neues `rand()`); Golden bewusst neu
-  gepinnt (Population/Brut identisch). Eine echte Graph-A*-Pfadsuche steht weiter aus.
+  gepinnt (Population/Brut identisch). **Graph-Routing vereinheitlicht**: die Nurse-/Idle-Handler
+  (Königin/Larven füttern, Brut aufsammeln, Storage) steuerten noch straight-line durch Wände;
+  jetzt nutzen sie `Ant.steerThroughNest()` — geht *gerade*, solange die Linie frei ist
+  (Line-of-Sight via `nest.isInside`-Sampling), und routet nur bei echter Wand über
+  `getNextNodeTowards` um die Ecke. So bleiben die effizienten Wege (z.B. nach innen zum Hub)
+  unangetastet und nur die blockierten werden korrigiert. Eine echte Graph-A*-Pfadsuche steht
+  weiter aus, ist mit der Baum-Topologie aber praktisch nicht mehr nötig.
 
 ## 🏗 Architektur & Technische Schuld (Refactors)
 „Was würde ich anders machen, wenn ich neu anfinge" — geerdet an den Schmerzpunkten

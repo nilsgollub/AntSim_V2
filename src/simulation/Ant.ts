@@ -323,6 +323,36 @@ export class Ant {
     // a heading was applied. On arriving with no food present (source depleted —
     // otherwise the food-detection scan would have caught it), the memory is
     // forgotten so the ant explores again.
+    // Steer toward a target INSIDE the nest. If the straight line is clear (stays
+    // inside the nest the whole way) we head straight — most nest trips are, e.g.
+    // inward toward the central hub. Only when a wall actually blocks the line do we
+    // fall back to the node graph, so the heading rounds the tunnel corner instead of
+    // sticking/jittering against the wall. No rand() → deterministic.
+    steerThroughNest(targetX: number, targetY: number) {
+        if (this.nestLineClear(targetX, targetY)) {
+            this.angle = Math.atan2(targetY - this.y, targetX - this.x);
+            return;
+        }
+        const node = this.colony.nest.getNextNodeTowards(this.x, this.y, targetX, targetY);
+        const tx = node ? node.x : targetX;
+        const ty = node ? node.y : targetY;
+        this.angle = Math.atan2(ty - this.y, tx - this.x);
+    }
+
+    // True if every sampled point on the segment to (tx,ty) lies inside the nest —
+    // i.e. no wall between the ant and the target. Coarse sampling (~12px), early-out.
+    private nestLineClear(tx: number, ty: number): boolean {
+        const dx = tx - this.x;
+        const dy = ty - this.y;
+        const dist = Math.hypot(dx, dy);
+        const n = Math.min(10, Math.ceil(dist / 12));
+        for (let i = 1; i < n; i++) {
+            const t = i / n;
+            if (!this.colony.nest.isInside(this.x + dx * t, this.y + dy * t, 3)) return false;
+        }
+        return true;
+    }
+
     steerToMemory(): boolean {
         if (this.foodMemoryX < 0) return false;
         const dx = this.foodMemoryX - this.x;

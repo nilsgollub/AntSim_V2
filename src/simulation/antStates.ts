@@ -50,7 +50,7 @@ export function handleNursing(ant: Ant, _world: World) {
     const dx = targetX - ant.x;
     const dy = targetY - ant.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    ant.angle = Math.atan2(dy, dx);
+    ant.steerThroughNest(targetX, targetY);
 
     if (dist < 10) {
         // Feed
@@ -168,8 +168,8 @@ export function handleNurseIdle(ant: Ant, world: World) {
             if (distSq < CONFIG.ant.arriveRangeSq) {
                 ant.eatFromStockpile(world);
             } else {
-                // Move to storage
-                ant.angle = Math.atan2(dy, dx);
+                // Route to storage via the node graph (around corners, not through walls)
+                ant.steerThroughNest(storage.x, storage.y);
             }
             return;
         }
@@ -209,7 +209,7 @@ export function handleNurseIdle(ant: Ant, world: World) {
                         ?? ant.colony.nest.getChamber('BROOD');
                     ant.carryTarget = home ? { x: home.x, y: home.y } : null;
                 } else {
-                    ant.angle = Math.atan2(dy, dx);
+                    ant.steerThroughNest(misplacedBrood.x, misplacedBrood.y);
                 }
                 return;
             }
@@ -236,8 +236,8 @@ export function handleNurseIdle(ant: Ant, world: World) {
                     ant.carryingAmount = 10;
                     ant.state = 'NURSING';
                 } else {
-                    // Move to storage
-                    ant.angle = Math.atan2(dy, dx);
+                    // Route to storage via the node graph (around corners, not through walls)
+                    ant.steerThroughNest(storage.x, storage.y);
                 }
                 return;
             }
