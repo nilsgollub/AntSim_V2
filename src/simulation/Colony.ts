@@ -68,10 +68,10 @@ export class Colony {
         // original single-colony formulas exactly → colony 0 stays byte-identical.
         // Index-based palette. 0 = us (warm brown workers, natural soldiers),
         // 1 = rival (amber workers, black soldiers via dedicated texture).
-        const WORKER_TINTS = [0xc7a079, 0xf2c23a, 0x88c0a0, 0xd0a0d0];
+        const WORKER_TINTS = [0xa89884, 0xddb24e, 0x88c0a0, 0xd0a0d0]; // own = muted earthy brown
         const SOLDIER_TINTS = [0xffffff, 0xffffff, 0xffffff, 0xffffff];
-        const TEAM_COLORS = ['', '#d9a83a', '#88c0a0', '#d0a0d0'];
-        const WORKER_2D = ['#9c7c52', '#d9a83a', '#7ab090', '#c090c0'];
+        const TEAM_COLORS = ['', '#cba046', '#88c0a0', '#d0a0d0'];
+        const WORKER_2D = ['#7e7058', '#cba046', '#7ab090', '#c090c0']; // own = muted taupe-brown
         const SOLDIER_2D = ['', '#2b271f', '', ''];
         this.workerTint = WORKER_TINTS[id % WORKER_TINTS.length];
         this.soldierTint = SOLDIER_TINTS[id % SOLDIER_TINTS.length];

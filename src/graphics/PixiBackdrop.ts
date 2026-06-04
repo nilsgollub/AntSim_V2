@@ -66,6 +66,7 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
 
 // Subtle per-ant darkening for variety (multiply tint; lighter is impossible).
 const SHADE_TINT = [0xffffff, 0xeeeeee, 0xdddddd, 0xcccccc];
+const CARGO_TINT: Record<string, number> = { SUGAR: 0xffd24a, PROTEIN: 0xd9483a, BROOD: 0xfff0f0, CORPSE: 0x8a8a8a };
 
 // Per-channel multiply of two 0xRRGGBB tints (combine shade variety with team colour).
 function mulTint(a: number, b: number): number {
@@ -113,12 +114,18 @@ export class PixiBackdrop {
     private pheroSprite!: Sprite;
     private foodLayer!: Container;
     private bugLayer!: Container;
+    private shadowLayer!: Container;
     private antLayer!: Container;
+    private overlayLayer!: Container;
+    private flashLayer!: Container;
     private particleLayer!: Container;
 
     private foodPool: Sprite[] = [];
     private bugPool: Sprite[] = [];
+    private shadowPool: Sprite[] = [];   // soft contact shadow under each ant
     private antPool: Sprite[] = [];
+    private carryPool: Sprite[] = [];    // little dot showing carried cargo
+    private flashPool: Sprite[] = [];    // brief clash spark during combat
     private particlePool: Sprite[] = [];
 
     private antWorkerTex: Texture[] = []; // walk-cycle frames
@@ -213,10 +220,15 @@ export class PixiBackdrop {
 
         this.foodLayer = new Container();
         this.bugLayer = new Container();
+        this.shadowLayer = new Container();
         this.antLayer = new Container();
+        this.overlayLayer = new Container();   // carried-cargo dots over the ants
+        this.flashLayer = new Container();
+        this.flashLayer.blendMode = 'add';     // combat sparks glow
         this.particleLayer = new Container();
         this.particleLayer.blendMode = 'add';
-        this.world.addChild(this.foodLayer, this.bugLayer, this.antLayer, this.particleLayer);
+        this.world.addChild(this.foodLayer, this.bugLayer, this.shadowLayer, this.antLayer,
+            this.overlayLayer, this.flashLayer, this.particleLayer);
 
         this.ready = true;
     }
@@ -343,17 +355,31 @@ export class PixiBackdrop {
         let total = 0;
         for (const c of world.colonies) total += c.ants.length;
         this.pool(this.antPool, this.antLayer, this.antWorkerTex[0], total);
-        let n = 0;
+        this.pool(this.shadowPool, this.shadowLayer, this.discTex, total);
+        this.pool(this.carryPool, this.overlayLayer, this.discTex, total);
+        this.pool(this.flashPool, this.flashLayer, this.discTex, total);
+        let n = 0, cn = 0, fn = 0;
         for (const c of world.colonies) {
             const rival = c.id > 0;
             for (let i = 0; i < c.ants.length; i++) {
                 const a: any = c.ants[i];
-                const s = this.antPool[n++];
-                if (a.location !== 'WORLD') { s.visible = false; continue; }
+                const s = this.antPool[n];
+                const sh = this.shadowPool[n];
+                n++;
+                if (a.location !== 'WORLD') { s.visible = false; sh.visible = false; continue; }
+                const sz = a.sizeVar ?? 1;
+
+                // Soft contact shadow under the ant (grounds it).
+                sh.visible = true;
+                sh.position.set(a.x, a.y + 1.4);
+                sh.scale.set(sz * 0.34);
+                sh.tint = 0x000000;
+                sh.alpha = 0.26;
+
                 s.visible = true;
                 const soldier = a.type === 'SOLDIER';
-                // Rival soldiers use the dedicated black/outlined texture (untinted so the
-                // outline survives); everyone else is the natural texture × caste team tint.
+                // Rival soldiers use the dedicated dark texture (untinted); everyone else
+                // is the natural texture × caste team tint.
                 const enemySoldier = soldier && rival;
                 const frames = enemySoldier ? this.antEnemySoldierTex
                                             : (soldier ? this.antSoldierTex : this.antWorkerTex);
@@ -364,17 +390,41 @@ export class PixiBackdrop {
                 s.texture = frames[idx];
                 s.position.set(a.x, a.y);
                 s.rotation = a.angle;
-                s.scale.set((a.sizeVar ?? 1) * 0.5); // texture is 2× supersampled (bakeAnt SS=2)
+                s.scale.set(sz * 0.5); // texture is 2× supersampled (bakeAnt SS=2)
                 const shade = SHADE_TINT[(a.shade ?? 0) % SHADE_TINT.length];
                 if (enemySoldier) {
-                    s.tint = shade; // keep the black + bright outline intact
+                    s.tint = shade;
                 } else {
                     const caste = soldier ? c.soldierTint : c.workerTint;
                     s.tint = caste === 0xffffff ? shade : mulTint(shade, caste);
                 }
+
+                // Carried cargo: a small coloured dot at the head.
+                if (a.carrying && a.carrying !== 'NONE') {
+                    const cs = this.carryPool[cn++];
+                    cs.visible = true;
+                    const off = 5.5 * sz;
+                    cs.position.set(a.x + Math.cos(a.angle) * off, a.y + Math.sin(a.angle) * off);
+                    cs.scale.set(0.13);
+                    cs.tint = CARGO_TINT[a.carrying] || 0xffffff;
+                    cs.alpha = 1;
+                }
+
+                // Combat spark: a brief additive flash at the jaws just after a bite lands.
+                if (a.state === 'ATTACKING' && a.attackCooldown > 15) {
+                    const fs = this.flashPool[fn++];
+                    fs.visible = true;
+                    const off = 8 * sz;
+                    fs.position.set(a.x + Math.cos(a.angle) * off, a.y + Math.sin(a.angle) * off);
+                    fs.scale.set(0.2);
+                    fs.tint = 0xfff0c0;
+                    fs.alpha = 0.9;
+                }
             }
         }
-        for (let i = n; i < this.antPool.length; i++) this.antPool[i].visible = false;
+        for (let i = n; i < this.antPool.length; i++) { this.antPool[i].visible = false; this.shadowPool[i].visible = false; }
+        for (let i = cn; i < this.carryPool.length; i++) this.carryPool[i].visible = false;
+        for (let i = fn; i < this.flashPool.length; i++) this.flashPool[i].visible = false;
 
         // Particles
         const ps = world.particles;
