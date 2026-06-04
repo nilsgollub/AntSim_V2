@@ -31,3 +31,29 @@ describe('rival colony — two colonies coexist', () => {
         expect(w.colonies[0].outdoorField).not.toBe(w.colonies[1].outdoorField);
     });
 });
+
+describe('rival colony — ant-vs-ant warfare', () => {
+    afterAll(() => { CONFIG.colonyCount = 1; });
+
+    CONFIG.colonyCount = 2;
+    seedRng(42);
+    const w = new World();
+    let antCorpseSeen = false;
+    for (let i = 0; i < 10000; i++) {
+        w.update();
+        if (!antCorpseSeen) {
+            for (const f of w.foods) {
+                if ((f as unknown as { corpseType?: string }).corpseType === 'ANT') { antCorpseSeen = true; break; }
+            }
+        }
+    }
+
+    it('rival colonies actually fight (ant corpses appear on the field)', () => {
+        expect(antCorpseSeen).toBe(true);
+    });
+
+    it('but the war is survivable — neither side is instantly annihilated', () => {
+        expect(w.colonies[0].ants.length).toBeGreaterThan(0);
+        expect(w.colonies[1].ants.length).toBeGreaterThan(0);
+    });
+});

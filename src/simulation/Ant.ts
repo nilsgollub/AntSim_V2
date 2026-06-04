@@ -538,7 +538,8 @@ export class Ant {
         const nearby = world.spatialGrid.getNearby(this.x, this.y, radius);
         let count = 0;
         for (const ant of nearby) {
-            if (ant !== this && ant.type !== 'QUEEN' && ant.location === this.location) {
+            // Same colony only — a rival's ants are not allies.
+            if (ant !== this && ant.type !== 'QUEEN' && ant.location === this.location && ant.colony === this.colony) {
                 const dx = ant.x - this.x;
                 const dy = ant.y - this.y;
                 if (dx * dx + dy * dy < radius * radius) {
@@ -549,8 +550,8 @@ export class Ant {
         return count;
     }
 
-    // Count dangerous enemies (predators/spiders/beetles) within radius — used to
-    // judge local numerical superiority for mobbing vs fleeing.
+    // Count dangerous enemies within radius (predators/spiders/beetles + rival-colony
+    // ants outdoors) — used to judge local numerical superiority for mobbing vs fleeing.
     countNearbyEnemies(world: World, radius: number): number {
         if (this.location === 'NEST') return 0;
         const r2 = radius * radius;
@@ -559,6 +560,15 @@ export class Ant {
             if (ins.type === 'PREDATOR' || ins.type === 'SPIDER' || ins.type === 'BEETLE') {
                 const dx = ins.x - this.x;
                 const dy = ins.y - this.y;
+                if (dx * dx + dy * dy < r2) count++;
+            }
+        }
+        // Rival-colony ants (outdoors) are enemies too.
+        const nearby = world.spatialGrid.getNearby(this.x, this.y, radius);
+        for (const other of nearby) {
+            if (other.colony !== this.colony && other.location === 'WORLD' && other.type !== 'QUEEN') {
+                const dx = other.x - this.x;
+                const dy = other.y - this.y;
                 if (dx * dx + dy * dy < r2) count++;
             }
         }

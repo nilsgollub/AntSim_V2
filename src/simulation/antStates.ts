@@ -328,6 +328,18 @@ export function handlePatrolling(ant: Ant, world: World) {
                 }
             }
         }
+        // Rival-colony ants near the patrol → engage.
+        if (ant.location === 'WORLD') {
+            const foes = world.spatialGrid.getNearby(ant.x, ant.y, 100);
+            for (const o of foes) {
+                if (o.colony !== ant.colony && o.location === 'WORLD' && o.type !== 'QUEEN') {
+                    if ((ant.x - o.x) ** 2 + (ant.y - o.y) ** 2 < CONFIG.ant.detectEnemyRangeSq) {
+                        ant.state = 'ATTACKING';
+                        return;
+                    }
+                }
+            }
+        }
         // Alarm response: rally toward a DANGER trail even without a visible enemy
         // (ATTACKING then follows the danger gradient to the alarm source).
         if (ant.colony.outdoorField.get(ant.x, ant.y, 'DANGER') > CONFIG.combat.alarmThreshold) {
@@ -500,6 +512,22 @@ export function handleCombat(ant: Ant, world: World) {
             if (d2 < minDist) {
                 minDist = d2;
                 nearestEnemy = insect;
+            }
+        }
+    }
+
+    // Rival-colony ants (outdoors) are valid targets too — the spoils of war.
+    if (ant.location === 'WORLD') {
+        const foes = world.spatialGrid.getNearby(ant.x, ant.y, 110);
+        for (const other of foes) {
+            if (other.colony !== ant.colony && other.location === 'WORLD' && other.type !== 'QUEEN' && other.health > 0) {
+                const dx = ant.x - other.x;
+                const dy = ant.y - other.y;
+                const d2 = dx * dx + dy * dy;
+                if (d2 < minDist) {
+                    minDist = d2;
+                    nearestEnemy = other;
+                }
             }
         }
     }
@@ -713,6 +741,29 @@ export function handleForaging(ant: Ant, world: World) {
                 ant.angle += Math.PI;
             }
             return;
+        }
+
+        // Direct contact with rival-colony ants (e.g. at contested food) → mob if locally
+        // superior, else flee and raise the alarm. (No-op for a single colony.)
+        if (ant.location === 'WORLD') {
+            let rivals = 0;
+            const near = world.spatialGrid.getNearby(ant.x, ant.y, 60);
+            for (const o of near) {
+                if (o.colony !== ant.colony && o.location === 'WORLD' && o.type !== 'QUEEN') {
+                    if ((o.x - ant.x) ** 2 + (o.y - ant.y) ** 2 < 3600) rivals++;
+                }
+            }
+            if (rivals > 0) {
+                const allies = ant.countNearbyAllies(world, 100);
+                if (allies >= CONFIG.combat.mobMinAllies && allies >= rivals * CONFIG.combat.mobSuperiority) {
+                    ant.state = 'ATTACKING';
+                } else {
+                    ant.state = 'FLEEING';
+                    ant.fleeTimer = 30;
+                    ant.angle += Math.PI;
+                }
+                return;
+            }
         }
 
         // 1. Hunt

@@ -179,8 +179,15 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
     Team-Tint (Pixi `sprite.tint` × Shade; 2D Team-Halo unter der Ameise). Kolonie 0 neutral, Rivale
     blau. `?colonies=2` aktiviert die zweite Kolonie. *Offen:* 2. **Nest-Innenansicht** (der einzelne
     nestCanvas zeigt nur Kolonie 0 — beide Nester teilen nest-lokale Koordinaten).
-  - [ ] Offen: **Ant-vs-Ant** (Grenz-Scharmützel: fremde `colonyId` als Feind, wiederverwendet
-    Kampf/Alarm/Mob), zweite Nest-Innenansicht, Sandbox-Button/UI-Toggle für `colonyCount`.
+  - [x] **Phase 5 — Ant-vs-Ant-Krieg**: fremde `colonyId` zählt als Feind. `countNearbyEnemies`
+    bezieht Rivalen-Ameisen (draußen) ein, `countNearbyAllies` filtert auf die eigene Kolonie;
+    `handleCombat` zielt auch auf Rivalen (Biss via `attackDamage`); Soldaten-Patrouille + Forager
+    erkennen Rivalen → ATTACKING/FLEEING (mobben bei lokaler Übermacht, sonst fliehen + DANGER-Alarm).
+    Reine Wiederverwendung der bestehenden Kampf-/Alarm-/Mob-Mechanik. Bei einer Kolonie alles No-Op
+    → Golden eingefroren. Harness: zwei Kolonien kämpfen (Ameisenleichen erscheinen) und beide
+    überleben (seed42 @15k ≈ 85 vs 92). 81/81 grün.
+  - [ ] Offen: zweite **Nest-Innenansicht**, Sandbox-Button/UI-Toggle für `colonyCount` (statt nur
+    `?colonies=2`), Tuning der Kriegs-Balance, Brut-/Vorrats-Raub.
 - [ ] **Mehr Tests für die Ökonomie** (Queen/World-Integration)
 - [ ] Mobile **Touch/Pinch**-Steuerung für die Kamera (aktuell Maus-only)
 - [ ] Screenshot-/Export-Funktion
