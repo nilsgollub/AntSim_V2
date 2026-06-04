@@ -7,7 +7,7 @@ import type { Renderer } from './Renderer';
 // ── Baked textures (drawn once to small canvases, then batched as sprites) ──
 // Realistic ant matching the canvas-2D look: 3 body segments, 6 legs, antennae.
 // Drawn in natural colours and shown untinted (no state/cargo recolouring).
-function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number): Texture {
+function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Texture {
     const SS = 2; // supersample for crispness
     const c = document.createElement('canvas');
     c.width = 30 * SS; c.height = 30 * SS;
@@ -17,7 +17,7 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number): Texture {
     ctx.lineCap = 'round';
 
     // Legs (6) — `phase` (0..1) swings them for a walk cycle (tripod-ish gait).
-    ctx.strokeStyle = type === 'SOLDIER' ? '#2a1410' : '#8a8a8a';
+    ctx.strokeStyle = enemy ? '#9a9a9a' : (type === 'SOLDIER' ? '#2a1410' : '#8a8a8a');
     ctx.lineWidth = 0.7;
     const count = 6, length = 4.5;
     for (let i = 0; i < count; i++) {
@@ -31,7 +31,22 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number): Texture {
         ctx.stroke();
     }
 
-    if (type === 'SOLDIER') {
+    if (type === 'SOLDIER' && enemy) {
+        // Enemy soldier: black body with a light outline so it reads clearly on dark
+        // terrain (drawn untinted, so the outline isn't darkened by a team tint).
+        const head = () => { ctx.beginPath(); ctx.moveTo(1, -4.5); ctx.lineTo(6, -4.5); ctx.quadraticCurveTo(8, -4.5, 8, 0); ctx.quadraticCurveTo(8, 4.5, 6, 4.5); ctx.lineTo(1, 4.5); ctx.quadraticCurveTo(0, 0, 1, -4.5); };
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#f0f0f0'; ctx.lineWidth = 1.3;
+        ctx.fillStyle = '#0d0d0d';
+        ctx.beginPath(); ctx.ellipse(-6, 0, 3.6, 2.6, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); // abdomen
+        ctx.beginPath(); ctx.ellipse(-1, 0, 2.6, 2.1, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); // thorax
+        ctx.fillStyle = '#1a1a1a';
+        head(); ctx.fill(); ctx.stroke(); // big head
+        ctx.strokeStyle = '#dddddd'; ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(8, 3); ctx.quadraticCurveTo(11, 3, 12, 0.5);
+        ctx.moveTo(8, -3); ctx.quadraticCurveTo(11, -3, 12, -0.5); ctx.stroke(); // mandibles
+    } else if (type === 'SOLDIER') {
         ctx.fillStyle = '#4a0606';
         ctx.beginPath(); ctx.ellipse(-6, 0, 3.6, 2.6, 0, 0, Math.PI * 2); ctx.fill(); // abdomen
         ctx.fillStyle = '#8b0000';
@@ -122,6 +137,7 @@ export class PixiBackdrop {
 
     private antWorkerTex: Texture[] = []; // walk-cycle frames
     private antSoldierTex: Texture[] = [];
+    private antEnemySoldierTex: Texture[] = []; // rival soldiers: black + light outline
     private insectTex: Record<string, Texture> = {};
     private foodTex: Record<string, Texture> = {};
     private discTex!: Texture;
@@ -164,6 +180,7 @@ export class PixiBackdrop {
         for (let f = 0; f < ANT_FRAMES; f++) {
             this.antWorkerTex.push(bakeAnt('WORKER', f / ANT_FRAMES));
             this.antSoldierTex.push(bakeAnt('SOLDIER', f / ANT_FRAMES));
+            this.antEnemySoldierTex.push(bakeAnt('SOLDIER', f / ANT_FRAMES, true));
         }
         this.discTex = bakeDisc();
         // Reuse the exact canvas-2D art for insects, food and decoration.
@@ -342,13 +359,18 @@ export class PixiBackdrop {
         this.pool(this.antPool, this.antLayer, this.antWorkerTex[0], total);
         let n = 0;
         for (const c of world.colonies) {
-            const team = c.teamTint;
+            const rival = c.id > 0;
             for (let i = 0; i < c.ants.length; i++) {
                 const a: any = c.ants[i];
                 const s = this.antPool[n++];
                 if (a.location !== 'WORLD') { s.visible = false; continue; }
                 s.visible = true;
-                const frames = a.type === 'SOLDIER' ? this.antSoldierTex : this.antWorkerTex;
+                const soldier = a.type === 'SOLDIER';
+                // Rival soldiers use the dedicated black/outlined texture (untinted so the
+                // outline survives); everyone else is the natural texture × caste team tint.
+                const enemySoldier = soldier && rival;
+                const frames = enemySoldier ? this.antEnemySoldierTex
+                                            : (soldier ? this.antSoldierTex : this.antWorkerTex);
                 const moving = (a.speedMultiplier ?? 1) > 0.05;
                 const idx = moving
                     ? (Math.floor(a.age * 0.3 + (a.forageSeed ?? 0) * frames.length) % frames.length)
@@ -358,7 +380,12 @@ export class PixiBackdrop {
                 s.rotation = a.angle;
                 s.scale.set((a.sizeVar ?? 1) * 0.5); // texture is 2× supersampled (bakeAnt SS=2)
                 const shade = SHADE_TINT[(a.shade ?? 0) % SHADE_TINT.length];
-                s.tint = team === 0xffffff ? shade : mulTint(shade, team);
+                if (enemySoldier) {
+                    s.tint = shade; // keep the black + bright outline intact
+                } else {
+                    const caste = soldier ? c.soldierTint : c.workerTint;
+                    s.tint = caste === 0xffffff ? shade : mulTint(shade, caste);
+                }
             }
         }
         for (let i = n; i < this.antPool.length; i++) this.antPool[i].visible = false;

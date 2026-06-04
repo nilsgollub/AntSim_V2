@@ -38,10 +38,12 @@ export class Colony {
     // its mouth at a fixed local spot) — only the WORLD-space anchors vary per colony.
     isLandscape: boolean;
     entranceSide: EntranceSide;
-    // Team identity (rendering only). Colony 0 = neutral (natural sprite colours);
-    // rivals get a tint so the two armies read apart at a glance.
-    teamTint: number;   // Pixi multiply tint (0xffffff = no tint)
-    teamColor: string;  // 2D overlay colour
+    // Team identity (rendering only). Per-caste Pixi multiply tints + a 2D halo colour.
+    // Colony 0 = our ants (workers warm brown, soldiers natural red); rivals = amber
+    // workers + a dedicated black/outlined soldier texture (id > 0 → uses it).
+    workerTint: number;
+    soldierTint: number;
+    teamColor: string;  // 2D overlay halo colour ('' = none)
     entranceWorld!: { x: number; y: number };    // world point ants steer to when heading home
     worldExitPoint!: { x: number; y: number };   // world point an ant lands on when leaving the nest
     worldExitAngle!: number;                      // facing when it lands outside
@@ -62,11 +64,13 @@ export class Colony {
         // nest-LOCAL mouth is colony-agnostic (always at x≈0 landscape / y≈0 portrait);
         // only the world-space side + exit facing differ. RIGHT/BOTTOM reproduce the
         // original single-colony formulas exactly → colony 0 stays byte-identical.
-        // Colony 0 keeps the natural look; colony 1 is a blue team. (Index-based so
-        // future colonies cycle through distinct hues.)
-        const TEAM_TINTS = [0xffffff, 0x6f9bff, 0x66cc88, 0xe0c050];
-        const TEAM_COLORS = ['', '#6f9bff', '#66cc88', '#e0c050'];
-        this.teamTint = TEAM_TINTS[id % TEAM_TINTS.length];
+        // Index-based palette. 0 = us (warm brown workers, natural soldiers),
+        // 1 = rival (amber workers, black soldiers via dedicated texture).
+        const WORKER_TINTS = [0xc7a079, 0xf2c23a, 0x88c0a0, 0xd0a0d0];
+        const SOLDIER_TINTS = [0xffffff, 0xffffff, 0xffffff, 0xffffff];
+        const TEAM_COLORS = ['', '#f2c23a', '#88c0a0', '#d0a0d0'];
+        this.workerTint = WORKER_TINTS[id % WORKER_TINTS.length];
+        this.soldierTint = SOLDIER_TINTS[id % SOLDIER_TINTS.length];
         this.teamColor = TEAM_COLORS[id % TEAM_COLORS.length];
 
         const ls = nest.height > nest.width;
