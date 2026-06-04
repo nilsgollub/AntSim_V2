@@ -651,6 +651,18 @@ function drawStats() {
     }
 })();
 
+// ── URL override: ?quality=LOW pins the quality regardless of saved state ─────
+// Used by the Pi kiosk screensaver to force a Pi-friendly level even on a fresh
+// Chromium profile (where localStorage is empty). Case-insensitive.
+(function applyQualityFromUrl() {
+    const q = new URLSearchParams(location.search).get('quality');
+    if (!q) return;
+    const key = q.toUpperCase();
+    if (key in QualityLevel) {
+        applyQuality(QualityLevel[key as keyof typeof QualityLevel]);
+    }
+})();
+
 // WebGL is the default renderer (richer visuals); honour an explicit opt-out from a
 // previous session, and fall back silently to canvas-2D where WebGL is unavailable (Pi-safe).
 (function initWebGL() {
