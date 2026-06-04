@@ -376,6 +376,58 @@ canvas.addEventListener('mousemove', (e) => {
     canvas.style.cursor = e.buttons === 1 && isDragging ? 'grabbing' : cursors[toolMode];
 });
 
+// ── Touch: 1 finger = pan, 2 fingers = pinch-zoom, tap = tool/inspect ─────────
+// Reuses the same Camera API as the mouse path (pan / zoomTo / screenToWorld).
+canvas.style.touchAction = 'none'; // suppress native scroll/zoom gestures
+let touchStartX = 0, touchStartY = 0, touchLastX = 0, touchLastY = 0;
+let touchMoved = false, pinchLastDist = 0;
+const touchDist = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+const touchMid  = (t: TouchList) => ({ x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 });
+
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (e.touches.length === 1) {
+        const t = e.touches[0];
+        touchStartX = touchLastX = t.clientX;
+        touchStartY = touchLastY = t.clientY;
+        touchMoved = false;
+    } else if (e.touches.length === 2) {
+        pinchLastDist = touchDist(e.touches);
+        touchMoved = true; // a two-finger gesture is never a tap
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (e.touches.length === 1) {
+        const t = e.touches[0];
+        const dx = t.clientX - touchLastX;
+        const dy = t.clientY - touchLastY;
+        touchLastX = t.clientX;
+        touchLastY = t.clientY;
+        if (Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY) > DRAG_THRESHOLD_PX) {
+            touchMoved = true;
+            camera.pan(dx, dy, renderer.resolutionScale);
+        }
+    } else if (e.touches.length === 2 && pinchLastDist > 0) {
+        const dist = touchDist(e.touches);
+        const mid = touchMid(e.touches);
+        const anchor = camera.screenToWorld(mid.x, mid.y, canvas, renderer.resolutionScale);
+        camera.zoomTo(dist / pinchLastDist, anchor.x, anchor.y);
+        pinchLastDist = dist;
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchend', (e) => {
+    // Clean single tap (no drag/pinch) → tool action at the lifted point.
+    if (!touchMoved && e.touches.length === 0 && e.changedTouches.length === 1) {
+        const t = e.changedTouches[0];
+        const wp = camera.screenToWorld(t.clientX, t.clientY, canvas, renderer.resolutionScale);
+        handleCanvasClick(wp.x, wp.y);
+    }
+    if (e.touches.length < 2) pinchLastDist = 0;
+}, { passive: false });
+
 function handleCanvasClick(worldX: number, worldY: number) {
     if (toolMode === 'SELECT') {
         // Hit-test ants using the spatial grid (pre-built each frame)
