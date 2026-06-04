@@ -43,7 +43,9 @@ export class Colony {
     // workers + a dedicated black/outlined soldier texture (id > 0 → uses it).
     workerTint: number;
     soldierTint: number;
-    teamColor: string;  // 2D overlay halo colour ('' = none)
+    teamColor: string;       // 2D overlay halo colour ('' = none)
+    workerColor2D: string;   // 2D body tint (so nest ants aren't rendered plain white)
+    soldierColor2D: string;  // '' = keep the natural sprite colour
     entranceWorld!: { x: number; y: number };    // world point ants steer to when heading home
     worldExitPoint!: { x: number; y: number };   // world point an ant lands on when leaving the nest
     worldExitAngle!: number;                      // facing when it lands outside
@@ -68,10 +70,14 @@ export class Colony {
         // 1 = rival (amber workers, black soldiers via dedicated texture).
         const WORKER_TINTS = [0xc7a079, 0xf2c23a, 0x88c0a0, 0xd0a0d0];
         const SOLDIER_TINTS = [0xffffff, 0xffffff, 0xffffff, 0xffffff];
-        const TEAM_COLORS = ['', '#f2c23a', '#88c0a0', '#d0a0d0'];
+        const TEAM_COLORS = ['', '#d9a83a', '#88c0a0', '#d0a0d0'];
+        const WORKER_2D = ['#9c7c52', '#d9a83a', '#7ab090', '#c090c0'];
+        const SOLDIER_2D = ['', '#2b271f', '', ''];
         this.workerTint = WORKER_TINTS[id % WORKER_TINTS.length];
         this.soldierTint = SOLDIER_TINTS[id % SOLDIER_TINTS.length];
         this.teamColor = TEAM_COLORS[id % TEAM_COLORS.length];
+        this.workerColor2D = WORKER_2D[id % WORKER_2D.length];
+        this.soldierColor2D = SOLDIER_2D[id % SOLDIER_2D.length];
 
         const ls = nest.height > nest.width;
         this.isLandscape = ls;

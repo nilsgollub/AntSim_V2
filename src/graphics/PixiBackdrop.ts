@@ -17,7 +17,7 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
     ctx.lineCap = 'round';
 
     // Legs (6) — `phase` (0..1) swings them for a walk cycle (tripod-ish gait).
-    ctx.strokeStyle = enemy ? '#707070' : (type === 'SOLDIER' ? '#2a1410' : '#8a8a8a');
+    ctx.strokeStyle = enemy ? '#4a443a' : (type === 'SOLDIER' ? '#2a1410' : '#8a8a8a');
     ctx.lineWidth = 0.7;
     const count = 6, length = 4.5;
     for (let i = 0; i < count; i++) {
@@ -31,39 +31,25 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
         ctx.stroke();
     }
 
-    if (type === 'SOLDIER' && enemy) {
-        // Enemy soldier: black body with a light outline so it reads clearly on dark
-        // terrain (drawn untinted, so the outline isn't darkened by a team tint).
-        const head = () => { ctx.beginPath(); ctx.moveTo(1, -4.5); ctx.lineTo(6, -4.5); ctx.quadraticCurveTo(8, -4.5, 8, 0); ctx.quadraticCurveTo(8, 4.5, 6, 4.5); ctx.lineTo(1, 4.5); ctx.quadraticCurveTo(0, 0, 1, -4.5); };
-        ctx.lineJoin = 'round';
-        ctx.strokeStyle = '#9a9a9a'; ctx.lineWidth = 0.7;
-        ctx.fillStyle = '#141414';
-        ctx.beginPath(); ctx.ellipse(-6, 0, 3.6, 2.6, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); // abdomen
-        ctx.beginPath(); ctx.ellipse(-1, 0, 2.6, 2.1, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); // thorax
-        ctx.fillStyle = '#222';
-        head(); ctx.fill(); ctx.stroke(); // big head
-        ctx.strokeStyle = '#888'; ctx.lineWidth = 1.0;
-        ctx.beginPath();
-        ctx.moveTo(8, 3); ctx.quadraticCurveTo(11, 3, 12, 0.5);
-        ctx.moveTo(8, -3); ctx.quadraticCurveTo(11, -3, 12, -0.5); ctx.stroke(); // mandibles
-    } else if (type === 'SOLDIER') {
-        ctx.fillStyle = '#4a0606';
+    if (type === 'SOLDIER') {
+        // Palette: us = dark red; rival = a naturally dark charcoal-brown ant (clearly
+        // darker, no inked outline — reads as a different species, not a sticker).
+        const pal = enemy
+            ? { abdomen: '#241f19', stripe: '#332d24', thorax: '#2a241c', head: '#38322a', mand: '#5c564a', ant: '#4a443a' }
+            : { abdomen: '#4a0606', stripe: '#8b0000', thorax: '#4b0000', head: '#900000', mand: '#221100', ant: '#5a1a1a' };
+        ctx.fillStyle = pal.abdomen;
         ctx.beginPath(); ctx.ellipse(-6, 0, 3.6, 2.6, 0, 0, Math.PI * 2); ctx.fill(); // abdomen
-        ctx.fillStyle = '#8b0000';
+        ctx.fillStyle = pal.stripe;
         ctx.fillRect(-7.5, -1.5, 0.9, 3); ctx.fillRect(-5.6, -1.8, 0.9, 3.6); // stripes
-        ctx.fillStyle = '#4b0000';
+        ctx.fillStyle = pal.thorax;
         ctx.beginPath(); ctx.ellipse(-1, 0, 2.6, 2.1, 0, 0, Math.PI * 2); ctx.fill(); // thorax
-        ctx.fillStyle = '#900000';
+        ctx.fillStyle = pal.head;
+        ctx.beginPath(); ctx.ellipse(4.3, 0, 3.5, 3.9, 0, 0, Math.PI * 2); ctx.fill(); // rounded head
+        ctx.strokeStyle = pal.mand; ctx.lineWidth = 1.4;
         ctx.beginPath();
-        ctx.moveTo(1, -4.5); ctx.lineTo(6, -4.5);
-        ctx.quadraticCurveTo(8, -4.5, 8, 0);
-        ctx.quadraticCurveTo(8, 4.5, 6, 4.5); ctx.lineTo(1, 4.5);
-        ctx.quadraticCurveTo(0, 0, 1, -4.5); ctx.fill(); // big head
-        ctx.strokeStyle = '#221100'; ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        ctx.moveTo(8, 3); ctx.quadraticCurveTo(11, 3, 12, 0.5);
-        ctx.moveTo(8, -3); ctx.quadraticCurveTo(11, -3, 12, -0.5); ctx.stroke(); // mandibles
-        ctx.strokeStyle = '#5a1a1a'; ctx.lineWidth = 0.6;
+        ctx.moveTo(7.4, 2.8); ctx.quadraticCurveTo(11, 3, 12, 0.5);
+        ctx.moveTo(7.4, -2.8); ctx.quadraticCurveTo(11, -3, 12, -0.5); ctx.stroke(); // mandibles
+        ctx.strokeStyle = pal.ant; ctx.lineWidth = 0.6;
         ctx.beginPath(); ctx.moveTo(6, -2); ctx.lineTo(10, -5); ctx.moveTo(6, 2); ctx.lineTo(10, 5); ctx.stroke(); // antennae
     } else {
         ctx.fillStyle = '#b8b8b8';

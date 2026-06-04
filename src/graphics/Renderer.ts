@@ -863,6 +863,19 @@ export class Renderer {
             ctx.restore();
         }
 
+        // Body tint (so nest ants aren't plain white, and to colour rivals). Applied
+        // 'source-atop' after the sprite/body is drawn, in each return path below.
+        const bodyTint: string = (ant.type === 'SOLDIER' ? ant.colony?.soldierColor2D : ant.colony?.workerColor2D) || '';
+        const tintBody = () => {
+            if (!bodyTint) return;
+            ctx.save();
+            ctx.globalCompositeOperation = 'source-atop';
+            ctx.globalAlpha = 0.55;
+            ctx.fillStyle = bodyTint;
+            ctx.fillRect(-15, -15, 30, 30);
+            ctx.restore();
+        };
+
         if (PerformanceManager.settings.simpleAnts) {
             // OPTIMIZED (Body Only, No Legs, Flat Colors)
             if (ant.type === 'SOLDIER') {
@@ -889,6 +902,7 @@ export class Renderer {
                 // Head
                 ctx.beginPath(); ctx.arc(2, 0, 1.5, 0, Math.PI * 2); ctx.fill();
             }
+            tintBody();
 
             // Carrying Indicator (Simple dot)
             if (ant.carrying !== 'NONE') {
@@ -908,6 +922,7 @@ export class Renderer {
         if (!PerformanceManager.settings.legAnimation && (ant.type === 'WORKER' || ant.type === 'SOLDIER')) {
             const sprite = this.getCachedAnt(ant.type, ant.shade || 0);
             ctx.drawImage(sprite, -15, -15);
+            tintBody();
 
             // Draw Carrying Item on top
             if (ant.carrying !== 'NONE') {
