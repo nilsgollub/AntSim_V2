@@ -189,8 +189,8 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
     (warm-braune Worker, natürliche Soldaten), Rivale = **gedämpftes Bernstein/Gelb** (das frühere
     Blau wirkte unnatürlich) mit eigener, dunkler Soldaten-Textur. Die Rivalenkolonie ist jetzt
     **App-Default** (`colonyCount=2`, via UI-Toggle/`localStorage` umschaltbar; `?colonies=1/2`
-    überschreibt). *Offen:* 2. **Nest-Innenansicht** (der einzelne nestCanvas zeigt nur Kolonie 0 —
-    beide Nester teilen nest-lokale Koordinaten).
+    überschreibt). Die Nest-Innenansicht (`nestCanvas`) zeigt bewusst nur Kolonie 0 — eine zweite
+    Nestansicht ist als unnötig verworfen.
   - [x] **Phase 6 — Optische Politur** (`PixiBackdrop`): Kontakt-Schatten unter jeder Ameise,
     Fracht-Punkt am Kopf (Zucker/Protein/Brut/Leiche farbcodiert), additiver Kampf-Funke beim Biss,
     abgerundete Soldatenköpfe, zurückgenommener Bloom-Schwellenwert. Nest-Ameisen werden leicht
@@ -202,12 +202,22 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
     Reine Wiederverwendung der bestehenden Kampf-/Alarm-/Mob-Mechanik. Bei einer Kolonie alles No-Op
     → Golden eingefroren. Harness: zwei Kolonien kämpfen (Ameisenleichen erscheinen) und beide
     überleben (seed42 @15k ≈ 85 vs 92). 81/81 grün.
-  - [ ] Offen: zweite **Nest-Innenansicht**, Sandbox-Button/UI-Toggle für `colonyCount` (statt nur
-    `?colonies=2`), Tuning der Kriegs-Balance, Brut-/Vorrats-Raub.
+  - [ ] Offen: Tuning der Kriegs-Balance, Brut-/Vorrats-Raub. (UI-Toggle für `colonyCount` ist
+    erledigt — der „Rivalenkolonie"-Schalter.)
 - [ ] **Mehr Tests für die Ökonomie** (Queen/World-Integration)
 - [ ] Mobile **Touch/Pinch**-Steuerung für die Kamera (aktuell Maus-only)
 - [ ] Screenshot-/Export-Funktion
 - [ ] WebWorker für den Sim-Step (Render entkoppeln)
+- [~] **Robuste Nest-Navigation**: Kreis-Union + Greedy-Pfadsuche war die Wurzel des Hängens.
+  Ersetzbar durch Raum-Graph mit expliziten Kanten + A* (robust by design). Teil-entschärft
+  (Stern-Topologie + Wall-Sliding, bereits im Hauptbranch). **Anti-Jitter ergänzt**: Nest-Ameisen
+  blieben an konkaven Ecken hängen und zitterten dort ein paar Pixel hin und her — die alte
+  Stuck-Erkennung mass nur die Bewegung *pro Frame* und übersah das (Oszillation „bewegt sich"
+  ja jeden Frame), und eine einmalige Recovery-Drehung wurde vom FSM-Handler sofort überschrieben.
+  Jetzt: **Fenster-Erkennung** (< 6 px Netto-Fortschritt über 20 Frames, schlafende Ameisen
+  ausgenommen) + eine kurze **Escape-Phase**, die in `move()` das Handler-Heading überschreibt und
+  zur nächsten offenen Node-Mitte lenkt. Deterministisch (kein neues `rand()`); Golden bewusst neu
+  gepinnt (Population/Brut identisch). Eine echte Graph-A*-Pfadsuche steht weiter aus.
 
 ## 🏗 Architektur & Technische Schuld (Refactors)
 „Was würde ich anders machen, wenn ich neu anfinge" — geerdet an den Schmerzpunkten
@@ -242,17 +252,6 @@ gezielte Nachrüstung. Nach Hebelwirkung sortiert.
   Low-Level-Primitive: move/sense/separation/steering). Verhalten **bit-identisch** (Golden-Test
   unverändert) — der Harness hat den Refactor lückenlos abgesichert. *Offen:* `Renderer.ts`
   analog in Layer aufteilen.
-
-- [~] **Robuste Nest-Navigation**: Kreis-Union + Greedy-Pfadsuche war die Wurzel des Hängens.
-  Ersetzbar durch Raum-Graph mit expliziten Kanten + A* (robust by design). Teil-entschärft
-  (Stern-Topologie + Wall-Sliding, bereits im Hauptbranch). **Anti-Jitter ergänzt**: Nest-Ameisen
-  blieben an konkaven Ecken hängen und zitterten dort ein paar Pixel hin und her — die alte
-  Stuck-Erkennung mass nur die Bewegung *pro Frame* und übersah das (Oszillation „bewegt sich"
-  ja jeden Frame), und eine einmalige Recovery-Drehung wurde vom FSM-Handler sofort überschrieben.
-  Jetzt: **Fenster-Erkennung** (< 6 px Netto-Fortschritt über 20 Frames, schlafende Ameisen
-  ausgenommen) + eine kurze **Escape-Phase**, die in `move()` das Handler-Heading überschreibt und
-  zur nächsten offenen Node-Mitte lenkt. Deterministisch (kein neues `rand()`); Golden bewusst neu
-  gepinnt (Population/Brut identisch). Eine echte Graph-A*-Pfadsuche steht weiter aus.
 
 - [ ] **Daten-orientiert für Skalierung (ECS / Structure-of-Arrays)**: Objekt-pro-Ameise ist
   GC-/Cache-unfreundlich; für >500 Ameisen oder Kolonienkrieg deutlich schneller in SoA/ECS.
