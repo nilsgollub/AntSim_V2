@@ -488,6 +488,9 @@ export class World {
         // Only raid from a position of strength: a population edge over the rival AND
         // a critical mass of soldiers currently free (out patrolling) to spare.
         if (c.ants.length <= enemy.ants.length * CONFIG.combat.raidPopEdge) return;
+        // …but mercy: once we're already clearly dominant, stop piling on so the weaker
+        // colony can recover. Without this, raids snowball a small lead into annihilation.
+        if (c.ants.length > enemy.ants.length * CONFIG.combat.raidMercyRatio) return;
         const available = c.ants.filter(a =>
             a.type === 'SOLDIER' && a.location === 'WORLD' && a.state === 'PATROLLING' && a.health > 0);
         if (available.length < CONFIG.combat.raidMinSoldiers) return;

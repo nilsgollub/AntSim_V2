@@ -225,8 +225,15 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
     verliert eine künftige Ameise), sonst **Vorräte** (Protein/Zucker — echter Transfer in den
     eigenen Stockpile via RETURNING). Messung (seed42 @12k): Raids + 165 Brut-Raub-Ereignisse,
     beide Kolonien überleben gesund.
-  - [ ] Offen: Tuning der Kriegs-Balance. (UI-Toggle für `colonyCount` ist erledigt — der
-    „Rivalenkolonie"-Schalter.)
+  - [x] **Kriegs-Balance-Tuning**: Messung (6 Seeds @18k) zeigte — ohne Raids sind beide Kolonien
+    nahezu ausgeglichen (Ratio 1.0–2.1), *mit* Raids snowballt ein kleiner RNG-Vorsprung gelegentlich
+    zur Auslöschung (seed99: 15.3×). Gegenmittel: **Gnaden-Bremse** `raidMercyRatio` 1.25 — eine bereits
+    klar überlegene Kolonie hört auf zu plündern, damit die schwache sich erholt. Ergebnis: die
+    kompetitive Mehrheit deutlich enger (seed1/7: 1.59/2.39 → 1.35/1.28). *Lektion (erneut belegt,
+    vgl. [[antsim-survival-rng-dominated]]):* einzelne Extrem-Seeds (42/99) blieben über drei Tuning-
+    Varianten **byte-identisch** lopsided — diese Ausgänge sind RNG-festgelegt, Raid-Schwellen
+    reshuffeln nur. Ein inerter „Brut-Floor" wurde wieder entfernt (bewirkte messbar nichts).
+    (UI-Toggle für `colonyCount` ist erledigt — der „Rivalenkolonie"-Schalter.)
 - [x] **Mehr Tests für die Ökonomie** (Queen/World-Integration): Multi-Seed-Invarianten (Seeds 1/3/42
   @4000) — Königin lebt, Kolonie wuchs, Vorräte nicht negativ + mind. eine Ressource fließt, Brut-
   Pipeline lebt, Population unter Cap. Bewusst moderater Horizont (Überleben wird bei hohen Ticks

@@ -216,6 +216,8 @@ export const CONFIG = {
         // Rival raids (only active with a second colony). A dominant colony musters a
         // raid party of patrolling soldiers to march on the enemy nest entrance.
         raidPopEdge: 1.05,      // raid only when not outnumbered (≥5% ahead of the rival)
+        raidMercyRatio: 1.25,   // …but stop raiding once already this dominant — no kicking a colony
+                                //   while it's down, so it recovers → sustained rivalry, not a blowout
         raidMinSoldiers: 3,     // …and at least this many soldiers free (out patrolling) to spare
         raidPartySize: 6,       // how many soldiers join one raid
         raidCooldown: 1500,     // ticks between a colony's raids (~25s at 60fps)
