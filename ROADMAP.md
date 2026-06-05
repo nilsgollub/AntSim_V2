@@ -27,7 +27,9 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
 
 ### Interaktivität & Tools
 - [x] **Kamera**: Pan (Drag) + Zoom-to-Cursor (Maus)
-- [x] **Inspect**: Klick auf Ameise → Live-Panel (State/Energie/Health/Alter/Fracht)
+- [x] **Inspect**: Klick auf Ameise → Live-Panel (State/Energie/Health/Alter/Fracht); auch auf
+  **Welt-Insekten** (Beute/Räuber/Spinne/Käfer/Marienkäfer/Blattlaus) → Kurzbeschreibung + Stats
+  (Health/Speed/Schaden/State)
 - [x] **Sandbox**: Zucker/Protein platzieren, Feind spawnen
 - [x] **Pause/Step** (Render läuft im Pause weiter)
 - [x] **Parameter-Tuner** (`SimObserver`): sampelt Metriken, gibt Vorschläge mit
@@ -76,6 +78,12 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
   erster Über-Buff (55/7 + AoE-Biss auf den ganzen Schwarm) wurde zurückgenommen, weil der AoE eine
   mobbende Squad auf einen Schlag auslöschen konnte. Kolonie etabliert sich verlässlich (Soak seed7
   @6000 grün); ein einzelner sehr langer Run kann an einen Räuberangriff verloren gehen (realistisch).
+  **Wuseliger Mob-Rally** (`mobRushAllies`/`rallyStandoffSq`): gegen MAJOR-Bedrohungen
+  (Spinne/Predator/Käfer) stürmen Ameisen nicht mehr einzeln in den Tod, sondern halten an einem
+  Standoff-Ring und umkreisen den Feind (das sichtbare „Gewusel"), pulsen dabei DANGER-Alarm zur
+  Rekrutierung — und stürmen erst **koordiniert** rein, wenn lokal genug Verbündete versammelt sind.
+  Golden unberührt (im gracePeriod spawnt noch kein Major-Feind); Soak zeigt gesündere Kolonien
+  (koordinierter Mob tötet Räuber mit weniger Verlusten).
 
 - [x] **Kolonie-Resilienz gegen den Protein-Todesspiral**: Diagnose (harness-Trajektorie eines
   sterbenden Seeds) zeigte den echten Mechanismus — **nicht** Zucker/Energie (bleiben gesund),

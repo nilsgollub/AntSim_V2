@@ -7,6 +7,7 @@ import { PixiBackdrop } from './graphics/PixiBackdrop';
 import { Camera } from './graphics/Camera';
 import { Food } from './simulation/Food';
 import { Ant } from './simulation/Ant';
+import { Insect, type InsectType } from './simulation/Insect';
 import { PerformanceManager, QualityLevel } from './PerformanceManager';
 import { applyTunerAction } from './simulation/SimObserver';
 import type { TunerSuggestion } from './simulation/SimObserver';
@@ -170,31 +171,59 @@ toolEnemyBtn.addEventListener('click',   () => setTool('SPAWN_ENEMY'));
 
 // ── Selected entity for inspect ─────────────────────────────────────────────
 let selectedAnt: Ant | null = null;
+let selectedInsect: Insect | null = null;
 
 function clearSelection() {
     selectedAnt = null;
+    selectedInsect = null;
     renderer.selectedEntity = null;
     inspectorDiv.style.display = 'none';
 }
 
 inspectorClose.addEventListener('click', clearSelection);
 
+// Short flavour + the per-hit damage an insect deals to ants (0 = harmless).
+const INSECT_INFO: Record<InsectType, { name: string; desc: string; damage: number }> = {
+    PREY:     { name: 'Beute-Insekt', desc: 'Harmlos. Ameisen erlegen es für Protein.', damage: 0 },
+    APHID:    { name: 'Blattlaus',    desc: 'Wird von Ameisen „gemolken" — liefert Honigtau (Zucker).', damage: 0 },
+    LADYBUG:  { name: 'Marienkäfer',  desc: 'Harmlos, vergreift sich nicht an der Kolonie.', damage: 0 },
+    PREDATOR: { name: 'Räuber',       desc: 'Jagt Ameisen aktiv. Erst im koordinierten Mob zu bezwingen.', damage: CONFIG.enemy.predatorDamage },
+    SPIDER:   { name: 'Spinne',       desc: 'Schnelle Jägerin — gefährlich. Braucht einen großen Mob.', damage: CONFIG.enemy.spiderDamage },
+    BEETLE:   { name: 'Käfer',        desc: 'Stark gepanzert und zäh, aber langsam.', damage: CONFIG.enemy.beetleDamage },
+};
+
 function updateInspector() {
-    if (!selectedAnt) return;
-    if (!world.ants.includes(selectedAnt)) { clearSelection(); return; }
-    inspectorDiv.style.display = 'block';
-    renderer.selectedEntity = selectedAnt;
-    const a = selectedAnt;
-    const ageRatio = (a.age / a.maxAge * 100).toFixed(0);
-    const energyPct = (a.energy / CONFIG.antMaxEnergy * 100).toFixed(0);
-    inspectorContent.innerHTML =
-        `<strong>${a.type}</strong><br>` +
-        `State: ${a.state}<br>` +
-        `Health: ${a.health.toFixed(0)}<br>` +
-        `Energy: ${energyPct}%<br>` +
-        `Age: ${ageRatio}% of lifespan<br>` +
-        `Carrying: ${a.carrying}<br>` +
-        `Location: ${a.location}`;
+    if (selectedAnt) {
+        if (!world.ants.includes(selectedAnt)) { clearSelection(); return; }
+        inspectorDiv.style.display = 'block';
+        renderer.selectedEntity = selectedAnt;
+        const a = selectedAnt;
+        const ageRatio = (a.age / a.maxAge * 100).toFixed(0);
+        const energyPct = (a.energy / CONFIG.antMaxEnergy * 100).toFixed(0);
+        inspectorContent.innerHTML =
+            `<strong>${a.type}</strong><br>` +
+            `State: ${a.state}<br>` +
+            `Health: ${a.health.toFixed(0)}<br>` +
+            `Energy: ${energyPct}%<br>` +
+            `Age: ${ageRatio}% of lifespan<br>` +
+            `Carrying: ${a.carrying}<br>` +
+            `Location: ${a.location}`;
+        return;
+    }
+    if (selectedInsect) {
+        if (!world.insects.includes(selectedInsect) || selectedInsect.health <= 0) { clearSelection(); return; }
+        inspectorDiv.style.display = 'block';
+        renderer.selectedEntity = selectedInsect;
+        const ins = selectedInsect;
+        const info = INSECT_INFO[ins.type];
+        inspectorContent.innerHTML =
+            `<strong>${info.name}</strong><br>` +
+            `<span style="opacity:0.8;font-size:11px">${info.desc}</span><br>` +
+            `Health: ${ins.health.toFixed(0)}<br>` +
+            `Speed: ${ins.speed.toFixed(1)}<br>` +
+            (info.damage > 0 ? `Schaden/Biss: ${info.damage}<br>` : '') +
+            `State: ${ins.state}`;
+    }
 }
 
 // ── Playback controls ────────────────────────────────────────────────────────
@@ -460,7 +489,7 @@ canvas.addEventListener('touchend', (e) => {
 
 function handleCanvasClick(worldX: number, worldY: number) {
     if (toolMode === 'SELECT') {
-        // Hit-test ants using the spatial grid (pre-built each frame)
+        // Hit-test ants first (using the spatial grid, pre-built each frame).
         const candidates = world.spatialGrid.getNearby(worldX, worldY, 15);
         let best: Ant | null = null;
         let bestDist = Infinity;
@@ -469,9 +498,20 @@ function handleCanvasClick(worldX: number, worldY: number) {
             const d = Math.hypot(ant.x - worldX, ant.y - worldY);
             if (d < 12 && d < bestDist) { best = ant; bestDist = d; }
         }
+        // No ant hit → hit-test world insects (they aren't in the ant spatial grid).
+        let bestInsect: Insect | null = null;
+        if (!best) {
+            let bestInsDist = Infinity;
+            for (const ins of world.insects) {
+                if (ins.health <= 0) continue;
+                const d = Math.hypot(ins.x - worldX, ins.y - worldY);
+                if (d < 16 && d < bestInsDist) { bestInsect = ins; bestInsDist = d; }
+            }
+        }
         selectedAnt = best;
-        renderer.selectedEntity = best;
-        inspectorDiv.style.display = best ? 'block' : 'none';
+        selectedInsect = bestInsect;
+        renderer.selectedEntity = best ?? bestInsect;
+        inspectorDiv.style.display = (best || bestInsect) ? 'block' : 'none';
     } else if (toolMode === 'PLACE_SUGAR') {
         world.placeFood(worldX, worldY, 'SUGAR');
     } else if (toolMode === 'PLACE_PROTEIN') {
