@@ -32,25 +32,40 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
     }
 
     if (type === 'SOLDIER') {
+        // Big-headed Pheidole major, matching the 2D nest renderer (drawAnt) shape so a
+        // soldier looks identical outside (this baked texture) and inside the nest.
         // Palette: us = dark red; rival = a naturally dark charcoal-brown ant (clearly
         // darker, no inked outline — reads as a different species, not a sticker).
         const pal = enemy
-            ? { abdomen: '#241f19', stripe: '#332d24', thorax: '#2a241c', head: '#38322a', mand: '#5c564a', ant: '#4a443a' }
-            : { abdomen: '#4a0606', stripe: '#8b0000', thorax: '#4b0000', head: '#900000', mand: '#221100', ant: '#5a1a1a' };
+            ? { abdomen: '#241f19', stripe: '#332d24', thorax: '#2a241c', head: '#38322a', mand: '#5c564a' }
+            : { abdomen: '#4a0404', stripe: '#8b0000', thorax: '#4b0000', head: '#900000', mand: '#221100' };
+        // Abdomen (armoured, striped)
         ctx.fillStyle = pal.abdomen;
-        ctx.beginPath(); ctx.ellipse(-6, 0, 3.6, 2.6, 0, 0, Math.PI * 2); ctx.fill(); // abdomen
+        ctx.beginPath(); ctx.ellipse(-6, 0, 3.5, 2.5, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = pal.stripe;
-        ctx.fillRect(-7.5, -1.5, 0.9, 3); ctx.fillRect(-5.6, -1.8, 0.9, 3.6); // stripes
+        ctx.fillRect(-7.5, -1.5, 1, 3); ctx.fillRect(-5.5, -1.8, 1, 3.6);
+        // Thorax (muscular)
         ctx.fillStyle = pal.thorax;
-        ctx.beginPath(); ctx.ellipse(-1, 0, 2.6, 2.1, 0, 0, Math.PI * 2); ctx.fill(); // thorax
+        ctx.beginPath(); ctx.ellipse(-1, 0, 2.5, 2.0, 0, 0, Math.PI * 2); ctx.fill();
+        // Head — massive rounded-square / heart shape (the big-headed look)
         ctx.fillStyle = pal.head;
-        ctx.beginPath(); ctx.ellipse(4.3, 0, 3.5, 3.9, 0, 0, Math.PI * 2); ctx.fill(); // rounded head
-        ctx.strokeStyle = pal.mand; ctx.lineWidth = 1.4;
         ctx.beginPath();
-        ctx.moveTo(7.4, 2.8); ctx.quadraticCurveTo(11, 3, 12, 0.5);
-        ctx.moveTo(7.4, -2.8); ctx.quadraticCurveTo(11, -3, 12, -0.5); ctx.stroke(); // mandibles
-        ctx.strokeStyle = pal.ant; ctx.lineWidth = 0.6;
-        ctx.beginPath(); ctx.moveTo(6, -2); ctx.lineTo(10, -5); ctx.moveTo(6, 2); ctx.lineTo(10, 5); ctx.stroke(); // antennae
+        ctx.moveTo(1, -4.5);
+        ctx.lineTo(6, -4.5);
+        ctx.quadraticCurveTo(8, -4.5, 8, 0);
+        ctx.quadraticCurveTo(8, 4.5, 6, 4.5);
+        ctx.lineTo(1, 4.5);
+        ctx.quadraticCurveTo(0, 0, 1, -4.5);
+        ctx.fill();
+        // Head armour highlight (shiny chitin)
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.beginPath(); ctx.ellipse(4, -2, 1.5, 1, -0.5, 0, Math.PI * 2); ctx.fill();
+        // Mandibles (massive, crushing)
+        ctx.strokeStyle = pal.mand; ctx.lineWidth = 3.0;
+        ctx.beginPath();
+        ctx.moveTo(7, 3.0); ctx.quadraticCurveTo(10, 3.0, 11, 0.5);
+        ctx.moveTo(7, -3.0); ctx.quadraticCurveTo(10, -3.0, 11, -0.5);
+        ctx.stroke();
     } else {
         ctx.fillStyle = '#b8b8b8';
         ctx.beginPath(); ctx.ellipse(-3.2, 0, 2.6, 1.7, 0, 0, Math.PI * 2); ctx.fill(); // abdomen
