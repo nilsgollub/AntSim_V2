@@ -84,6 +84,11 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
   Rekrutierung — und stürmen erst **koordiniert** rein, wenn lokal genug Verbündete versammelt sind.
   Golden unberührt (im gracePeriod spawnt noch kein Major-Feind); Soak zeigt gesündere Kolonien
   (koordinierter Mob tötet Räuber mit weniger Verlusten).
+  **Kampf-Wahrnehmung geschärft:** (a) Panik nur noch bei *echten* Feinden — ein Worker, der harmlose
+  Beute jagt, flieht nicht mehr und löst keinen Fehlalarm aus (Panik-Check gegated auf
+  `countNearbyEnemies > 0`). (b) Soldaten sind proaktive Vorhut: weitere Sicht (`soldierSightRangeSq`
+  170px) + Commit mit weniger Verbündeten (`soldierRushAllies` 2). (c) Heimtragende Ameisen
+  ignorieren Räuber nicht mehr — bei naher Gefahr Alarm + panischer Ausweich-Sprint (Heimat-biased).
 
 - [x] **Kolonie-Resilienz gegen den Protein-Todesspiral**: Diagnose (harness-Trajektorie eines
   sterbenden Seeds) zeigte den echten Mechanismus — **nicht** Zucker/Energie (bleiben gesund),

@@ -210,7 +210,9 @@ export const CONFIG = {
         // standoff ring and mill (the visible "Gewusel"), pulsing alarm to recruit,
         // and only commit to the killing rush once enough allies have gathered.
         mobRushAllies: 5,       // local allies needed to commit to a coordinated rush
+        soldierRushAllies: 2,   // soldiers are the vanguard — they commit with far fewer allies
         rallyStandoffSq: 48 * 48, // mill at this radius from the threat until the mob is ready
+        soldierSightRangeSq: 170 * 170, // soldiers spot + chase dangerous insects from further than workers (100px)
         // Rival raids (only active with a second colony). A dominant colony musters a
         // raid party of patrolling soldiers to march on the enemy nest entrance.
         raidPopEdge: 1.05,      // raid only when not outnumbered (≥5% ahead of the rival)

@@ -322,7 +322,7 @@ export function handlePatrolling(ant: Ant, world: World) {
         for (const insect of world.insects) {
             if (insect.type === 'SPIDER' || insect.type === 'PREDATOR' || insect.type === 'BEETLE') {
                 const distSq = (ant.x - insect.x) ** 2 + (ant.y - insect.y) ** 2;
-                if (distSq < CONFIG.ant.detectEnemyRangeSq) { // 100px detection
+                if (distSq < CONFIG.combat.soldierSightRangeSq) { // soldiers spot threats from further (170px)
                     ant.state = 'ATTACKING';
                     return; // Switch immediately
                 }
@@ -536,16 +536,20 @@ export function handleFleeing(ant: Ant, _world: World) {
 export function handleCombat(ant: Ant, world: World) {
     ant.speedMultiplier = 1.5; // Combat adrenaline
 
-    // 0. Panic check — workers flee when they lack local numerical superiority.
+    // 0. Panic check — workers flee when a REAL threat outnumbers their local support.
+    // Only dangerous foes count (countNearbyEnemies = predators/spiders/beetles + rivals),
+    // so a lone worker hunting harmless prey no longer panics and raises a false alarm.
     if (ant.type !== 'SOLDIER') {
-        const allies = ant.countNearbyAllies(world, 100);
         const enemies = ant.countNearbyEnemies(world, 100);
-        const outmatched = allies < Math.max(CONFIG.combat.mobMinAllies, enemies * CONFIG.combat.mobSuperiority);
-        if (outmatched) {
-            ant.state = 'FLEEING';
-            ant.fleeTimer = 60;
-            ant.angle += Math.PI + (rand() - 0.5);
-            return;
+        if (enemies > 0) {
+            const allies = ant.countNearbyAllies(world, 100);
+            const outmatched = allies < Math.max(CONFIG.combat.mobMinAllies, enemies * CONFIG.combat.mobSuperiority);
+            if (outmatched) {
+                ant.state = 'FLEEING';
+                ant.fleeTimer = 60;
+                ant.angle += Math.PI + (rand() - 0.5);
+                return;
+            }
         }
     }
 
@@ -583,7 +587,9 @@ export function handleCombat(ant: Ant, world: World) {
         }
     }
 
-    if (nearestEnemy && minDist < CONFIG.ant.detectEnemyRangeSq) { // 100px chase range
+    // Soldiers chase from further than workers (proactive vanguard); workers keep the 100px range.
+    const chaseRangeSq = ant.type === 'SOLDIER' ? CONFIG.combat.soldierSightRangeSq : CONFIG.ant.detectEnemyRangeSq;
+    if (nearestEnemy && minDist < chaseRangeSq) {
         // Mob rally vs a MAJOR threat: don't suicide-charge one by one. Mill at a
         // standoff ring (the "Gewusel"), pulse alarm to recruit, and only rush in
         // once the colony has gathered overwhelming local numbers — so the attack
@@ -593,7 +599,9 @@ export function handleCombat(ant: Ant, world: World) {
         if (majorThreat) {
             const allies = ant.countNearbyAllies(world, 90);
             const enemies = ant.countNearbyEnemies(world, 90);
-            const rushReady = allies >= CONFIG.combat.mobRushAllies && allies >= enemies * CONFIG.combat.mobSuperiority;
+            // Soldiers are the vanguard: they commit with far fewer allies than workers.
+            const rushAllies = ant.type === 'SOLDIER' ? CONFIG.combat.soldierRushAllies : CONFIG.combat.mobRushAllies;
+            const rushReady = allies >= rushAllies && allies >= enemies * CONFIG.combat.mobSuperiority;
             // Pulse a DANGER alarm so more ants converge on the threat.
             if (world.age % 6 === 0) {
                 ant.colony.outdoorField.depositCircle(ant.x, ant.y, 'DANGER', CONFIG.pheromone.depositTrail, 10);
@@ -1025,6 +1033,29 @@ export function handleReturning(ant: Ant, world: World) {
     if (ant.location === 'WORLD') {
         const home = ant.colony.entranceWorld;
         const angleToHome = Math.atan2(home.y - ant.y, home.x - ant.x);
+
+        // React to a close dangerous insect instead of marching obliviously past it:
+        // raise the alarm (so soldiers rally) and veer away in a panic, while still
+        // biasing toward home — a laden forager keeps its cargo but bolts.
+        let threat: { x: number; y: number } | null = null;
+        let threatD2 = CONFIG.ant.detectEnemyRangeSq;
+        for (const ins of world.insects) {
+            if (ins.type === 'PREDATOR' || ins.type === 'SPIDER' || ins.type === 'BEETLE') {
+                const d2 = (ins.x - ant.x) ** 2 + (ins.y - ant.y) ** 2;
+                if (d2 < threatD2) { threatD2 = d2; threat = ins; }
+            }
+        }
+        if (threat) {
+            ant.colony.outdoorField.depositCircle(ant.x, ant.y, 'DANGER', CONFIG.pheromone.depositTrail, 10);
+            ant.angle = Math.atan2(ant.y - threat.y, ant.x - threat.x); // flee directly away
+            let dh = angleToHome - ant.angle;
+            while (dh < -Math.PI) dh += Math.PI * 2;
+            while (dh > Math.PI) dh -= Math.PI * 2;
+            ant.angle += dh * 0.4; // …but bias the escape back toward home
+            ant.speedMultiplier = 2.0; // bolt
+            return;
+        }
+
         const foundTrail = ant.senseAndSteer(world, 'HOME');
         const biasStrength = foundTrail ? 0.15 : 0.3;
 
