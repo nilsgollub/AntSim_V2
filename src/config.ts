@@ -206,6 +206,11 @@ export const CONFIG = {
         grappleMaxSlow: 0.8,    // …capped here (a swarmed enemy can still struggle a little)
         patrolLongChance: 0.2,  // chance a new patrol target is a far-ranging sweep
         patrolLongRangeFrac: 0.35, // long patrols reach up to this fraction of the world size
+        // Mob rally against a MAJOR threat (spider/predator/beetle): ants hold at a
+        // standoff ring and mill (the visible "Gewusel"), pulsing alarm to recruit,
+        // and only commit to the killing rush once enough allies have gathered.
+        mobRushAllies: 5,       // local allies needed to commit to a coordinated rush
+        rallyStandoffSq: 48 * 48, // mill at this radius from the threat until the mob is ready
         // Rival raids (only active with a second colony). A dominant colony musters a
         // raid party of patrolling soldiers to march on the enemy nest entrance.
         raidPopEdge: 1.25,      // need >25% more ants than the rival to raid (raid from strength)

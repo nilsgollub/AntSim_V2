@@ -567,6 +567,32 @@ export function handleCombat(ant: Ant, world: World) {
     }
 
     if (nearestEnemy && minDist < CONFIG.ant.detectEnemyRangeSq) { // 100px chase range
+        // Mob rally vs a MAJOR threat: don't suicide-charge one by one. Mill at a
+        // standoff ring (the "Gewusel"), pulse alarm to recruit, and only rush in
+        // once the colony has gathered overwhelming local numbers — so the attack
+        // reads as a coordinated swarm, not a trickle. (Prey / lone rivals: no gate.)
+        const et = (nearestEnemy as { type: string }).type;
+        const majorThreat = et === 'SPIDER' || et === 'PREDATOR' || et === 'BEETLE';
+        if (majorThreat) {
+            const allies = ant.countNearbyAllies(world, 90);
+            const enemies = ant.countNearbyEnemies(world, 90);
+            const rushReady = allies >= CONFIG.combat.mobRushAllies && allies >= enemies * CONFIG.combat.mobSuperiority;
+            // Pulse a DANGER alarm so more ants converge on the threat.
+            if (world.age % 6 === 0) {
+                ant.colony.outdoorField.depositCircle(ant.x, ant.y, 'DANGER', CONFIG.pheromone.depositTrail, 10);
+            }
+            if (!rushReady) {
+                const toEnemy = Math.atan2(nearestEnemy.y - ant.y, nearestEnemy.x - ant.x);
+                if (minDist < CONFIG.combat.rallyStandoffSq) {
+                    ant.angle = toEnemy + Math.PI + (rand() - 0.5) * 0.9; // too close → recoil (panic)
+                } else {
+                    ant.angle = toEnemy + Math.PI / 2 + (rand() - 0.5) * 1.4; // circle the threat + jitter
+                }
+                ant.speedMultiplier = 1.3;
+                return;
+            }
+            // rushReady → fall through and charge in together.
+        }
         // (Cowardice handled by the local-superiority panic check above.)
         const dx = nearestEnemy.x - ant.x;
         const dy = nearestEnemy.y - ant.y;
