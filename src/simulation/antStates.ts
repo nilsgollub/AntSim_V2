@@ -1,5 +1,6 @@
 import { CONFIG } from '../config';
 import { rand } from '../rng';
+import { Brood } from './Brood';
 import type { Ant } from './Ant';
 import type { World } from './World';
 
@@ -464,7 +465,18 @@ export function handleRaiding(ant: Ant, world: World) {
         // OUR nest (handleReturning steers to ant.colony.entranceWorld) and deposits.
         const enemy = world.colonies.find(c => c !== ant.colony);
         if (enemy) {
-            if (enemy.proteinStockpile >= CONFIG.proteinValue) {
+            // Priority: snatch brood (slave-making raid) — it hurts the rival most
+            // (a lost future ant) and is carried home to be raised as our own. Skip
+            // brood a nurse is already holding, to avoid dangling carrier refs.
+            let snatched = false;
+            for (let i = enemy.brood.length - 1; i >= 0; i--) {
+                if (!enemy.brood[i].carrier) { enemy.brood.splice(i, 1); snatched = true; break; }
+            }
+            if (snatched) {
+                ant.carrying = 'BROOD';
+                ant.carryingInstance = null; // adopted as a fresh egg on arrival
+                ant.carryingAmount = 1;
+            } else if (enemy.proteinStockpile >= CONFIG.proteinValue) {
                 enemy.proteinStockpile -= CONFIG.proteinValue;
                 ant.carrying = 'PROTEIN';
                 ant.carryingAmount = CONFIG.proteinValue;
@@ -477,7 +489,7 @@ export function handleRaiding(ant: Ant, world: World) {
             }
         }
         ant.raidTarget = null;
-        ant.state = 'RETURNING'; // haul any loot home (or just retreat if nothing to steal)
+        ant.state = 'RETURNING'; // haul the loot/brood home (or just retreat if nothing to take)
         return;
     }
     ant.angle = Math.atan2(dy, dx);
@@ -1081,6 +1093,11 @@ export function handleReturning(ant: Ant, world: World) {
                 const cap = ant.colony.storageCapacity();
                 if (ant.carrying === 'SUGAR') ant.colony.sugarStockpile = Math.min(cap, ant.colony.sugarStockpile + CONFIG.sugarValue);
                 else if (ant.carrying === 'PROTEIN') ant.colony.proteinStockpile = Math.min(cap, ant.colony.proteinStockpile + CONFIG.proteinValue);
+                else if (ant.carrying === 'BROOD') {
+                    // Raided enemy brood is adopted — it joins our colony as a fresh egg,
+                    // to be raised as our own (slave-making). The rival already lost it.
+                    ant.colony.brood.push(new Brood(ant.colony.queen.x, ant.colony.queen.y));
+                }
 
                 ant.carrying = 'NONE';
 
