@@ -7,9 +7,10 @@
 
 > **▶ [Try it live in your browser](https://nilsgollub.github.io/AntSim_V2/?colonies=2)** — no install needed.
 
-<!-- TODO: add a short demo GIF here for the biggest stars-per-visitor boost, e.g.:
-     ![AntSim demo](docs/preview.gif)
-     Record ~10 s of two colonies at war, save as docs/preview.gif, drop it in. -->
+<p align="center">
+  <img src="docs/preview.gif" alt="AntSim — pheromone trails fanning out from the nest entrance" width="720">
+  <br><em>Pheromone highways radiate from the nest entrance: gold = sugar, blue = the way home, red = alarm.</em>
+</p>
 
 An agent-based ant-colony simulation in TypeScript: a deterministic, emergent little
 world where workers forage along pheromone trails, a queen lays brood, soldiers mob
