@@ -213,9 +213,9 @@ export const CONFIG = {
         rallyStandoffSq: 48 * 48, // mill at this radius from the threat until the mob is ready
         // Rival raids (only active with a second colony). A dominant colony musters a
         // raid party of patrolling soldiers to march on the enemy nest entrance.
-        raidPopEdge: 1.25,      // need >25% more ants than the rival to raid (raid from strength)
-        raidMinSoldiers: 6,     // …and at least this many soldiers free (out patrolling)
-        raidPartySize: 8,       // how many soldiers join one raid
+        raidPopEdge: 1.05,      // raid only when not outnumbered (≥5% ahead of the rival)
+        raidMinSoldiers: 3,     // …and at least this many soldiers free (out patrolling) to spare
+        raidPartySize: 6,       // how many soldiers join one raid
         raidCooldown: 1500,     // ticks between a colony's raids (~25s at 60fps)
         raidArriveRangeSq: 70 * 70, // "at the enemy doorstep" radius (squared)
     },

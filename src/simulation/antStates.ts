@@ -457,10 +457,27 @@ export function handleRaiding(ant: Ant, world: World) {
     const dx = t.x - ant.x;
     const dy = t.y - ant.y;
     if (dx * dx + dy * dy < CONFIG.combat.raidArriveRangeSq) {
-        // Reached the enemy doorstep with no defenders in range. (Increment 2 loots
-        // the stockpile here.) For now: end the push and fall back to patrol.
+        // At the enemy doorstep → loot the rival's stockpile and haul it home. Prefer
+        // protein (the war-critical resource), fall back to sugar. The stolen chunk is
+        // exactly what RETURNING deposits at home (sugarValue/proteinValue), so it's a
+        // true transfer: the rival loses what we gain. Then RETURNING carries it back to
+        // OUR nest (handleReturning steers to ant.colony.entranceWorld) and deposits.
+        const enemy = world.colonies.find(c => c !== ant.colony);
+        if (enemy) {
+            if (enemy.proteinStockpile >= CONFIG.proteinValue) {
+                enemy.proteinStockpile -= CONFIG.proteinValue;
+                ant.carrying = 'PROTEIN';
+                ant.carryingAmount = CONFIG.proteinValue;
+                ant.carryingQuality = 1;
+            } else if (enemy.sugarStockpile >= CONFIG.sugarValue) {
+                enemy.sugarStockpile -= CONFIG.sugarValue;
+                ant.carrying = 'SUGAR';
+                ant.carryingAmount = CONFIG.sugarValue;
+                ant.carryingQuality = 1;
+            }
+        }
         ant.raidTarget = null;
-        ant.state = 'PATROLLING';
+        ant.state = 'RETURNING'; // haul any loot home (or just retreat if nothing to steal)
         return;
     }
     ant.angle = Math.atan2(dy, dx);
