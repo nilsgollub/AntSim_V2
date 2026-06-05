@@ -889,16 +889,18 @@ export class Renderer {
         if (PerformanceManager.settings.simpleAnts) {
             // OPTIMIZED (Body Only, No Legs, Flat Colors)
             if (ant.type === 'SOLDIER') {
-                // Soldier: Dark body, RED head (matching HIGH/ULTRA theme)
-                ctx.fillStyle = '#444'; // Dark Gray body
+                // Soldier: dark-red body + head, matching the WebGL world texture and the
+                // detailed nest soldier (was grey, which clashed with the reddish outside).
+                ctx.fillStyle = '#4a0404'; // dark maroon body
 
                 // Abdomen
                 ctx.beginPath(); ctx.ellipse(-5, 0, 3.5, 2.5, 0, 0, Math.PI * 2); ctx.fill();
                 // Thorax
+                ctx.fillStyle = '#4b0000';
                 ctx.beginPath(); ctx.ellipse(-1, 0, 2.5, 2.0, 0, 0, Math.PI * 2); ctx.fill();
 
-                // Head (RED)
-                ctx.fillStyle = '#C00'; // Bright Red
+                // Head (dark red, big-headed)
+                ctx.fillStyle = '#900000';
                 ctx.beginPath(); ctx.rect(1, -3, 5, 6); ctx.fill();
 
             } else {
