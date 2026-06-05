@@ -406,7 +406,7 @@ export class PixiBackdrop {
                 if (a.carrying && a.carrying !== 'NONE') {
                     const cs = this.carryPool[cn++];
                     cs.visible = true;
-                    const off = 5.5 * sz;
+                    const off = 5.5 * dz;
                     cs.position.set(a.x + Math.cos(a.angle) * off, a.y + Math.sin(a.angle) * off);
                     cs.scale.set(0.13);
                     cs.tint = CARGO_TINT[a.carrying] || 0xffffff;
@@ -417,7 +417,7 @@ export class PixiBackdrop {
                 if (a.state === 'ATTACKING' && a.attackCooldown > 15) {
                     const fs = this.flashPool[fn++];
                     fs.visible = true;
-                    const off = 8 * sz;
+                    const off = 8 * dz;
                     fs.position.set(a.x + Math.cos(a.angle) * off, a.y + Math.sin(a.angle) * off);
                     fs.scale.set(0.2);
                     fs.tint = 0xfff0c0;
