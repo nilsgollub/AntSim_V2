@@ -428,16 +428,8 @@ export class PixiBackdrop {
                     cs.alpha = 1;
                 }
 
-                // Combat spark: a brief additive flash at the jaws just after a bite lands.
-                if (a.state === 'ATTACKING' && a.attackCooldown > 15) {
-                    const fs = this.flashPool[fn++];
-                    fs.visible = true;
-                    const off = 8 * dz;
-                    fs.position.set(a.x + Math.cos(a.angle) * off, a.y + Math.sin(a.angle) * off);
-                    fs.scale.set(0.2);
-                    fs.tint = 0xfff0c0;
-                    fs.alpha = 0.9;
-                }
+                // (Combat feedback is the red blood particles spawned on a landing hit —
+                // the old additive white "spark" read as a blinking white dot, removed.)
             }
         }
         for (let i = n; i < this.antPool.length; i++) { this.antPool[i].visible = false; this.shadowPool[i].visible = false; }
