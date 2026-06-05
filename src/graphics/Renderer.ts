@@ -863,8 +863,9 @@ export class Renderer {
         ctx.translate(ant.x, ant.y);
         ctx.rotate(ant.angle);
 
-        // Subtle per-ant size variance so the colony isn't uniform.
-        const sv = ant.sizeVar || 1;
+        // Subtle per-ant size variance so the colony isn't uniform. Soldiers are knocked
+        // down ~22% visually (their sizeVar reads as too big) — cosmetic only, stats stay.
+        const sv = (ant.sizeVar || 1) * (ant.type === 'SOLDIER' ? 0.78 : 1);
         if (sv !== 1) ctx.scale(sv, sv);
 
         // Team aura for rival colonies — a path-independent colour halo under the ant

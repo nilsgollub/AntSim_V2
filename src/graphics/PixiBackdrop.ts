@@ -367,17 +367,20 @@ export class PixiBackdrop {
                 const sh = this.shadowPool[n];
                 n++;
                 if (a.location !== 'WORLD') { s.visible = false; sh.visible = false; continue; }
-                const sz = a.sizeVar ?? 1;
+                const soldier = a.type === 'SOLDIER';
+                // Draw size from polymorphism, but knock soldiers down ~22% visually
+                // (they're ~1.5× a worker by sizeVar, which read as too big) — purely
+                // cosmetic, their stats/collision still use the full sizeVar.
+                const dz = (a.sizeVar ?? 1) * (soldier ? 0.78 : 1);
 
                 // Soft contact shadow under the ant (grounds it).
                 sh.visible = true;
                 sh.position.set(a.x, a.y + 1.4);
-                sh.scale.set(sz * 0.34);
+                sh.scale.set(dz * 0.34);
                 sh.tint = 0x000000;
                 sh.alpha = 0.26;
 
                 s.visible = true;
-                const soldier = a.type === 'SOLDIER';
                 // Rival soldiers use the dedicated dark texture (untinted); everyone else
                 // is the natural texture × caste team tint.
                 const enemySoldier = soldier && rival;
@@ -390,7 +393,7 @@ export class PixiBackdrop {
                 s.texture = frames[idx];
                 s.position.set(a.x, a.y);
                 s.rotation = a.angle;
-                s.scale.set(sz * 0.5); // texture is 2× supersampled (bakeAnt SS=2)
+                s.scale.set(dz * 0.5); // texture is 2× supersampled (bakeAnt SS=2)
                 const shade = SHADE_TINT[(a.shade ?? 0) % SHADE_TINT.length];
                 if (enemySoldier) {
                     s.tint = shade;
