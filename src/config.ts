@@ -77,7 +77,7 @@ export const CONFIG = {
     queenPosition: { x: logicalWidth / 2, y: logicalHeight / 2 },
     eggCost: 20,
     queenLayInterval: 180, // frames between egg-laying attempts. Equilibrium pop ≈ ant.lifespan / this.
-    queenStarveDeathTicks: 2400, // a queen left at 0 energy this long starves to death (~40s) — a
+    queenStarveDeathTicks: 1200, // a queen abandoned/starved this long dies (~20s) — a
                                  // collapsed colony actually ENDS instead of an immortal queen idling
                                  // forever. A fed queen never approaches this, so the golden run is safe.
 

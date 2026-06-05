@@ -844,7 +844,14 @@ function loop(now: number) {
     }
 
     // HUD stats
-    popStat.innerText  = `Population: ${world.ants.length} (W:${world.ants.filter(a => a.type === 'WORKER').length} S:${world.ants.filter(a => a.type === 'SOLDIER').length})`;
+    if (world.colonies.length > 1) {
+        // Rival mode: show the combined total plus the per-colony split (the war scoreline).
+        const split = world.colonies.map(c => c.ants.length).join(' vs ');
+        popStat.innerText = `Population: ${world.totalAntCount()} (${split})`;
+    } else {
+        const a = world.colonies[0].ants;
+        popStat.innerText = `Population: ${a.length} (W:${a.filter(x => x.type === 'WORKER').length} S:${a.filter(x => x.type === 'SOLDIER').length})`;
+    }
     foodStat.innerText = `Protein: ${Math.floor(world.proteinStockpile)} | Sugar: ${Math.floor(world.sugarStockpile)}`;
 
     const ageSeconds = Math.floor(world.queen.age / 60);
@@ -856,9 +863,12 @@ function loop(now: number) {
         for (let i = 0; i < steps; i++) world.update();
         if (Math.random() < simSpeed - steps) world.update();
 
-        // Auto-restart once the whole world has died out (screensaver never gets stuck
-        // on an empty world). Resets as soon as a colony has ants again.
-        if (world.totalAntCount() === 0) {
+        // Auto-restart for the screensaver: the match is decided once a colony has been
+        // wiped out (its queen starved → `queen.dead`, a permanent flag that can't flicker
+        // like a momentary 0-ant count) OR the whole world is empty. After a short grace,
+        // start a fresh world so it never idles on a dead/decided board.
+        const decided = world.totalAntCount() === 0 || world.colonies.some(c => c.queen.dead);
+        if (decided) {
             if (++deadTicks > EXTINCT_RESTART_FRAMES) restartWorld();
         } else {
             deadTicks = 0;
