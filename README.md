@@ -1,5 +1,16 @@
 # AntSim V2
 
+[![Live demo](https://img.shields.io/badge/%E2%96%B6_Live_Demo-2ea44f?style=for-the-badge)](https://nilsgollub.github.io/AntSim_V2/?colonies=2)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Made with TypeScript](https://img.shields.io/badge/TypeScript-3178c6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Renders with Pixi.js](https://img.shields.io/badge/Pixi.js-e91e63.svg)](https://pixijs.com/)
+
+> **▶ [Try it live in your browser](https://nilsgollub.github.io/AntSim_V2/?colonies=2)** — no install needed.
+
+<!-- TODO: add a short demo GIF here for the biggest stars-per-visitor boost, e.g.:
+     ![AntSim demo](docs/preview.gif)
+     Record ~10 s of two colonies at war, save as docs/preview.gif, drop it in. -->
+
 An agent-based ant-colony simulation in TypeScript: a deterministic, emergent little
 world where workers forage along pheromone trails, a queen lays brood, soldiers mob
 predators, and — optionally — a **rival colony** wages war next door (border skirmishes,
@@ -223,4 +234,4 @@ The build is a static bundle (`dist/`), hostable anywhere. Two documented target
 
 ## License
 
-Private project — no license granted. © nilsgollub.
+[MIT](LICENSE) © nilsgollub. Free to use, fork and build on — attribution appreciated.
