@@ -18,6 +18,12 @@ export class Queen {
     layTimer: number = 0;
     age: number = 0;
 
+    // Mortality: a queen whose energy sits at 0 (the colony can no longer feed her)
+    // starves. `dead` queens stop laying — so a collapsed colony truly ends instead of
+    // an immortal queen idling on an empty world forever.
+    dead: boolean = false;
+    starveTimer: number = 0;
+
     // The colony this queen heads (set in Colony's constructor). Egg-laying + sugar
     // regen draw on this colony's own stockpiles + brood.
     colony!: Colony;
@@ -28,6 +34,8 @@ export class Queen {
     }
 
     update(_world: World) {
+        if (this.dead) return; // a starved queen lays no more eggs
+
         // 1. Check for Danger (Stress)
         const danger = this.colony.outdoorField.get(this.x, this.y, 'DANGER');
         if (danger > 0.1) {
@@ -92,6 +100,16 @@ export class Queen {
         // Hunger check
         this.energy -= 0.2; // Metabolic cost
         if (this.energy < 0) this.energy = 0;
+
+        // Mortality: she dies once the colony can no longer sustain her — i.e. she's
+        // ABANDONED (no workers left to feed/tend her) or starved to empty. Long enough
+        // in that state → death, so a collapsed colony truly ends. A healthy colony
+        // always has ants and a fed queen, so this never triggers (golden run safe).
+        if (this.colony.ants.length === 0 || this.energy <= 0) {
+            if (++this.starveTimer > CONFIG.queenStarveDeathTicks) this.dead = true;
+        } else {
+            this.starveTimer = 0;
+        }
 
         this.age++;
     }

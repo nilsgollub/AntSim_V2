@@ -366,11 +366,20 @@ qualitySelect.addEventListener('change', () => {
     applyQuality(QualityLevel[val]);
     saveUiState();
 });
-restartBtn.addEventListener('click', () => {
+// Screensaver auto-restart: frames the world has been fully collapsed (no ants in
+// ANY colony). A fully dead world would otherwise idle forever (immortal-queen aside),
+// so after ~8s of emptiness we start a fresh colony.
+let deadTicks = 0;
+const EXTINCT_RESTART_FRAMES = 480;
+
+function restartWorld() {
     world = new World();
     clearSelection();
     camera.reset();
-});
+    deadTicks = 0;
+}
+
+restartBtn.addEventListener('click', restartWorld);
 
 // Rival colony toggle: set the colony count and restart so the change takes effect.
 const rivalToggle = document.getElementById('rivalToggle') as HTMLInputElement;
@@ -378,9 +387,7 @@ rivalToggle.checked = CONFIG.colonyCount > 1; // reflect default / ?colonies / s
 rivalToggle.addEventListener('change', () => {
     CONFIG.colonyCount = rivalToggle.checked ? 2 : 1;
     saveUiState();
-    world = new World();
-    clearSelection();
-    camera.reset();
+    restartWorld();
 });
 
 // ── Camera mouse input ───────────────────────────────────────────────────────
@@ -848,6 +855,14 @@ function loop(now: number) {
         const steps = Math.floor(simSpeed);
         for (let i = 0; i < steps; i++) world.update();
         if (Math.random() < simSpeed - steps) world.update();
+
+        // Auto-restart once the whole world has died out (screensaver never gets stuck
+        // on an empty world). Resets as soon as a colony has ants again.
+        if (world.totalAntCount() === 0) {
+            if (++deadTicks > EXTINCT_RESTART_FRAMES) restartWorld();
+        } else {
+            deadTicks = 0;
+        }
     }
 
     // Inspector live update

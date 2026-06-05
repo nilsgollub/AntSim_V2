@@ -117,6 +117,14 @@ Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
   die Kaste (mit `maxSoldierFraction`-Cap). Gibt dem Spieler Einfluss auf die Kastenmischung via
   Protein-Angebot. Tests in `Brood.test.ts`.
 
+- [x] **Königin sterblich + Screensaver-Auto-Neustart**: Die Königin war unsterblich → eine
+  ausgestorbene Kolonie ließ die Sim ewig auf einer leeren Welt idlen. Jetzt: stirbt sie ~40s
+  nachdem die Kolonie **verlassen** ist (0 Ameisen, niemand füttert sie) oder ausgehungert
+  (`queenStarveDeathTicks`); tote Königin wird nicht mehr gezeichnet. Golden-sicher (eine gesunde
+  Kolonie hat immer Ameisen → triggert nie). Dazu ein App-**Auto-Neustart**: ist die ganze Welt
+  ~8s lang ohne Ameisen, baut sich eine frische Kolonie auf (`restartWorld`) — fürs Dauerläufer-
+  Screensaver. Reine App-Logik, nicht im Headless-Harness.
+
 - [x] **Funktionale Polymorphie** (`sizeVar` → echte Stats): `sizeVar` ist jetzt kasten-korreliert
   (`CONFIG.ant.poly`) und treibt sowohl Zeichengröße ALS AUCH echte Stats. **Soldaten** sind größer
   (sizeVar 1.25–1.50) → mehr HP/Biss, aber langsamer + höherer Unterhalt; **Arbeiter** kleiner

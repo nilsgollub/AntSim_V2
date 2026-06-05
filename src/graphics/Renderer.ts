@@ -471,6 +471,7 @@ export class Renderer {
     }
 
     drawQueen(queen: any, ctx: CanvasRenderingContext2D) {
+        if (queen.dead) return; // a starved-out colony's queen is gone
         ctx.save();
         ctx.translate(queen.x, queen.y);
         ctx.rotate(Math.sin(Date.now() * 0.001) * 0.05);
