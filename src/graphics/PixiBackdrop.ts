@@ -16,19 +16,26 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
     ctx.translate(15, 15);
     ctx.lineCap = 'round';
 
-    // Legs (6) — `phase` (0..1) swings them for a walk cycle (tripod-ish gait).
-    ctx.strokeStyle = enemy ? '#4a443a' : (type === 'SOLDIER' ? '#2a1410' : '#8a8a8a');
+    // Legs — 6 jointed (attach → knee → foot), 3 per side; `phase` swings them fore-aft
+    // for a tripod walk cycle. Front pair reaches forward beside the head, rear angles back.
+    ctx.strokeStyle = enemy ? '#4a443a' : (type === 'SOLDIER' ? '#2a1410' : '#707070');
     ctx.lineWidth = 0.6;
-    const count = 6, length = 2.5; // short — from top-down, legs barely protrude past the body
-    for (let i = 0; i < count; i++) {
-        const side = i % 2 === 0 ? 1 : -1;
-        const legIndex = Math.floor(i / 2);
-        const legOffset = (legIndex - count / 4 + 0.5) * 2.2;
-        const move = Math.sin(phase * Math.PI * 2 + (i % 2 === 0 ? 0 : Math.PI) + legIndex * 0.9) * 0.9;
-        ctx.beginPath();
-        ctx.moveTo(legOffset, 0);
-        ctx.quadraticCurveTo(legOffset + move, side * length * 0.5, legOffset + move * 2, side * length);
-        ctx.stroke();
+    const legDefs: [number, number, number, number, number][] = [
+        [0.6, 2.6, 2.4, 4.4, 3.4],
+        [-0.4, -0.2, 3.0, -0.6, 4.6],
+        [-1.6, -3.2, 2.6, -5.0, 3.7],
+    ];
+    let li = 0;
+    for (const [ax, kx, ky, fx, fy] of legDefs) {
+        for (const s of [1, -1]) {
+            const sw = Math.sin(phase * Math.PI * 2 + (li % 2 ? Math.PI : 0)) * 0.8;
+            ctx.beginPath();
+            ctx.moveTo(ax, 0.5 * s);
+            ctx.lineTo(kx + sw, ky * s);
+            ctx.lineTo(fx + sw * 1.4, fy * s);
+            ctx.stroke();
+            li++;
+        }
     }
 
     if (type === 'SOLDIER') {
@@ -67,18 +74,31 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
         ctx.moveTo(7, -3.0); ctx.quadraticCurveTo(10, -3.0, 11, -0.5);
         ctx.stroke();
     } else {
-        ctx.fillStyle = '#b8b8b8';
-        ctx.beginPath(); ctx.ellipse(-3.4, 0, 2.8, 1.4, 0, 0, Math.PI * 2); ctx.fill(); // abdomen (slimmer, longer)
+        // Worker — three clear segments matching the top-down reference: big rounded head
+        // with eyes, narrow waisted thorax, and a large banded gaster, plus geniculate
+        // antennae. Light greys → multiply-tinted to the colony colour at draw time.
+        // Gaster (abdomen) + a faint segment band
+        ctx.fillStyle = '#c2c2c2';
+        ctx.beginPath(); ctx.ellipse(-4.1, 0, 3.0, 1.8, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.22)'; ctx.lineWidth = 0.5;
+        ctx.beginPath(); ctx.moveTo(-4.4, -1.5); ctx.quadraticCurveTo(-3.6, 0, -4.4, 1.5); ctx.stroke();
+        // Petiole (narrow waist)
+        ctx.fillStyle = '#cfcfcf';
+        ctx.beginPath(); ctx.ellipse(-1.7, 0, 0.55, 0.5, 0, 0, Math.PI * 2); ctx.fill();
+        // Thorax (mesosoma)
         ctx.fillStyle = '#cccccc';
-        ctx.beginPath(); ctx.ellipse(0, 0, 2, 0.9, 0, 0, Math.PI * 2); ctx.fill(); // thorax (slimmer)
+        ctx.beginPath(); ctx.ellipse(-0.4, 0, 1.55, 0.92, 0, 0, Math.PI * 2); ctx.fill();
+        // Head (big, rounded) + eyes
         ctx.fillStyle = '#dddddd';
-        ctx.beginPath(); ctx.arc(2.5, 0, 1.35, 0, Math.PI * 2); ctx.fill(); // head (slightly smaller)
-        // Geniculate (elbowed) antennae — like a real ant: a short scape out from the
-        // head, then a bend, then the funiculus pointing forward (not splayed wide).
-        ctx.strokeStyle = '#9a9a9a'; ctx.lineWidth = 0.5; ctx.lineJoin = 'round';
+        ctx.beginPath(); ctx.ellipse(2.5, 0, 1.85, 1.65, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(20,20,20,0.55)';
+        ctx.beginPath(); ctx.ellipse(2.7, -0.95, 0.3, 0.4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(2.7, 0.95, 0.3, 0.4, 0, 0, Math.PI * 2); ctx.fill();
+        // Geniculate antennae — scape out from the head, elbow, funiculus sweeping forward-out.
+        ctx.strokeStyle = '#6a6a6a'; ctx.lineWidth = 0.5; ctx.lineJoin = 'round';
         ctx.beginPath();
-        ctx.moveTo(3.6, -0.7); ctx.lineTo(5.0, -2.1); ctx.lineTo(6.5, -1.6);
-        ctx.moveTo(3.6, 0.7);  ctx.lineTo(5.0, 2.1);  ctx.lineTo(6.5, 1.6);
+        ctx.moveTo(3.9, -0.5); ctx.lineTo(5.6, -1.9); ctx.lineTo(7.4, -2.7);
+        ctx.moveTo(3.9, 0.5);  ctx.lineTo(5.6, 1.9);  ctx.lineTo(7.4, 2.7);
         ctx.stroke();
     }
     return Texture.from(c);
