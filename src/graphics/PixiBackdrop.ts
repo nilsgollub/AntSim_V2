@@ -54,11 +54,13 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
             : { gaster: '#4a0404', band: 'rgba(0,0,0,0.3)',  petiole: '#5a0a0a', thorax: '#4b0000', head: '#900000', eye: 'rgba(0,0,0,0.5)',  ant: '#7a1a1a' })
         : { gaster: '#c2c2c2', band: 'rgba(0,0,0,0.22)', petiole: '#cfcfcf', thorax: '#cccccc', head: '#dddddd', eye: 'rgba(20,20,20,0.55)', ant: '#6a6a6a' };
 
-    const grx = 3.0 * S, gry = 1.8 * S, gcx = -4.1 * S;
+    // Gaster sits back behind a short, thin petiole stalk so the abdomen is clearly
+    // "pinched off" (the ant wasp-waist) instead of merging into the thorax like a termite.
+    const grx = 2.9 * S, gry = 1.75 * S, gcx = -5.0 * S;
     // Soldier thorax is beefier + sits a touch forward so it stays a visible segment
     // between the big head and the gaster (otherwise the head looks stuck on the waist).
     const trx = (soldier ? 1.75 : 1.55) * S, tryR = (soldier ? 1.05 : 0.92) * S, tcx = (soldier ? -0.2 : -0.4) * S;
-    const prx = 0.55 * S, pry = 0.5 * S, pcx = -1.7 * S;
+    const prx = 0.5 * S, pry = 0.32 * S, pcx = -2.05 * S; // thin waist stalk
 
     // Gaster (abdomen) + a faint segment band
     ctx.fillStyle = C.gaster;
