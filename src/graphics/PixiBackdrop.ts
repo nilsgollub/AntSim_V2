@@ -73,8 +73,13 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
         ctx.beginPath(); ctx.ellipse(0, 0, 2, 0.9, 0, 0, Math.PI * 2); ctx.fill(); // thorax (slimmer)
         ctx.fillStyle = '#dddddd';
         ctx.beginPath(); ctx.arc(2.5, 0, 1.35, 0, Math.PI * 2); ctx.fill(); // head (slightly smaller)
-        ctx.strokeStyle = '#9a9a9a'; ctx.lineWidth = 0.5;
-        ctx.beginPath(); ctx.moveTo(3.4, -0.8); ctx.lineTo(6, -3); ctx.moveTo(3.4, 0.8); ctx.lineTo(6, 3); ctx.stroke(); // antennae
+        // Geniculate (elbowed) antennae — like a real ant: a short scape out from the
+        // head, then a bend, then the funiculus pointing forward (not splayed wide).
+        ctx.strokeStyle = '#9a9a9a'; ctx.lineWidth = 0.5; ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(3.6, -0.6); ctx.lineTo(5.0, -1.5); ctx.lineTo(6.5, -1.0);
+        ctx.moveTo(3.6, 0.6);  ctx.lineTo(5.0, 1.5);  ctx.lineTo(6.5, 1.0);
+        ctx.stroke();
     }
     return Texture.from(c);
 }
