@@ -18,8 +18,7 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
 
     ctx.lineJoin = 'round';
     const soldier = type === 'SOLDIER';
-    const S = soldier ? 1.12 : 1.0;   // a soldier is a scaled-up worker…
-    const H = soldier ? 1.28 : 1.0;   // …with a moderately (not absurdly) bigger head
+    const S = soldier ? 1.12 : 1.0;   // a soldier is a scaled-up worker (with the big-headed shape below)
 
     // Legs — 6 jointed (attach → knee → foot), 3 per side; `phase` swings them fore-aft
     // for a tripod walk cycle. Front pair reaches forward beside the head, rear angles
@@ -44,10 +43,11 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
         }
     }
 
-    // Same anatomy for every ant — big rounded head + eyes, narrow waisted thorax, large
-    // banded gaster, geniculate antennae (matches the top-down reference). Only the size
-    // (S/H) and palette differ. Worker = light greys (multiply-tinted to the colony colour
-    // at draw time); our soldier = dark red; rival soldier = dark charcoal.
+    // Shared anatomy — narrow waisted thorax, large banded gaster, eyes, geniculate
+    // antennae. The head differs: workers get a rounded head, soldiers the big-headed
+    // (Pheidole) square/heart head at a moderate size. Only size (S) + head shape +
+    // palette differ. Worker = light greys (multiply-tinted to the colony colour at draw
+    // time); our soldier = dark red; rival soldier = dark charcoal.
     const C = soldier
         ? (enemy
             ? { gaster: '#241f19', band: 'rgba(0,0,0,0.35)', petiole: '#2e2820', thorax: '#2a241c', head: '#38322a', eye: 'rgba(0,0,0,0.5)', ant: '#5c564a' }
@@ -57,7 +57,6 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
     const grx = 3.0 * S, gry = 1.8 * S, gcx = -4.1 * S;
     const trx = 1.55 * S, tryR = 0.92 * S, tcx = -0.4 * S;
     const prx = 0.55 * S, pry = 0.5 * S, pcx = -1.7 * S;
-    const hrx = 1.85 * S * H, hry = 1.65 * S * H, hcx = 2.5 * S + (H - 1) * 1.0;
 
     // Gaster (abdomen) + a faint segment band
     ctx.fillStyle = C.gaster;
@@ -70,19 +69,42 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
     // Thorax (mesosoma)
     ctx.fillStyle = C.thorax;
     ctx.beginPath(); ctx.ellipse(tcx, 0, trx, tryR, 0, 0, Math.PI * 2); ctx.fill();
-    // Head (big, rounded) + eyes
+    // Head — rounded (worker) or the moderate big-headed square/heart (soldier).
+    // headCx/headFront/headHalfH then place the eyes + antennae for either shape.
+    let headCx: number, headFront: number, headHalfH: number;
     ctx.fillStyle = C.head;
-    ctx.beginPath(); ctx.ellipse(hcx, 0, hrx, hry, 0, 0, Math.PI * 2); ctx.fill();
+    if (soldier) {
+        const bx = 1.0 * S, fx = 6.0 * S, hy = 3.3 * S;
+        ctx.beginPath();
+        ctx.moveTo(bx, -hy);
+        ctx.lineTo(fx * 0.78, -hy);
+        ctx.quadraticCurveTo(fx, -hy, fx, 0);
+        ctx.quadraticCurveTo(fx, hy, fx * 0.78, hy);
+        ctx.lineTo(bx, hy);
+        ctx.quadraticCurveTo(bx - 1.0 * S, 0, bx, -hy); // heart notch at the back
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.2)'; // chitin highlight
+        ctx.beginPath(); ctx.ellipse(fx * 0.5, -hy * 0.45, 1.3 * S, 0.85 * S, -0.5, 0, Math.PI * 2); ctx.fill();
+        headCx = (bx + fx) * 0.5; headFront = fx; headHalfH = hy;
+    } else {
+        const hrx = 1.85 * S, hry = 1.65 * S, hcx = 2.5 * S;
+        ctx.beginPath(); ctx.ellipse(hcx, 0, hrx, hry, 0, 0, Math.PI * 2); ctx.fill();
+        headCx = hcx; headFront = hcx + hrx; headHalfH = hry;
+    }
+    // Eyes
     ctx.fillStyle = C.eye;
-    const ex = hcx + hrx * 0.12, ey = hry * 0.57, er = 0.3 * S * H;
-    ctx.beginPath(); ctx.ellipse(ex, -ey, er, er * 1.3, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(ex,  ey, er, er * 1.3, 0, 0, Math.PI * 2); ctx.fill();
-    // Geniculate antennae — scape out, elbow, funiculus sweeping forward-out
-    ctx.strokeStyle = C.ant; ctx.lineWidth = 0.5 * S;
-    const a0 = hcx + hrx * 0.75;
+    const ex = headCx + (soldier ? 0.4 : 0.2) * S, ey = headHalfH * 0.55, er = (soldier ? 0.42 : 0.32) * S;
+    ctx.beginPath(); ctx.ellipse(ex, -ey, er, er * 1.25, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(ex,  ey, er, er * 1.25, 0, 0, Math.PI * 2); ctx.fill();
+    // Antennae — the scape comes out ~90° to the side from the head, then the funiculus
+    // bends forward (geniculate).
+    ctx.strokeStyle = C.ant; ctx.lineWidth = (soldier ? 0.6 : 0.5) * S;
+    const aax = headFront * 0.7, aay = headHalfH * 0.5;
+    const aex = headFront * 0.78, aey = headHalfH + 1.6 * S;
+    const atx = aex + 2.5 * S, aty = aey + 0.4 * S;
     ctx.beginPath();
-    ctx.moveTo(a0, -0.5 * S); ctx.lineTo(a0 + 1.7 * S, -1.9 * S); ctx.lineTo(a0 + 3.5 * S, -2.7 * S);
-    ctx.moveTo(a0,  0.5 * S); ctx.lineTo(a0 + 1.7 * S,  1.9 * S); ctx.lineTo(a0 + 3.5 * S,  2.7 * S);
+    ctx.moveTo(aax, -aay); ctx.lineTo(aex, -aey); ctx.lineTo(atx, -aty);
+    ctx.moveTo(aax,  aay); ctx.lineTo(aex,  aey); ctx.lineTo(atx,  aty);
     ctx.stroke();
     return Texture.from(c);
 }
