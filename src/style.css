@@ -13,6 +13,11 @@ body {
   display: block;
   width: 74vw;
   height: 100dvh;
+  /* The canvas bitmap has the fixed world aspect; `contain` scales it into the box
+     preserving that aspect (uniform x/y) so ants never look squashed/stretched
+     depending on their heading. Mismatched screens get small letterbox bars, not
+     distortion. glCanvas + gameCanvas share box + bitmap aspect → they stay aligned. */
+  object-fit: contain;
   position: relative;
   z-index: 1; /* entities/effects, transparent over the WebGL backdrop */
 }
@@ -24,6 +29,7 @@ body {
   left: 0;
   width: 74vw;
   height: 100dvh;
+  object-fit: contain;
   z-index: 0;
   display: none;
 }
@@ -42,6 +48,7 @@ body {
   display: block;
   width: 100%;
   height: 100%;
+  object-fit: contain; /* preserve the nest bitmap's aspect (no squash) */
 }
 
 /* Nest Overlay UI - Relative to Container */
