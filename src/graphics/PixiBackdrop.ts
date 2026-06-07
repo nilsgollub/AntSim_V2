@@ -18,13 +18,13 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
 
     // Legs (6) — `phase` (0..1) swings them for a walk cycle (tripod-ish gait).
     ctx.strokeStyle = enemy ? '#4a443a' : (type === 'SOLDIER' ? '#2a1410' : '#8a8a8a');
-    ctx.lineWidth = 0.7;
-    const count = 6, length = 4.5;
+    ctx.lineWidth = 0.6;
+    const count = 6, length = 2.5; // short — from top-down, legs barely protrude past the body
     for (let i = 0; i < count; i++) {
         const side = i % 2 === 0 ? 1 : -1;
         const legIndex = Math.floor(i / 2);
         const legOffset = (legIndex - count / 4 + 0.5) * 2.2;
-        const move = Math.sin(phase * Math.PI * 2 + (i % 2 === 0 ? 0 : Math.PI) + legIndex * 0.9) * 1.6;
+        const move = Math.sin(phase * Math.PI * 2 + (i % 2 === 0 ? 0 : Math.PI) + legIndex * 0.9) * 0.9;
         ctx.beginPath();
         ctx.moveTo(legOffset, 0);
         ctx.quadraticCurveTo(legOffset + move, side * length * 0.5, legOffset + move * 2, side * length);
@@ -41,12 +41,12 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
             : { abdomen: '#4a0404', stripe: '#8b0000', thorax: '#4b0000', head: '#900000', mand: '#221100' };
         // Abdomen (armoured, striped)
         ctx.fillStyle = pal.abdomen;
-        ctx.beginPath(); ctx.ellipse(-6, 0, 3.5, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(-6, 0, 3.6, 2.2, 0, 0, Math.PI * 2); ctx.fill(); // slimmer
         ctx.fillStyle = pal.stripe;
-        ctx.fillRect(-7.5, -1.5, 1, 3); ctx.fillRect(-5.5, -1.8, 1, 3.6);
+        ctx.fillRect(-7.5, -1.3, 1, 2.6); ctx.fillRect(-5.5, -1.6, 1, 3.2);
         // Thorax (muscular)
         ctx.fillStyle = pal.thorax;
-        ctx.beginPath(); ctx.ellipse(-1, 0, 2.5, 2.0, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(-1, 0, 2.5, 1.75, 0, 0, Math.PI * 2); ctx.fill(); // slimmer
         // Head — massive rounded-square / heart shape (the big-headed look)
         ctx.fillStyle = pal.head;
         ctx.beginPath();
@@ -68,11 +68,11 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
         ctx.stroke();
     } else {
         ctx.fillStyle = '#b8b8b8';
-        ctx.beginPath(); ctx.ellipse(-3.2, 0, 2.6, 1.7, 0, 0, Math.PI * 2); ctx.fill(); // abdomen
+        ctx.beginPath(); ctx.ellipse(-3.4, 0, 2.8, 1.4, 0, 0, Math.PI * 2); ctx.fill(); // abdomen (slimmer, longer)
         ctx.fillStyle = '#cccccc';
-        ctx.beginPath(); ctx.ellipse(0, 0, 2, 1.1, 0, 0, Math.PI * 2); ctx.fill(); // thorax
+        ctx.beginPath(); ctx.ellipse(0, 0, 2, 0.9, 0, 0, Math.PI * 2); ctx.fill(); // thorax (slimmer)
         ctx.fillStyle = '#dddddd';
-        ctx.beginPath(); ctx.arc(2.4, 0, 1.6, 0, Math.PI * 2); ctx.fill(); // head
+        ctx.beginPath(); ctx.arc(2.5, 0, 1.35, 0, Math.PI * 2); ctx.fill(); // head (slightly smaller)
         ctx.strokeStyle = '#9a9a9a'; ctx.lineWidth = 0.5;
         ctx.beginPath(); ctx.moveTo(3.4, -0.8); ctx.lineTo(6, -3); ctx.moveTo(3.4, 0.8); ctx.lineTo(6, 3); ctx.stroke(); // antennae
     }
@@ -388,12 +388,14 @@ export class PixiBackdrop {
                 // cosmetic, their stats/collision still use the full sizeVar.
                 const dz = (a.sizeVar ?? 1) * (soldier ? 0.78 : 1);
 
-                // Soft contact shadow under the ant (grounds it).
+                // Soft contact shadow under the ant — kept small + faint so it grounds the
+                // ant on the dirt without reading as a dark ring when it crosses the bright
+                // (additive) pheromone clouds.
                 sh.visible = true;
-                sh.position.set(a.x, a.y + 1.4);
-                sh.scale.set(dz * 0.34);
+                sh.position.set(a.x, a.y + 1.2);
+                sh.scale.set(dz * 0.22);
                 sh.tint = 0x000000;
-                sh.alpha = 0.26;
+                sh.alpha = 0.14;
 
                 s.visible = true;
                 // Rival soldiers use the dedicated dark texture (untinted); everyone else
