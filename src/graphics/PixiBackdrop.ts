@@ -55,7 +55,9 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
         : { gaster: '#c2c2c2', band: 'rgba(0,0,0,0.22)', petiole: '#cfcfcf', thorax: '#cccccc', head: '#dddddd', eye: 'rgba(20,20,20,0.55)', ant: '#6a6a6a' };
 
     const grx = 3.0 * S, gry = 1.8 * S, gcx = -4.1 * S;
-    const trx = 1.55 * S, tryR = 0.92 * S, tcx = -0.4 * S;
+    // Soldier thorax is beefier + sits a touch forward so it stays a visible segment
+    // between the big head and the gaster (otherwise the head looks stuck on the waist).
+    const trx = (soldier ? 1.75 : 1.55) * S, tryR = (soldier ? 1.05 : 0.92) * S, tcx = (soldier ? -0.2 : -0.4) * S;
     const prx = 0.55 * S, pry = 0.5 * S, pcx = -1.7 * S;
 
     // Gaster (abdomen) + a faint segment band
@@ -74,17 +76,17 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
     let headCx: number, headFront: number, headHalfH: number;
     ctx.fillStyle = C.head;
     if (soldier) {
-        const bx = 1.0 * S, fx = 6.0 * S, hy = 3.3 * S;
+        const bx = 1.7 * S, fx = 5.5 * S, hy = 2.95 * S; // moved forward + a bit smaller/narrower
         ctx.beginPath();
         ctx.moveTo(bx, -hy);
         ctx.lineTo(fx * 0.78, -hy);
         ctx.quadraticCurveTo(fx, -hy, fx, 0);
         ctx.quadraticCurveTo(fx, hy, fx * 0.78, hy);
         ctx.lineTo(bx, hy);
-        ctx.quadraticCurveTo(bx - 1.0 * S, 0, bx, -hy); // heart notch at the back
+        ctx.quadraticCurveTo(bx - 0.9 * S, 0, bx, -hy); // heart notch at the back
         ctx.fill();
         ctx.fillStyle = 'rgba(255,255,255,0.2)'; // chitin highlight
-        ctx.beginPath(); ctx.ellipse(fx * 0.5, -hy * 0.45, 1.3 * S, 0.85 * S, -0.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(fx * 0.5 + 0.4, -hy * 0.45, 1.2 * S, 0.8 * S, -0.5, 0, Math.PI * 2); ctx.fill();
         headCx = (bx + fx) * 0.5; headFront = fx; headHalfH = hy;
     } else {
         const hrx = 1.85 * S, hry = 1.65 * S, hcx = 2.5 * S;
@@ -93,7 +95,7 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
     }
     // Eyes
     ctx.fillStyle = C.eye;
-    const ex = headCx + (soldier ? 0.4 : 0.2) * S, ey = headHalfH * 0.55, er = (soldier ? 0.42 : 0.32) * S;
+    const ex = headCx + (soldier ? 0.4 : 0.2) * S, ey = headHalfH * 0.55, er = (soldier ? 0.4 : 0.32) * S;
     ctx.beginPath(); ctx.ellipse(ex, -ey, er, er * 1.25, 0, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.ellipse(ex,  ey, er, er * 1.25, 0, 0, Math.PI * 2); ctx.fill();
     // Antennae — the scape comes out ~90° to the side from the head, then the funiculus
