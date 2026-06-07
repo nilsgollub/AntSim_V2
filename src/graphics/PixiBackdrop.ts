@@ -77,8 +77,8 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
         // head, then a bend, then the funiculus pointing forward (not splayed wide).
         ctx.strokeStyle = '#9a9a9a'; ctx.lineWidth = 0.5; ctx.lineJoin = 'round';
         ctx.beginPath();
-        ctx.moveTo(3.6, -0.6); ctx.lineTo(5.0, -1.5); ctx.lineTo(6.5, -1.0);
-        ctx.moveTo(3.6, 0.6);  ctx.lineTo(5.0, 1.5);  ctx.lineTo(6.5, 1.0);
+        ctx.moveTo(3.6, -0.7); ctx.lineTo(5.0, -2.1); ctx.lineTo(6.5, -1.6);
+        ctx.moveTo(3.6, 0.7);  ctx.lineTo(5.0, 2.1);  ctx.lineTo(6.5, 1.6);
         ctx.stroke();
     }
     return Texture.from(c);
