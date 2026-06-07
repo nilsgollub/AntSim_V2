@@ -16,9 +16,15 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
     ctx.translate(15, 15);
     ctx.lineCap = 'round';
 
+    ctx.lineJoin = 'round';
+    const soldier = type === 'SOLDIER';
+    const S = soldier ? 1.12 : 1.0;   // a soldier is a scaled-up worker…
+    const H = soldier ? 1.28 : 1.0;   // …with a moderately (not absurdly) bigger head
+
     // Legs — 6 jointed (attach → knee → foot), 3 per side; `phase` swings them fore-aft
-    // for a tripod walk cycle. Front pair reaches forward beside the head, rear angles back.
-    ctx.strokeStyle = enemy ? '#4a443a' : (type === 'SOLDIER' ? '#2a1410' : '#707070');
+    // for a tripod walk cycle. Front pair reaches forward beside the head, rear angles
+    // back. Scaled with the body (S).
+    ctx.strokeStyle = enemy ? '#4a443a' : (soldier ? '#2a1410' : '#707070');
     ctx.lineWidth = 0.6;
     const legDefs: [number, number, number, number, number][] = [
         [0.6, 2.6, 2.4, 4.4, 3.4],
@@ -30,77 +36,54 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
         for (const s of [1, -1]) {
             const sw = Math.sin(phase * Math.PI * 2 + (li % 2 ? Math.PI : 0)) * 0.8;
             ctx.beginPath();
-            ctx.moveTo(ax, 0.5 * s);
-            ctx.lineTo(kx + sw, ky * s);
-            ctx.lineTo(fx + sw * 1.4, fy * s);
+            ctx.moveTo(ax * S, 0.5 * s * S);
+            ctx.lineTo((kx + sw) * S, ky * s * S);
+            ctx.lineTo((fx + sw * 1.4) * S, fy * s * S);
             ctx.stroke();
             li++;
         }
     }
 
-    if (type === 'SOLDIER') {
-        // Big-headed Pheidole major, matching the 2D nest renderer (drawAnt) shape so a
-        // soldier looks identical outside (this baked texture) and inside the nest.
-        // Palette: us = dark red; rival = a naturally dark charcoal-brown ant (clearly
-        // darker, no inked outline — reads as a different species, not a sticker).
-        const pal = enemy
-            ? { abdomen: '#241f19', stripe: '#332d24', thorax: '#2a241c', head: '#38322a', mand: '#5c564a' }
-            : { abdomen: '#4a0404', stripe: '#8b0000', thorax: '#4b0000', head: '#900000', mand: '#221100' };
-        // Abdomen (armoured, striped)
-        ctx.fillStyle = pal.abdomen;
-        ctx.beginPath(); ctx.ellipse(-6, 0, 3.6, 2.2, 0, 0, Math.PI * 2); ctx.fill(); // slimmer
-        ctx.fillStyle = pal.stripe;
-        ctx.fillRect(-7.5, -1.3, 1, 2.6); ctx.fillRect(-5.5, -1.6, 1, 3.2);
-        // Thorax (muscular)
-        ctx.fillStyle = pal.thorax;
-        ctx.beginPath(); ctx.ellipse(-1, 0, 2.5, 1.75, 0, 0, Math.PI * 2); ctx.fill(); // slimmer
-        // Head — massive rounded-square / heart shape (the big-headed look)
-        ctx.fillStyle = pal.head;
-        ctx.beginPath();
-        ctx.moveTo(1, -4.5);
-        ctx.lineTo(6, -4.5);
-        ctx.quadraticCurveTo(8, -4.5, 8, 0);
-        ctx.quadraticCurveTo(8, 4.5, 6, 4.5);
-        ctx.lineTo(1, 4.5);
-        ctx.quadraticCurveTo(0, 0, 1, -4.5);
-        ctx.fill();
-        // Head armour highlight (shiny chitin)
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.beginPath(); ctx.ellipse(4, -2, 1.5, 1, -0.5, 0, Math.PI * 2); ctx.fill();
-        // Mandibles (massive, crushing)
-        ctx.strokeStyle = pal.mand; ctx.lineWidth = 3.0;
-        ctx.beginPath();
-        ctx.moveTo(7, 3.0); ctx.quadraticCurveTo(10, 3.0, 11, 0.5);
-        ctx.moveTo(7, -3.0); ctx.quadraticCurveTo(10, -3.0, 11, -0.5);
-        ctx.stroke();
-    } else {
-        // Worker — three clear segments matching the top-down reference: big rounded head
-        // with eyes, narrow waisted thorax, and a large banded gaster, plus geniculate
-        // antennae. Light greys → multiply-tinted to the colony colour at draw time.
-        // Gaster (abdomen) + a faint segment band
-        ctx.fillStyle = '#c2c2c2';
-        ctx.beginPath(); ctx.ellipse(-4.1, 0, 3.0, 1.8, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = 'rgba(0,0,0,0.22)'; ctx.lineWidth = 0.5;
-        ctx.beginPath(); ctx.moveTo(-4.4, -1.5); ctx.quadraticCurveTo(-3.6, 0, -4.4, 1.5); ctx.stroke();
-        // Petiole (narrow waist)
-        ctx.fillStyle = '#cfcfcf';
-        ctx.beginPath(); ctx.ellipse(-1.7, 0, 0.55, 0.5, 0, 0, Math.PI * 2); ctx.fill();
-        // Thorax (mesosoma)
-        ctx.fillStyle = '#cccccc';
-        ctx.beginPath(); ctx.ellipse(-0.4, 0, 1.55, 0.92, 0, 0, Math.PI * 2); ctx.fill();
-        // Head (big, rounded) + eyes
-        ctx.fillStyle = '#dddddd';
-        ctx.beginPath(); ctx.ellipse(2.5, 0, 1.85, 1.65, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = 'rgba(20,20,20,0.55)';
-        ctx.beginPath(); ctx.ellipse(2.7, -0.95, 0.3, 0.4, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(2.7, 0.95, 0.3, 0.4, 0, 0, Math.PI * 2); ctx.fill();
-        // Geniculate antennae — scape out from the head, elbow, funiculus sweeping forward-out.
-        ctx.strokeStyle = '#6a6a6a'; ctx.lineWidth = 0.5; ctx.lineJoin = 'round';
-        ctx.beginPath();
-        ctx.moveTo(3.9, -0.5); ctx.lineTo(5.6, -1.9); ctx.lineTo(7.4, -2.7);
-        ctx.moveTo(3.9, 0.5);  ctx.lineTo(5.6, 1.9);  ctx.lineTo(7.4, 2.7);
-        ctx.stroke();
-    }
+    // Same anatomy for every ant — big rounded head + eyes, narrow waisted thorax, large
+    // banded gaster, geniculate antennae (matches the top-down reference). Only the size
+    // (S/H) and palette differ. Worker = light greys (multiply-tinted to the colony colour
+    // at draw time); our soldier = dark red; rival soldier = dark charcoal.
+    const C = soldier
+        ? (enemy
+            ? { gaster: '#241f19', band: 'rgba(0,0,0,0.35)', petiole: '#2e2820', thorax: '#2a241c', head: '#38322a', eye: 'rgba(0,0,0,0.5)', ant: '#5c564a' }
+            : { gaster: '#4a0404', band: 'rgba(0,0,0,0.3)',  petiole: '#5a0a0a', thorax: '#4b0000', head: '#900000', eye: 'rgba(0,0,0,0.5)',  ant: '#7a1a1a' })
+        : { gaster: '#c2c2c2', band: 'rgba(0,0,0,0.22)', petiole: '#cfcfcf', thorax: '#cccccc', head: '#dddddd', eye: 'rgba(20,20,20,0.55)', ant: '#6a6a6a' };
+
+    const grx = 3.0 * S, gry = 1.8 * S, gcx = -4.1 * S;
+    const trx = 1.55 * S, tryR = 0.92 * S, tcx = -0.4 * S;
+    const prx = 0.55 * S, pry = 0.5 * S, pcx = -1.7 * S;
+    const hrx = 1.85 * S * H, hry = 1.65 * S * H, hcx = 2.5 * S + (H - 1) * 1.0;
+
+    // Gaster (abdomen) + a faint segment band
+    ctx.fillStyle = C.gaster;
+    ctx.beginPath(); ctx.ellipse(gcx, 0, grx, gry, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = C.band; ctx.lineWidth = 0.5 * S;
+    ctx.beginPath(); ctx.moveTo(gcx - 0.3 * S, -gry * 0.83); ctx.quadraticCurveTo(gcx + 0.5 * S, 0, gcx - 0.3 * S, gry * 0.83); ctx.stroke();
+    // Petiole (narrow waist)
+    ctx.fillStyle = C.petiole;
+    ctx.beginPath(); ctx.ellipse(pcx, 0, prx, pry, 0, 0, Math.PI * 2); ctx.fill();
+    // Thorax (mesosoma)
+    ctx.fillStyle = C.thorax;
+    ctx.beginPath(); ctx.ellipse(tcx, 0, trx, tryR, 0, 0, Math.PI * 2); ctx.fill();
+    // Head (big, rounded) + eyes
+    ctx.fillStyle = C.head;
+    ctx.beginPath(); ctx.ellipse(hcx, 0, hrx, hry, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = C.eye;
+    const ex = hcx + hrx * 0.12, ey = hry * 0.57, er = 0.3 * S * H;
+    ctx.beginPath(); ctx.ellipse(ex, -ey, er, er * 1.3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(ex,  ey, er, er * 1.3, 0, 0, Math.PI * 2); ctx.fill();
+    // Geniculate antennae — scape out, elbow, funiculus sweeping forward-out
+    ctx.strokeStyle = C.ant; ctx.lineWidth = 0.5 * S;
+    const a0 = hcx + hrx * 0.75;
+    ctx.beginPath();
+    ctx.moveTo(a0, -0.5 * S); ctx.lineTo(a0 + 1.7 * S, -1.9 * S); ctx.lineTo(a0 + 3.5 * S, -2.7 * S);
+    ctx.moveTo(a0,  0.5 * S); ctx.lineTo(a0 + 1.7 * S,  1.9 * S); ctx.lineTo(a0 + 3.5 * S,  2.7 * S);
+    ctx.stroke();
     return Texture.from(c);
 }
 
