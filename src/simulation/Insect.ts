@@ -236,13 +236,15 @@ export class Insect {
     }
 
     updateAphid(_world: World) {
-        // Aphids mostly stay still or move very slowly
+        // Near-sessile: real aphids sit on a plant sucking sap. They only shuffle a few
+        // pixels (a tight local target, not the 100px roam), so a spawned cluster stays a
+        // compact, tendable herd that ants farm — instead of drifting apart across the map.
         if (rand() < 0.01 && this.state !== 'WANDER') {
             this.state = 'WANDER';
-            this.pickRandomTarget();
+            this.targetX = this.x + (rand() - 0.5) * 24;
+            this.targetY = this.y + (rand() - 0.5) * 24;
         }
-        // Override speed for aphid
-        this.speed = 0.2;
+        this.speed = 0.15;
     }
 
     huntAnts(world: World, rangeSq: number, damage: number) {

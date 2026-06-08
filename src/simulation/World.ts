@@ -366,11 +366,26 @@ export class World {
                 this.insects.push(new Insect(pos.x, pos.y, 'LADYBUG'));
             }
         }
-        // Spawn Aphids (Blattläuse)
-        if (this.insects.filter(i => i.type === 'APHID').length < 8) {
+        // Spawn Aphids (Blattläuse) — new ones join an existing herd (cluster near a
+        // random current aphid) so they form a visible "farm" that ants tend with a
+        // sugar highway, instead of scattering one-by-one across the whole map.
+        const aphids = this.insects.filter(i => i.type === 'APHID');
+        if (aphids.length < 8) {
             if (rand() < 0.003) {
-                const pos = this.getSafePosition();
-                this.insects.push(new Insect(pos.x, pos.y, 'APHID'));
+                let x: number, y: number;
+                if (aphids.length > 0) {
+                    // Anchor on the herd centroid (not a random member) so the cluster
+                    // stays compact instead of chaining outward member-by-member.
+                    let mx = 0, my = 0;
+                    for (const a of aphids) { mx += a.x; my += a.y; }
+                    mx /= aphids.length; my /= aphids.length;
+                    x = Math.max(20, Math.min(CONFIG.width - 20, mx + (rand() - 0.5) * 50));
+                    y = Math.max(20, Math.min(CONFIG.height - 20, my + (rand() - 0.5) * 50));
+                } else {
+                    const pos = this.getSafePosition();
+                    x = pos.x; y = pos.y;
+                }
+                this.insects.push(new Insect(x, y, 'APHID'));
             }
         }
 
