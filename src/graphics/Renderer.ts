@@ -314,7 +314,7 @@ export class Renderer {
 
         // 5. Insects (Shadows handled inside)
         for (const insect of world.insects) {
-            this.drawInsect(insect);
+            this.drawInsect(insect, (Date.now() * 0.012 + insect.x * 0.07) % 1);
         }
 
         // 6. Ants (World only) — every colony.
@@ -396,9 +396,11 @@ export class Renderer {
             }
         }
 
-        // Interred corpses resting in the graveyard chamber(s).
+        // Interred corpses resting in the graveyard chamber(s). The nest panel shows
+        // colony 0, so only draw its own dead — a rival's interred corpses carry their
+        // colony's nest-local coords and would otherwise appear as phantom crumbs here.
         for (const corpse of world.graveyard) {
-            this.drawFood(corpse);
+            if ((corpse.colonyId ?? 0) === 0) this.drawFood(corpse);
         }
 
         // Draw Dynamic Entities
@@ -1035,7 +1037,31 @@ export class Renderer {
         ctx.restore();
     }
 
-    drawInsect(insect: any) {
+    /**
+     * Draw jointed insect legs with a fore-aft walk swing. `defs` are
+     * [attachX, attachY, kneeX, kneeY, footX, footY] for the right side (mirrored left).
+     * `phase` (0..1) swings the knee/foot; alternating legs are in counter-phase for a
+     * tripod-ish gait. strokeStyle/lineWidth are taken from the current ctx state.
+     */
+    private insectLegs(defs: [number, number, number, number, number, number][], phase: number) {
+        const ctx = this.ctx;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        let li = 0;
+        for (const [ax, ay, kx, ky, fx, fy] of defs) {
+            for (const s of [1, -1]) {
+                const sw = Math.sin(phase * Math.PI * 2 + (li % 2 ? Math.PI : 0)) * 0.9;
+                ctx.beginPath();
+                ctx.moveTo(ax * s, ay);
+                ctx.lineTo(kx * s, ky + sw);
+                ctx.lineTo(fx * s, fy + sw * 1.3);
+                ctx.stroke();
+                li++;
+            }
+        }
+    }
+
+    drawInsect(insect: any, phase: number = 0) {
         this.ctx.save();
         this.ctx.translate(insect.x, insect.y);
 
@@ -1080,13 +1106,7 @@ export class Renderer {
                 [2.5, -1, 5, -1, 7, 0],
                 [2, 1, 4.5, 2, 6.5, 4],
             ];
-            for (const [ax, ay, kx, ky, fx, fy] of pLegs) {
-                for (const s of [1, -1]) {
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(ax * s, ay); this.ctx.lineTo(kx * s, ky); this.ctx.lineTo(fx * s, fy);
-                    this.ctx.stroke();
-                }
-            }
+            this.insectLegs(pLegs, phase);
             // Body — silvery, broad at the head, tapering to the tail.
             const bg = this.ctx.createLinearGradient(-4, 0, 4, 0);
             bg.addColorStop(0, '#9a9a9a'); bg.addColorStop(0.5, '#d2d2d2'); bg.addColorStop(1, '#9a9a9a');
@@ -1141,15 +1161,7 @@ export class Renderer {
                 [4, -2, 12,   1, 18,   3],
                 [3,  0,  9,   6, 14,  11],  // rear pair → backward
             ];
-            for (const [ax, ay, kx, ky, fx, fy] of sLegs) {
-                for (const s of [1, -1]) {
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(ax * s, ay);
-                    this.ctx.lineTo(kx * s, ky);
-                    this.ctx.lineTo(fx * s, fy);
-                    this.ctx.stroke();
-                }
-            }
+            this.insectLegs(sLegs, phase);
             // Abdomen (opisthosoma) — large, with a darker median folium marking.
             this.ctx.fillStyle = '#4a3b2c';
             this.ctx.beginPath(); this.ctx.ellipse(0, 4, 5.2, 6.5, 0, 0, Math.PI * 2); this.ctx.fill();
@@ -1199,13 +1211,7 @@ export class Renderer {
                 [3.5, -1, 7, -1, 10, 0],
                 [3, 2, 6, 5, 9, 8],
             ];
-            for (const [ax, ay, kx, ky, fx, fy] of beLegs) {
-                for (const s of [1, -1]) {
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(ax * s, ay); this.ctx.lineTo(kx * s, ky); this.ctx.lineTo(fx * s, fy);
-                    this.ctx.stroke();
-                }
-            }
+            this.insectLegs(beLegs, phase);
             // Head + clubbed antennae
             this.ctx.strokeStyle = '#1a1510';
             this.ctx.lineWidth = 0.8;
@@ -1251,13 +1257,7 @@ export class Renderer {
                 [3.5, -1, 6, -1, 8, 0],
                 [3, 2, 5, 4, 7, 6],
             ];
-            for (const [ax, ay, kx, ky, fx, fy] of lLegs) {
-                for (const s of [1, -1]) {
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(ax * s, ay); this.ctx.lineTo(kx * s, ky); this.ctx.lineTo(fx * s, fy);
-                    this.ctx.stroke();
-                }
-            }
+            this.insectLegs(lLegs, phase);
             // Head (black) + tiny antennae + white cheek spots.
             this.ctx.strokeStyle = '#111';
             this.ctx.lineWidth = 0.7;
@@ -1304,13 +1304,7 @@ export class Renderer {
                 [3.5, -1, 9, -1, 13, 1],
                 [3, 3, 8, 7, 12, 11],
             ];
-            for (const [ax, ay, kx, ky, fx, fy] of prLegs) {
-                for (const s of [1, -1]) {
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(ax * s, ay); this.ctx.lineTo(kx * s, ky); this.ctx.lineTo(fx * s, fy);
-                    this.ctx.stroke();
-                }
-            }
+            this.insectLegs(prLegs, phase);
             // Abdomen (elongated) — crimson with a bronze sheen + segment bands.
             const grad = this.ctx.createLinearGradient(-5, 0, 5, 0);
             grad.addColorStop(0, '#5a0e0a');
@@ -1356,13 +1350,7 @@ export class Renderer {
                 [2.5, 0, 4.5, 0, 6, 1],
                 [2, 2, 4, 4, 5.5, 6],
             ];
-            for (const [ax, ay, kx, ky, fx, fy] of aLegs) {
-                for (const s of [1, -1]) {
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(ax * s, ay); this.ctx.lineTo(kx * s, ky); this.ctx.lineTo(fx * s, fy);
-                    this.ctx.stroke();
-                }
-            }
+            this.insectLegs(aLegs, phase);
             // Antennae (long, forward + out)
             this.ctx.strokeStyle = 'rgba(90,150,40,0.8)';
             this.ctx.lineWidth = 0.6;
@@ -1508,8 +1496,8 @@ export class Renderer {
         return c;
     }
 
-    bakeInsectCanvas(type: string): HTMLCanvasElement {
-        return this.bakeCentered(64, () => this.drawInsect({ x: 0, y: 0, type, angle: 0 }));
+    bakeInsectCanvas(type: string, phase: number = 0): HTMLCanvasElement {
+        return this.bakeCentered(64, () => this.drawInsect({ x: 0, y: 0, type, angle: 0 }, phase));
     }
 
     bakeFoodCanvas(type: string): HTMLCanvasElement {

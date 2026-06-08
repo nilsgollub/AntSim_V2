@@ -8,6 +8,7 @@ export class Food {
     maxAmount: number;
     corpseType?: string;
     corpseAngle?: number;
+    colonyId?: number;   // set when interred → which colony's graveyard it belongs to
 
     constructor(x: number, y: number, type: FoodType, amount: number) {
         this.x = x;

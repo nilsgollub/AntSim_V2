@@ -1020,6 +1020,7 @@ export function handleReturning(ant: Ant, world: World) {
             if (corpse) {
                 corpse.x = grave.x + (rand() - 0.5) * grave.radius;
                 corpse.y = grave.y + (rand() - 0.5) * grave.radius;
+                corpse.colonyId = ant.colony.id; // tag so only its own nest panel shows it
                 world.graveyard.push(corpse); // laid to rest — out of the foraging pool
             }
             ant.carrying = 'NONE';

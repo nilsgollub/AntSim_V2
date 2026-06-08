@@ -182,7 +182,7 @@ export class PixiBackdrop {
     private antWorkerTex: Texture[] = []; // walk-cycle frames
     private antSoldierTex: Texture[] = [];
     private antEnemySoldierTex: Texture[] = []; // rival soldiers: black + light outline
-    private insectTex: Record<string, Texture> = {};
+    private insectTex: Record<string, Texture[]> = {}; // walk-cycle frames per type
     private foodTex: Record<string, Texture> = {};
     private discTex!: Texture;
 
@@ -228,7 +228,12 @@ export class PixiBackdrop {
         }
         this.discTex = bakeDisc();
         // Reuse the exact canvas-2D art for insects, food and decoration.
-        for (const t of INSECT_TYPES) this.insectTex[t] = Texture.from(renderer.bakeInsectCanvas(t));
+        const INSECT_FRAMES = 4;
+        for (const t of INSECT_TYPES) {
+            this.insectTex[t] = [];
+            for (let f = 0; f < INSECT_FRAMES; f++)
+                this.insectTex[t].push(Texture.from(renderer.bakeInsectCanvas(t, f / INSECT_FRAMES)));
+        }
         for (const t of FOOD_TYPES) this.foodTex[t] = Texture.from(renderer.bakeFoodCanvas(t));
 
         this.world = new Container();
@@ -389,12 +394,17 @@ export class PixiBackdrop {
         }
 
         // Insects — baked 2D art per type; texture already faces +x, rotate by angle.
-        this.pool(this.bugPool, this.bugLayer, this.insectTex.PREY, world.insects.length);
+        this.pool(this.bugPool, this.bugLayer, this.insectTex.PREY[0], world.insects.length);
         for (let i = 0; i < world.insects.length; i++) {
             const ins: any = world.insects[i];
             const s = this.bugPool[i];
             s.visible = true;
-            s.texture = this.insectTex[ins.type] ?? this.insectTex.PREY;
+            const frames = this.insectTex[ins.type] ?? this.insectTex.PREY;
+            // Legs animate via a walk-cycle frame; a stationary (IDLE) bug holds frame 0.
+            const idx = ins.state !== 'IDLE'
+                ? (Math.floor(this.frame * 0.25 + (ins.x | 0)) % frames.length)
+                : 0;
+            s.texture = frames[idx];
             s.position.set(ins.x, ins.y);
             s.rotation = ins.angle ?? 0;
             s.scale.set(0.5); // texture is 2× supersampled
