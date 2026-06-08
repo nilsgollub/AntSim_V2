@@ -264,7 +264,7 @@ export class PixiBackdrop {
         this.pheroSprite.width = logicalW;
         this.pheroSprite.height = logicalH;
         this.pheroSprite.blendMode = 'add';
-        this.pheroSprite.alpha = 0.75;
+        this.pheroSprite.alpha = 0.85;
         this.world.addChild(this.pheroSprite);
 
         // Static decoration (rocks, grass, entrance) baked once at world resolution,
@@ -364,9 +364,11 @@ export class PixiBackdrop {
                 for (let i = 0; i < buf.length; i++) {
                     const home = toHome[i], sugar = toSugar[i], protein = toProtein[i], danger = toDanger[i];
                     if (home > 0.01 || sugar > 0.01 || protein > 0.01 || danger > 0.01) {
-                        const r = Math.min(255, ((protein + sugar + danger) * 255) | 0);
-                        const g = Math.min(255, (sugar * 255) | 0);
-                        const b = Math.min(255, ((home + danger) * 255) | 0);
+                        // sqrt response curve: lifts faint concentrations so trails read
+                        // as continuous glowing highways instead of dim wisps.
+                        const r = Math.min(255, (Math.sqrt(protein + sugar + danger) * 255) | 0);
+                        const g = Math.min(255, (Math.sqrt(sugar) * 255) | 0);
+                        const b = Math.min(255, (Math.sqrt(home + danger) * 255) | 0);
                         buf[i] = (255 << 24) | (b << 16) | (g << 8) | r;
                     } else buf[i] = 0;
                 }

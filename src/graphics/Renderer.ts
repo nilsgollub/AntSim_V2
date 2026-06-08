@@ -17,7 +17,7 @@ export class Renderer {
 
     nestCanvas!: HTMLCanvasElement;
     nestCtx!: CanvasRenderingContext2D;
-    showPheromones: boolean = false;
+    showPheromones: boolean = true; // the pheromone highways are the headline feature → on by default
 
     // Camera — set from main.ts before calling render().
     camera: Camera | null = null;
@@ -360,9 +360,10 @@ export class Renderer {
                     const protein = toProtein[i];
                     const danger = toDanger[i];
                     if (home > 0.01 || sugar > 0.01 || protein > 0.01 || danger > 0.01) {
-                        const rVal = Math.min(255, ((protein + sugar + danger) * 255) | 0);
-                        const gVal = Math.min(255, (sugar * 255) | 0);
-                        const bVal = Math.min(255, ((home + danger) * 255) | 0);
+                        // sqrt response curve so faint trails still read as glowing highways.
+                        const rVal = Math.min(255, (Math.sqrt(protein + sugar + danger) * 255) | 0);
+                        const gVal = Math.min(255, (Math.sqrt(sugar) * 255) | 0);
+                        const bVal = Math.min(255, (Math.sqrt(home + danger) * 255) | 0);
                         buf[i] = (255 << 24) | (bVal << 16) | (gVal << 8) | rVal;
                     } else {
                         buf[i] = 0;
