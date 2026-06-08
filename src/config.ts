@@ -13,7 +13,16 @@ const WORLD_SCALE = 1.4;
 const NEST_FRACTION = 0.28;
 
 const TARGET_AREA = 1000 * 600 * WORLD_SCALE * WORLD_SCALE;
-const aspect = screenW / screenH;
+// The world canvas only fills 74% of one axis — the nest panel takes the other 26%
+// (74vw / 100dvh in landscape, 100vw / 74dvh in portrait, see style.css). Match the
+// world's aspect to the *canvas box*, not the whole window, so `object-fit: contain`
+// fills the box exactly: no distortion AND no black letterbox bars. In the DOM-less
+// test env keep the plain window aspect so golden snapshots stay byte-identical.
+const CANVAS_FRACTION = 0.74;
+const hasDOM = typeof window !== 'undefined';
+const boxW = hasDOM && isLandscape ? screenW * CANVAS_FRACTION : screenW;
+const boxH = hasDOM && !isLandscape ? screenH * CANVAS_FRACTION : screenH;
+const aspect = boxW / boxH;
 
 // Calculate logical dimensions that preserve the aspect ratio but approximate the target area
 const logicalHeight = Math.sqrt(TARGET_AREA / aspect);
