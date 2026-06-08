@@ -242,56 +242,65 @@ export class Renderer {
             ctx.stroke();
         }
 
-        // Scattered pebbles — small stones with a contact shadow + highlight.
-        const pebbles = (w * h) / 14000;
+        // Scattered pebbles — stones that clearly dwarf an ant (ants are ~6px), each
+        // with a contact shadow + highlight so it sits in the soil.
+        const pebbles = (w * h) / 20000;
         for (let i = 0; i < pebbles; i++) {
-            const x = Math.random() * w, y = Math.random() * h, r = rnd(2, 5);
-            ctx.fillStyle = 'rgba(0,0,0,0.25)';
-            ctx.beginPath(); ctx.ellipse(x + 1, y + 1.2, r, r * 0.7, 0, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = pick(['#5a5048', '#6b5d4a', '#4a4038', '#7a6b56']);
-            ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.75, rnd(0, 3), 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = 'rgba(255,255,255,0.16)';
-            ctx.beginPath(); ctx.ellipse(x - r * 0.3, y - r * 0.3, r * 0.35, r * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+            const x = Math.random() * w, y = Math.random() * h, r = rnd(5, 12);
+            const ar = rnd(0.6, 0.85);
+            ctx.fillStyle = 'rgba(0,0,0,0.28)';
+            ctx.beginPath(); ctx.ellipse(x + r * 0.22, y + r * 0.28, r, r * ar, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = pick(['#5a5048', '#6b5d4a', '#4a4038', '#7a6b56', '#574b40']);
+            ctx.beginPath(); ctx.ellipse(x, y, r, r * ar, rnd(0, 3), 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+            ctx.beginPath(); ctx.ellipse(x - r * 0.3, y - r * 0.32, r * 0.4, r * 0.24, rnd(0, 3), 0, Math.PI * 2); ctx.fill();
         }
 
-        // Fallen leaves — small curled autumn shapes with a midrib.
-        const leaves = (w * h) / 42000;
+        // Fallen leaves — pointed almond shapes several ant-lengths long, with midrib + stem.
+        const leaves = (w * h) / 52000;
         for (let i = 0; i < leaves; i++) {
             const x = Math.random() * w, y = Math.random() * h;
             ctx.save(); ctx.translate(x, y); ctx.rotate(rnd(0, Math.PI * 2));
-            const ll = rnd(4, 7);
-            ctx.fillStyle = pick(['#6e3b1e', '#7a4a22', '#5a3318', '#824e26', '#8a5a2a']);
-            ctx.beginPath(); ctx.ellipse(0, 0, ll, ll * 0.45, 0, 0, Math.PI * 2); ctx.fill();
-            ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 0.5;
-            ctx.beginPath(); ctx.moveTo(-ll, 0); ctx.lineTo(ll, 0); ctx.stroke();
+            const ll = rnd(9, 18); // half-length
+            ctx.fillStyle = pick(['#6e3b1e', '#7a4a22', '#5a3318', '#824e26', '#8a5a2a', '#7c5a2e']);
+            ctx.beginPath();
+            ctx.moveTo(-ll, 0);
+            ctx.quadraticCurveTo(0, -ll * 0.42, ll, 0);
+            ctx.quadraticCurveTo(0, ll * 0.42, -ll, 0);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(0,0,0,0.28)'; ctx.lineWidth = 0.7;
+            ctx.beginPath(); ctx.moveTo(-ll * 0.85, 0); ctx.lineTo(ll, 0); ctx.stroke();          // midrib
+            ctx.beginPath(); ctx.moveTo(-ll, 0); ctx.lineTo(-ll - rnd(2, 5), rnd(-2, 2)); ctx.stroke(); // stem
             ctx.restore();
         }
 
-        // Twigs — short forked sticks.
-        const twigs = (w * h) / 60000;
+        // Twigs — long forked sticks (a fallen branchlet dwarfs an ant).
+        const twigs = (w * h) / 78000;
         for (let i = 0; i < twigs; i++) {
             const x = Math.random() * w, y = Math.random() * h;
             ctx.save(); ctx.translate(x, y); ctx.rotate(rnd(0, Math.PI * 2));
-            ctx.strokeStyle = '#4a3522'; ctx.lineWidth = rnd(0.8, 1.4); ctx.lineCap = 'round';
-            const tl = rnd(6, 12);
+            ctx.strokeStyle = pick(['#4a3522', '#3e2c1c', '#564028']); ctx.lineWidth = rnd(1.4, 2.6); ctx.lineCap = 'round';
+            const tl = rnd(16, 32);
             ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(tl, 0);
-            ctx.moveTo(tl * 0.6, 0); ctx.lineTo(tl * 0.85, -rnd(2, 4)); // a little fork
+            ctx.moveTo(tl * 0.55, 0); ctx.lineTo(tl * 0.8, -rnd(4, 8));   // fork up
+            ctx.moveTo(tl * 0.75, 0); ctx.lineTo(tl * 0.95, rnd(3, 6));   // fork down
             ctx.stroke();
             ctx.restore();
         }
 
-        // Rare tiny wildflowers — a dot of colour for life.
-        const flowers = (w * h) / 95000;
+        // Wildflowers — small but clearly bigger than an ant; a dab of colour for life.
+        const flowers = (w * h) / 110000;
         for (let i = 0; i < flowers; i++) {
             const x = Math.random() * w, y = Math.random() * h;
-            const petal = pick(['#e8e0d0', '#e6c84a', '#c79ad8', '#e88aa0']);
+            const petal = pick(['#e8e0d0', '#e6c84a', '#c79ad8', '#e88aa0', '#dfe0e8']);
+            const pr = rnd(2.0, 3.0), off = pr * 1.4;
             ctx.fillStyle = petal;
             for (let k = 0; k < 5; k++) {
-                const a = (k / 5) * Math.PI * 2;
-                ctx.beginPath(); ctx.arc(x + Math.cos(a) * 1.5, y + Math.sin(a) * 1.5, 1.1, 0, Math.PI * 2); ctx.fill();
+                const a = (k / 5) * Math.PI * 2 + Math.random() * 0.3;
+                ctx.beginPath(); ctx.arc(x + Math.cos(a) * off, y + Math.sin(a) * off, pr, 0, Math.PI * 2); ctx.fill();
             }
             ctx.fillStyle = '#d8a818'; // centre
-            ctx.beginPath(); ctx.arc(x, y, 0.9, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x, y, pr * 0.8, 0, Math.PI * 2); ctx.fill();
         }
     }
 
