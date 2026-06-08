@@ -545,10 +545,10 @@ export class Renderer {
         ctx.ellipse(4, -11, 1.8, 4, -0.3, 0, Math.PI * 2);
         ctx.fill();
 
-        // Head — red, rounded (Messor); eyes + geniculate antennae, no mandibles.
+        // Head — rounded, colony body colour (no red); eyes + geniculate antennae.
         ctx.save();
         ctx.translate(0, -21);
-        ctx.fillStyle = '#c01810';
+        ctx.fillStyle = body;
         ctx.beginPath(); ctx.ellipse(0, 0, 7.5, 7, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = 'rgba(255,255,255,0.18)'; // chitin highlight
         ctx.beginPath(); ctx.ellipse(-2.5, -3, 2.5, 1.6, -0.5, 0, Math.PI * 2); ctx.fill();
