@@ -1,5 +1,5 @@
 import { Application, Container, Sprite, Texture } from 'pixi.js';
-import { AdvancedBloomFilter } from 'pixi-filters';
+import { AdvancedBloomFilter, OutlineFilter } from 'pixi-filters';
 import type { World } from '../simulation/World';
 import type { Camera } from './Camera';
 import type { Renderer } from './Renderer';
@@ -273,6 +273,9 @@ export class PixiBackdrop {
         this.bugLayer = new Container();
         this.shadowLayer = new Container();
         this.antLayer = new Container();
+        // A subtle light outline around every ant (applied post-tint, on the alpha edge)
+        // so the near-black colony reads against the dark dirt without being lightened.
+        this.antLayer.filters = [new OutlineFilter({ thickness: 1.2, color: 0xb8b0a0, alpha: 0.7, quality: 0.1 })];
         this.overlayLayer = new Container();   // carried-cargo dots over the ants
         this.flashLayer = new Container();
         this.flashLayer.blendMode = 'add';     // combat sparks glow
