@@ -746,36 +746,109 @@ export class Renderer {
         ctx.fill();
     }
 
+    /** Multiply a #rgb/#rrggbb colour towards black by factor f (0..1). */
+    private static darken(hex: string, f: number): string {
+        let h = hex.replace('#', '');
+        if (h.length === 3) h = h.split('').map(c => c + c).join('');
+        const n = parseInt(h, 16);
+        const r = (((n >> 16) & 255) * f) | 0, g = (((n >> 8) & 255) * f) | 0, b = ((n & 255) * f) | 0;
+        return `rgb(${r},${g},${b})`;
+    }
+
+    /**
+     * Draw a single ant in local space (origin at thorax, facing +x), mirroring the
+     * WebGL `bakeAnt` silhouette so the 2D nest view matches the outside 3D look:
+     * wasp-waisted body (gaster + thin petiole + thorax), rounded worker head /
+     * big-headed square soldier head, eyes, geniculate antennae and short jointed
+     * legs. Colours come from the caller (body = colony colour, soldier head = red).
+     * `phase` (0..1) swings the legs for the walk cycle; pass 0 for a static pose.
+     */
+    private drawAntBody2D(ctx: CanvasRenderingContext2D, soldier: boolean,
+                          bodyCol: string, headCol: string, legCol: string, S: number, phase: number) {
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        // Legs — 6 jointed (attach → knee → foot), 3 per side; short so they barely protrude.
+        ctx.strokeStyle = legCol;
+        ctx.lineWidth = 0.6;
+        const legDefs: [number, number, number, number, number][] = [
+            [0.6, 2.6, 2.4, 4.4, 3.4],
+            [-0.4, -0.2, 3.0, -0.6, 4.6],
+            [-1.6, -3.2, 2.6, -5.0, 3.7],
+        ];
+        let li = 0;
+        for (const [ax, kx, ky, fx, fy] of legDefs) {
+            for (const s of [1, -1]) {
+                const sw = Math.sin(phase * Math.PI * 2 + (li % 2 ? Math.PI : 0)) * 0.8;
+                ctx.beginPath();
+                ctx.moveTo(ax * S, 0.5 * s * S);
+                ctx.lineTo((kx + sw) * S, ky * s * S);
+                ctx.lineTo((fx + sw * 1.4) * S, fy * s * S);
+                ctx.stroke();
+                li++;
+            }
+        }
+        // Gaster (abdomen) behind a thin petiole stalk → clear wasp waist.
+        const grx = 2.9 * S, gry = 1.75 * S, gcx = -5.0 * S;
+        const trx = (soldier ? 1.75 : 1.55) * S, tryR = (soldier ? 1.05 : 0.92) * S, tcx = (soldier ? -0.2 : -0.4) * S;
+        const prx = 0.5 * S, pry = 0.32 * S, pcx = -2.05 * S;
+        ctx.fillStyle = bodyCol;
+        ctx.beginPath(); ctx.ellipse(gcx, 0, grx, gry, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 0.5 * S;
+        ctx.beginPath(); ctx.moveTo(gcx - 0.3 * S, -gry * 0.83); ctx.quadraticCurveTo(gcx + 0.5 * S, 0, gcx - 0.3 * S, gry * 0.83); ctx.stroke();
+        ctx.fillStyle = bodyCol;
+        ctx.beginPath(); ctx.ellipse(pcx, 0, prx, pry, 0, 0, Math.PI * 2); ctx.fill();   // petiole
+        ctx.beginPath(); ctx.ellipse(tcx, 0, trx, tryR, 0, 0, Math.PI * 2); ctx.fill();  // thorax
+        // Head — rounded (worker) or moderate big-headed square/heart (soldier).
+        let headCx: number, headFront: number, headHalfH: number;
+        ctx.fillStyle = headCol;
+        if (soldier) {
+            const bx = 1.7 * S, fx = 5.5 * S, hy = 2.95 * S;
+            ctx.beginPath();
+            ctx.moveTo(bx, -hy);
+            ctx.lineTo(fx * 0.78, -hy);
+            ctx.quadraticCurveTo(fx, -hy, fx, 0);
+            ctx.quadraticCurveTo(fx, hy, fx * 0.78, hy);
+            ctx.lineTo(bx, hy);
+            ctx.quadraticCurveTo(bx - 0.9 * S, 0, bx, -hy);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            ctx.beginPath(); ctx.ellipse(fx * 0.5 + 0.4, -hy * 0.45, 1.2 * S, 0.8 * S, -0.5, 0, Math.PI * 2); ctx.fill();
+            headCx = (bx + fx) * 0.5; headFront = fx; headHalfH = hy;
+        } else {
+            const hrx = 1.85 * S, hry = 1.65 * S, hcx = 2.5 * S;
+            ctx.beginPath(); ctx.ellipse(hcx, 0, hrx, hry, 0, 0, Math.PI * 2); ctx.fill();
+            headCx = hcx; headFront = hcx + hrx; headHalfH = hry;
+        }
+        // Eyes
+        ctx.fillStyle = soldier ? 'rgba(0,0,0,0.45)' : 'rgba(20,20,20,0.55)';
+        const ex = headCx + (soldier ? 0.4 : 0.2) * S, ey = headHalfH * 0.55, er = (soldier ? 0.4 : 0.32) * S;
+        ctx.beginPath(); ctx.ellipse(ex, -ey, er, er * 1.25, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(ex,  ey, er, er * 1.25, 0, 0, Math.PI * 2); ctx.fill();
+        // Antennae — scape ~90° to the side, then funiculus bends forward (geniculate).
+        ctx.strokeStyle = legCol; ctx.lineWidth = (soldier ? 0.6 : 0.5) * S;
+        const aax = headFront * 0.7, aay = headHalfH * 0.5;
+        const aex = headFront * 0.78, aey = headHalfH + 1.6 * S;
+        const atx = aex + 2.5 * S, aty = aey + 0.4 * S;
+        ctx.beginPath();
+        ctx.moveTo(aax, -aay); ctx.lineTo(aex, -aey); ctx.lineTo(atx, -aty);
+        ctx.moveTo(aax,  aay); ctx.lineTo(aex,  aey); ctx.lineTo(atx,  aty);
+        ctx.stroke();
+    }
+
     // Cache for static ants (Medium Quality)
-    // Cached ant sprites keyed by `${type}_${variant}`. Variants are brightness
-    // tweaks so the MEDIUM-quality crowd isn't a field of identical clones.
+    // Cached ant sprites keyed by `${type}_${variant}_${bodyCol}`. Variants are
+    // brightness tweaks so the MEDIUM-quality crowd isn't a field of identical clones.
     private antSprites: Record<string, HTMLCanvasElement> = {};
     private static readonly ANT_SHADES = [1.0, 0.85, 1.13, 0.93];
 
-    private getCachedAnt(type: 'WORKER' | 'SOLDIER', variant: number = 0, tint?: string): HTMLCanvasElement {
+    private getCachedAnt(type: 'WORKER' | 'SOLDIER', variant: number = 0, bodyCol: string = '#cccccc'): HTMLCanvasElement {
         const v = ((variant % Renderer.ANT_SHADES.length) + Renderer.ANT_SHADES.length) % Renderer.ANT_SHADES.length;
-        const key = `${type}_${v}_${tint || ''}`;
+        const key = `${type}_${v}_${bodyCol}`;
         if (this.antSprites[key]) return this.antSprites[key];
-
-        // Colony tint: clip-tint the shaded base on a TRANSPARENT buffer (source-atop
-        // clips to the sprite pixels → no square halo over the opaque nest floor).
-        if (tint) {
-            const base = this.getCachedAnt(type, v);
-            const out = document.createElement('canvas');
-            out.width = base.width; out.height = base.height;
-            const octx = out.getContext('2d')!;
-            octx.drawImage(base, 0, 0);
-            octx.globalCompositeOperation = 'source-atop';
-            octx.globalAlpha = 0.6;
-            octx.fillStyle = tint;
-            octx.fillRect(0, 0, out.width, out.height);
-            this.antSprites[key] = out;
-            return out;
-        }
 
         // Variants other than the base are brightness-shifted copies of the base.
         if (v !== 0) {
-            const base = this.getCachedAnt(type, 0);
+            const base = this.getCachedAnt(type, 0, bodyCol);
             const tinted = document.createElement('canvas');
             tinted.width = base.width;
             tinted.height = base.height;
@@ -787,74 +860,19 @@ export class Renderer {
         }
 
         const canvas = document.createElement('canvas');
-        canvas.width = 30; // Sufficient size
+        canvas.width = 30;
         canvas.height = 30;
         const ctx = canvas.getContext('2d')!;
+        ctx.translate(15, 15); // centre; caller rotates the sprite when blitting
 
-        ctx.translate(15, 15); // Center
-        // No rotation needed here, we rotate the canvas usage
+        // Same silhouette as the WebGL world (static leg pose). Soldier head = red.
+        const soldier = type === 'SOLDIER';
+        const S = soldier ? 1.12 : 1.0;
+        const headCol = soldier ? '#c01810' : bodyCol;
+        const legCol = Renderer.darken(bodyCol, 0.6);
+        this.drawAntBody2D(ctx, soldier, bodyCol, headCol, legCol, S, 0);
 
-        // Draw Legs (Static)
-        ctx.strokeStyle = '#AAA';
-        ctx.lineWidth = 0.5;
-        const count = 6;
-        const length = 4;
-        for (let i = 0; i < count; i++) {
-            const side = i % 2 === 0 ? 1 : -1;
-            const legIndex = Math.floor(i / 2);
-            const spread = 2;
-            const legOffset = (legIndex - (count / 4) + 0.5) * spread;
-            const move = (i % 2 === 0 ? 0.3 : -0.3); // Static pose
-
-            ctx.beginPath();
-            ctx.moveTo(legOffset, 0);
-            const kx = legOffset + move;
-            const ky = side * length * 0.5;
-            const fx = kx + move;
-            const fy = side * length;
-            ctx.quadraticCurveTo(kx, ky, fx, fy);
-            ctx.stroke();
-        }
-
-        // Draw Body
-        if (type === 'SOLDIER') {
-            ctx.fillStyle = '#4B0000'; // Flat Dark Red
-            // Thorax
-            ctx.beginPath(); ctx.ellipse(-1, 0, 2.5, 2.0, 0, 0, Math.PI * 2); ctx.fill();
-            // Abdomen
-            ctx.fillStyle = '#4A0404';
-            ctx.beginPath(); ctx.ellipse(-6, 0, 3.5, 2.5, 0, 0, Math.PI * 2); ctx.fill();
-            // Stripes
-            ctx.fillStyle = '#8B0000';
-            ctx.fillRect(-7.5, -1.5, 1, 3);
-            ctx.fillRect(-5.5, -1.8, 1, 3.6);
-            // Head
-            ctx.fillStyle = '#900000';
-            ctx.beginPath();
-            ctx.moveTo(1, -4.5);
-            ctx.lineTo(6, -4.5);
-            ctx.quadraticCurveTo(8, -4.5, 8, 0);
-            ctx.quadraticCurveTo(8, 4.5, 6, 4.5);
-            ctx.lineTo(1, 4.5);
-            ctx.quadraticCurveTo(0, 0, 1, -4.5);
-            ctx.fill();
-            // Mandibles
-            ctx.strokeStyle = '#221100'; ctx.lineWidth = 3.0;
-            ctx.beginPath(); ctx.moveTo(7, 3.0); ctx.quadraticCurveTo(10, 3.0, 11, 0.5);
-            ctx.moveTo(7, -3.0); ctx.quadraticCurveTo(10, -3.0, 11, -0.5); ctx.stroke();
-
-        } else {
-            // WORKER
-            ctx.fillStyle = '#CCC';
-            // Head
-            ctx.beginPath(); ctx.arc(2, 0, 1.5, 0, Math.PI * 2); ctx.fill();
-            // Thorax
-            ctx.beginPath(); ctx.ellipse(0, 0, 2, 1, 0, 0, Math.PI * 2); ctx.fill();
-            // Abdomen
-            ctx.beginPath(); ctx.ellipse(-3, 0, 2.5, 1.5, 0, 0, Math.PI * 2); ctx.fill();
-        }
-
-        this.antSprites[`${type}_0`] = canvas;
+        this.antSprites[key] = canvas;
         return canvas;
     }
 
@@ -889,18 +907,14 @@ export class Renderer {
         if (PerformanceManager.settings.simpleAnts) {
             // OPTIMIZED (Body Only, No Legs, Flat Colors)
             if (ant.type === 'SOLDIER') {
-                // Soldier: dark-red body + head, matching the WebGL world texture and the
-                // detailed nest soldier (was grey, which clashed with the reddish outside).
-                ctx.fillStyle = '#4a0404'; // dark maroon body
-
+                // Soldier: colony body colour + red head, matching the WebGL world.
+                ctx.fillStyle = workerCol;
                 // Abdomen
                 ctx.beginPath(); ctx.ellipse(-5, 0, 3.5, 2.5, 0, 0, Math.PI * 2); ctx.fill();
                 // Thorax
-                ctx.fillStyle = '#4b0000';
                 ctx.beginPath(); ctx.ellipse(-1, 0, 2.5, 2.0, 0, 0, Math.PI * 2); ctx.fill();
-
-                // Head (dark red, big-headed)
-                ctx.fillStyle = '#900000';
+                // Head (red, big-headed)
+                ctx.fillStyle = '#c01810';
                 ctx.beginPath(); ctx.rect(1, -3, 5, 6); ctx.fill();
 
             } else {
@@ -931,7 +945,7 @@ export class Renderer {
 
         // Optimization for MEDIUM: Use Cached Sprite if legs are static
         if (!PerformanceManager.settings.legAnimation && (ant.type === 'WORKER' || ant.type === 'SOLDIER')) {
-            const sprite = this.getCachedAnt(ant.type, ant.shade || 0, ant.type === 'WORKER' ? workerCol : undefined);
+            const sprite = this.getCachedAnt(ant.type, ant.shade || 0, workerCol);
             ctx.drawImage(sprite, -15, -15);
 
             // Draw Carrying Item on top
@@ -993,94 +1007,15 @@ export class Renderer {
         // Shadow
         this.drawShadow(0, 0, 3, ctx);
 
-        // Legs
+        // Body — same silhouette as the WebGL world. Legs animate via `phase`.
         const animSpeed = (ant.speedMultiplier !== undefined) ? ant.speedMultiplier : 1.0;
-        this.drawLegs(6, 4, '#AAA', animSpeed, ctx);
-
-        if (ant.type === 'SOLDIER') {
-            // Pheidole Soldier (Big-headed Ant) - HEAVY ARMOR VISUALS
-
-            // Thorax (Muscular)
-            if (PerformanceManager.settings.gradients) {
-                const gradThorax = ctx.createRadialGradient(0, 0, 0, 0, 0, 3);
-                gradThorax.addColorStop(0, '#5D0000'); // Dark Red Core
-                gradThorax.addColorStop(1, '#3E0000'); // Darker Edge
-                ctx.fillStyle = gradThorax;
-            } else {
-                ctx.fillStyle = '#4B0000'; // Flat Dark Red
-            }
-            ctx.beginPath();
-            ctx.ellipse(-1, 0, 2.5, 2.0, 0, 0, Math.PI * 2); // Beefier thorax
-            ctx.fill();
-
-            // Abdomen (Armored/Striped)
-            ctx.fillStyle = '#4A0404'; // Dark Maroon
-            ctx.beginPath();
-            ctx.ellipse(-6, 0, 3.5, 2.5, 0, 0, Math.PI * 2); // Larger abdomen
-            ctx.fill();
-
-            // Abdomen Stripes (Lighter Red)
-            ctx.fillStyle = '#8B0000';
-            ctx.fillRect(-7.5, -1.5, 1, 3);
-            ctx.fillRect(-5.5, -1.8, 1, 3.6);
-
-            // Head (Massive, Heart-shaped/Square)
-            // Head (Massive, Heart-shaped/Square)
-            if (PerformanceManager.settings.gradients) {
-                const gradHead = ctx.createRadialGradient(3, 0, 0, 3, 0, 5);
-                gradHead.addColorStop(0, '#B22222'); // Firebrick Red
-                gradHead.addColorStop(1, '#800000'); // Maroon
-                ctx.fillStyle = gradHead;
-            } else {
-                ctx.fillStyle = '#900000'; // Flat Maroon
-            }
-
-            ctx.beginPath();
-            // Draw a rounded square/heart shape for the head
-            ctx.moveTo(1, -4.5);
-            ctx.lineTo(6, -4.5); // Top edge
-            ctx.quadraticCurveTo(8, -4.5, 8, 0); // Front curve
-            ctx.quadraticCurveTo(8, 4.5, 6, 4.5); // Bottom edge
-            ctx.lineTo(1, 4.5);
-            ctx.quadraticCurveTo(0, 0, 1, -4.5); // Back curve
-            ctx.fill();
-
-            // Head Armor Highlight (Shiny Chitin)
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.beginPath();
-            ctx.ellipse(4, -2, 1.5, 1, -0.5, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Mandibles (Massive, Crushing)
-            ctx.strokeStyle = '#221100'; // Almost Black
-            ctx.lineWidth = 3.0; // Thicker
-            ctx.beginPath();
-            // Left Mandible
-            ctx.moveTo(7, 3.0);
-            ctx.quadraticCurveTo(10, 3.0, 11, 0.5); // Curved, sharp
-            // Right Mandible
-            ctx.moveTo(7, -3.0);
-            ctx.quadraticCurveTo(10, -3.0, 11, -0.5);
-            ctx.stroke();
-
-        } else {
-            // WORKER — colony body colour (own warm brown, rival amber).
-            ctx.fillStyle = workerCol;
-            // Head
-            ctx.beginPath();
-            ctx.arc(2, 0, 1.5, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Thorax
-            ctx.beginPath();
-            ctx.ellipse(0, 0, 2, 1, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Abdomen
-            ctx.beginPath();
-            ctx.ellipse(-3, 0, 2.5, 1.5, 0, 0, Math.PI * 2);
-            ctx.fill();
-        }
+        const soldier = ant.type === 'SOLDIER';
+        const S = soldier ? 1.12 : 1.0;
+        const headCol = soldier ? '#c01810' : workerCol; // soldier head red (Messor)
+        const legCol = Renderer.darken(workerCol, 0.6);
+        const phase = PerformanceManager.settings.legAnimation
+            ? ((Date.now() * 0.005 * animSpeed) % 1) : 0;
+        this.drawAntBody2D(ctx, soldier, workerCol, headCol, legCol, S, phase);
 
         // Carrying Food
         if (ant.carrying === 'SUGAR') {
