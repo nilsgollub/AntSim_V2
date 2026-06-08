@@ -73,38 +73,68 @@ export class Renderer {
     }
 
     initGrassSprites() {
+        // Per-tuft palettes: lush greens through dry, yellow-olive clumps so the field
+        // reads as a varied meadow rather than one flat green.
+        const GRASS_PALETTES: [string, string][] = [
+            ['#1d3a18', '#5aa048'], // lush
+            ['#21401b', '#6fb255'], // bright
+            ['#2a3a15', '#869a3a'], // olive
+            ['#3a3817', '#a59a45'], // dry / yellowed
+            ['#24351a', '#7fae50'],
+        ];
         this.grassSprites = [];
-        for (let v = 0; v < 5; v++) { // 5 Variations
+        for (let v = 0; v < 8; v++) { // 8 variations
             const c = document.createElement('canvas');
-            c.width = 60; // Wide enough
-            c.height = 60;
+            c.width = 64;
+            c.height = 64;
             const ctx = c.getContext('2d')!;
+            ctx.translate(32, 60); // root at bottom-centre
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
 
-            // Draw relative to bottom-center (30, 60)
-            ctx.translate(30, 60);
+            // Soft grounding shadow so the tuft sits IN the ground, not on it.
+            ctx.fillStyle = 'rgba(0,0,0,0.16)';
+            ctx.beginPath(); ctx.ellipse(0, 2, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
 
-            // Draw a Tuft (Cluster of blades)
-            const bladeCount = 5 + Math.floor(Math.random() * 3);
+            const pal = GRASS_PALETTES[v % GRASS_PALETTES.length];
+            const bladeCount = 6 + Math.floor(Math.random() * 5);
             for (let i = 0; i < bladeCount; i++) {
-                const offsetAngle = (i - bladeCount / 2) * 0.3 + (Math.random() - 0.5) * 0.2;
-                const lengthVar = 0.8 + Math.random() * 0.4;
-                const size = 6; // Base size for generation
+                const t = bladeCount <= 1 ? 0.5 : i / (bladeCount - 1); // 0..1 across the fan
+                const baseAngle = (t - 0.5) * 1.0 + (Math.random() - 0.5) * 0.18;
+                const curl = (Math.random() < 0.5 ? -1 : 1) * (0.4 + Math.random() * 0.6); // L or R
+                const h = 30 + Math.random() * 16;
+                const w = 0.9 + Math.random() * 1.0; // half-width at base
+                const tipx = curl * 7;
 
                 ctx.save();
-                ctx.rotate(offsetAngle);
-
-                // Blade Gradient (Baked in)
-                const gradient = ctx.createLinearGradient(0, 0, 5, -30 * lengthVar);
-                gradient.addColorStop(0, '#1a331a'); // Dark base
-                gradient.addColorStop(1, '#4d804d'); // Light tip
-                ctx.fillStyle = gradient;
-
+                ctx.rotate(baseAngle);
+                const grad = ctx.createLinearGradient(0, 0, 0, -h);
+                grad.addColorStop(0, pal[0]);
+                grad.addColorStop(1, pal[1]);
+                ctx.fillStyle = grad;
                 ctx.beginPath();
-                ctx.moveTo(-2, 0);
-                ctx.quadraticCurveTo(0, -size * 2 * lengthVar, 2, -size * 5 * lengthVar); // Curve right
-                ctx.quadraticCurveTo(0, -size * 2 * lengthVar, 2, 0);
+                ctx.moveTo(-w, 0);
+                ctx.quadraticCurveTo(curl * 5, -h * 0.55, tipx, -h); // up to the tip
+                ctx.quadraticCurveTo(curl * 5, -h * 0.55, w, 0);     // back down, tapering
+                ctx.closePath();
                 ctx.fill();
+                ctx.restore();
+            }
 
+            // One variant in four carries a short seed head (wheat-like) for accent.
+            if (v % 4 === 0) {
+                ctx.save();
+                ctx.rotate((Math.random() - 0.5) * 0.25);
+                const sh = 30 + Math.random() * 6; // shorter stalk so it reads as grass, not straw
+                ctx.strokeStyle = '#8f8348';
+                ctx.lineWidth = 0.8;
+                ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -sh); ctx.stroke();
+                ctx.fillStyle = '#c9b25a'; // tan grain head
+                for (let k = 0; k < 4; k++) {
+                    const gy = -sh + 2 + k * 2.1;
+                    ctx.beginPath(); ctx.ellipse(-1.1, gy, 1.0, 1.6, 0.4, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.ellipse(1.1, gy, 1.0, 1.6, -0.4, 0, Math.PI * 2); ctx.fill();
+                }
                 ctx.restore();
             }
             this.grassSprites.push(c);
@@ -161,33 +191,107 @@ export class Renderer {
         const ctx = this.bgCanvas.getContext('2d')!;
         const w = this.bgCanvas.width;
         const h = this.bgCanvas.height;
+        const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+        const pick = <T,>(arr: T[]) => arr[(Math.random() * arr.length) | 0];
 
-        // Base Dirt Color
-        ctx.fillStyle = '#2a2a2a';
+        // Warm earth base (matches the Messor-brown ants) instead of cold grey asphalt.
+        ctx.fillStyle = '#46341f';
         ctx.fillRect(0, 0, w, h);
 
-        // Noise / Texture
-        const count = (w * h) / 200;
-
-        for (let i = 0; i < count; i++) {
-            const x = Math.random() * w;
-            const y = Math.random() * h;
-            const size = Math.random() * 2 + 1;
-            const opacity = Math.random() * 0.1;
-            ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
-            ctx.fillRect(x, y, size, size);
+        // Large soft tonal zones — gentle lighter/darker soil patches for depth.
+        const zones = (w * h) / 60000;
+        for (let i = 0; i < zones; i++) {
+            const x = Math.random() * w, y = Math.random() * h, r = rnd(80, 200);
+            const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+            const light = Math.random() < 0.5;
+            g.addColorStop(0, light ? 'rgba(104,80,48,0.30)' : 'rgba(22,14,7,0.30)');
+            g.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = g;
+            ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
         }
 
-        // Darker patches
-        const patchCount = (w * h) / 5000;
-        for (let i = 0; i < patchCount; i++) {
-            const x = Math.random() * w;
-            const y = Math.random() * h;
-            const r = Math.random() * 50 + 20;
-            ctx.beginPath();
-            ctx.arc(x, y, r, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-            ctx.fill();
+        // Medium earthy speckles (grains of soil, light + dark).
+        const speckles = (w * h) / 350;
+        for (let i = 0; i < speckles; i++) {
+            const x = Math.random() * w, y = Math.random() * h, s = rnd(1, 2.5);
+            ctx.fillStyle = pick(['rgba(74,58,36,0.5)', 'rgba(26,18,10,0.5)', 'rgba(92,72,44,0.35)']);
+            ctx.fillRect(x, y, s, s);
+        }
+        // Fine grain dusting.
+        const grain = (w * h) / 150;
+        for (let i = 0; i < grain; i++) {
+            const x = Math.random() * w, y = Math.random() * h;
+            ctx.fillStyle = Math.random() < 0.5 ? 'rgba(255,238,205,0.05)' : 'rgba(0,0,0,0.10)';
+            ctx.fillRect(x, y, 1, 1);
+        }
+
+        // Thin wandering cracks in the dried earth.
+        const cracks = (w * h) / 80000;
+        for (let i = 0; i < cracks; i++) {
+            let x = Math.random() * w, y = Math.random() * h;
+            let a = Math.random() * Math.PI * 2;
+            ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+            ctx.lineWidth = rnd(0.6, 1.2);
+            ctx.beginPath(); ctx.moveTo(x, y);
+            const segs = 3 + ((Math.random() * 4) | 0);
+            for (let k = 0; k < segs; k++) {
+                a += rnd(-0.6, 0.6); const len = rnd(8, 22);
+                x += Math.cos(a) * len; y += Math.sin(a) * len;
+                ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+
+        // Scattered pebbles — small stones with a contact shadow + highlight.
+        const pebbles = (w * h) / 14000;
+        for (let i = 0; i < pebbles; i++) {
+            const x = Math.random() * w, y = Math.random() * h, r = rnd(2, 5);
+            ctx.fillStyle = 'rgba(0,0,0,0.25)';
+            ctx.beginPath(); ctx.ellipse(x + 1, y + 1.2, r, r * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = pick(['#5a5048', '#6b5d4a', '#4a4038', '#7a6b56']);
+            ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.75, rnd(0, 3), 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,0.16)';
+            ctx.beginPath(); ctx.ellipse(x - r * 0.3, y - r * 0.3, r * 0.35, r * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // Fallen leaves — small curled autumn shapes with a midrib.
+        const leaves = (w * h) / 42000;
+        for (let i = 0; i < leaves; i++) {
+            const x = Math.random() * w, y = Math.random() * h;
+            ctx.save(); ctx.translate(x, y); ctx.rotate(rnd(0, Math.PI * 2));
+            const ll = rnd(4, 7);
+            ctx.fillStyle = pick(['#6e3b1e', '#7a4a22', '#5a3318', '#824e26', '#8a5a2a']);
+            ctx.beginPath(); ctx.ellipse(0, 0, ll, ll * 0.45, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 0.5;
+            ctx.beginPath(); ctx.moveTo(-ll, 0); ctx.lineTo(ll, 0); ctx.stroke();
+            ctx.restore();
+        }
+
+        // Twigs — short forked sticks.
+        const twigs = (w * h) / 60000;
+        for (let i = 0; i < twigs; i++) {
+            const x = Math.random() * w, y = Math.random() * h;
+            ctx.save(); ctx.translate(x, y); ctx.rotate(rnd(0, Math.PI * 2));
+            ctx.strokeStyle = '#4a3522'; ctx.lineWidth = rnd(0.8, 1.4); ctx.lineCap = 'round';
+            const tl = rnd(6, 12);
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(tl, 0);
+            ctx.moveTo(tl * 0.6, 0); ctx.lineTo(tl * 0.85, -rnd(2, 4)); // a little fork
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Rare tiny wildflowers — a dot of colour for life.
+        const flowers = (w * h) / 95000;
+        for (let i = 0; i < flowers; i++) {
+            const x = Math.random() * w, y = Math.random() * h;
+            const petal = pick(['#e8e0d0', '#e6c84a', '#c79ad8', '#e88aa0']);
+            ctx.fillStyle = petal;
+            for (let k = 0; k < 5; k++) {
+                const a = (k / 5) * Math.PI * 2;
+                ctx.beginPath(); ctx.arc(x + Math.cos(a) * 1.5, y + Math.sin(a) * 1.5, 1.1, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.fillStyle = '#d8a818'; // centre
+            ctx.beginPath(); ctx.arc(x, y, 0.9, 0, Math.PI * 2); ctx.fill();
         }
     }
 
@@ -1668,7 +1772,9 @@ export class Renderer {
 
         ctx.save();
         ctx.translate(g.x, g.y);
-        ctx.rotate(g.angle); // Sparse rotation is fine
+        // Keep tufts mostly upright (grass grows up); g.angle only gives a gentle lean,
+        // so seed heads/blades don't lie sideways like scattered straw.
+        ctx.rotate((g.angle - Math.PI) * 0.12);
 
         // Scale
         const s = g.size * 0.3; // Adjust scale to match sprite size
@@ -1680,7 +1786,7 @@ export class Renderer {
             ctx.rotate(sway);
         }
 
-        ctx.drawImage(sprite, -30, -60); // Centered bottom
+        ctx.drawImage(sprite, -32, -60); // root at bottom-centre (64×64 sprite)
         ctx.restore();
     }
 
