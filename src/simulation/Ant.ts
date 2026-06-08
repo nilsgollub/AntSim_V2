@@ -421,9 +421,11 @@ export class Ant {
             this.angle = Math.atan2(this.nestEscapeY - this.y, this.nestEscapeX - this.x);
             speedMul = Math.max(speedMul, 0.6); // don't crawl out at sleep speed
         }
-        // Outdoor ants slow down at night (the nest is unaffected — it's dark anyway).
+        // Outdoor ants slow down at night (the nest is unaffected — it's dark anyway)
+        // and slog through a passing shower.
         const night = this.location === 'WORLD' ? world.activityFactor() : 1;
-        const speed = CONFIG.antSpeed * speedMul * this.sizeSpeed * night;
+        const rain = (this.location === 'WORLD' && world.raining) ? CONFIG.environment.rainSpeed : 1;
+        const speed = CONFIG.antSpeed * speedMul * this.sizeSpeed * night * rain;
         const nextX = this.x + Math.cos(this.angle) * speed;
         const nextY = this.y + Math.sin(this.angle) * speed;
 

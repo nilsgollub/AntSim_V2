@@ -256,6 +256,7 @@ export const CONFIG = {
         rainMinDuration: 400,
         rainMaxDuration: 1000,  // frames
         rainWashout: 0.97,      // outdoor trails ×= this each frame while raining
+        rainSpeed: 0.7,         // outdoor ants slog at ×this speed during a shower
     },
 
     // Reference used to size nest chambers (rScale = nestMinDim / nestScaleRef).

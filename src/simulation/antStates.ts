@@ -719,6 +719,22 @@ export function handleForaging(ant: Ant, world: World) {
 
     if (ant.obstacleTimer > 0) return; // Sliding along wall
 
+    // Seek shelter during a shower: foragers outside hustle back to the entrance, and
+    // those already inside wait it out instead of marching back into the rain. The world
+    // empties, the (unsheltered) outdoor trails wash away, then everyone streams back out
+    // once it clears — a visible weather rhythm rather than a cosmetic-only overlay.
+    if (world.raining) {
+        if (ant.location === 'WORLD') {
+            const home = ant.colony.entranceWorld;
+            ant.angle = Math.atan2(home.y - ant.y, home.x - ant.x) + (rand() - 0.5) * 0.4;
+            ant.speedMultiplier = 1.2;
+        } else {
+            ant.speedMultiplier = 0.2;               // loiter inside, don't head for the exit
+            ant.angle += (rand() - 0.5) * 0.6;
+        }
+        return;
+    }
+
     if (ant.location === 'NEST') {
         // Go to Exit
         const entrance = ant.colony.nest.getEntrance();
