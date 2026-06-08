@@ -27,7 +27,11 @@ export class Food {
         if (this.type === 'PROTEIN') {
             this.amount -= 0.02; // Decay over time (Rotting)
         } else if (this.type === 'CORPSE') {
-            this.amount -= 0.005; // Corpses rot away (~30s)
+            // Rot away in ~30s regardless of size. A flat rate let big ant corpses
+            // (amount 100) linger for minutes, so battlefield dead piled up into a
+            // permanent black-crumb heap along the rival front. Decaying proportional
+            // to maxAmount clears any corpse in roughly the same time (~2000 ticks).
+            this.amount -= this.maxAmount * 0.0005;
         }
     }
 }

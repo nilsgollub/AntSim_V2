@@ -22,12 +22,20 @@ describe('Food', () => {
         expect(f.amount).toBeLessThan(100);
     });
 
-    it('CORPSE decays slower than PROTEIN', () => {
-        const protein = new Food(0, 0, 'PROTEIN', 100);
-        const corpse  = new Food(0, 0, 'CORPSE', 100);
-        protein.update();
-        corpse.update();
-        expect(corpse.amount).toBeGreaterThan(protein.amount);
+    it('CORPSE decays proportional to size, clearing in a bounded ~30s', () => {
+        // A flat decay rate let big ant corpses (amount 100) linger for minutes, so
+        // battlefield dead piled into a permanent heap. Decay is now proportional to
+        // maxAmount → any corpse, big or small, fully clears in roughly the same time.
+        const ticksToClear = (amount: number) => {
+            const f = new Food(0, 0, 'CORPSE', amount);
+            let t = 0;
+            while (f.amount > 0 && t < 100000) { f.update(); t++; }
+            return t;
+        };
+        const big = ticksToClear(100);
+        const small = ticksToClear(10);
+        expect(Math.abs(big - small)).toBeLessThanOrEqual(2); // size-independent lifetime
+        expect(big).toBeLessThan(2500);                       // ~30s @ 60fps, not minutes
     });
 
     it('SUGAR does not decay', () => {
