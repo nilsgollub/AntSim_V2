@@ -53,7 +53,7 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
             // rival soldier: yellowish body, red head
             ? { gaster: '#c2a23c', band: 'rgba(0,0,0,0.28)', petiole: '#c9a83e', thorax: '#c6a53e', head: '#c01810', eye: 'rgba(0,0,0,0.4)',  ant: '#7a6420' }
             // our soldier: near-black body, red head (Messor barbarus)
-            : { gaster: '#3f3f3f', band: 'rgba(0,0,0,0.35)', petiole: '#454545', thorax: '#454545', head: '#c01810', eye: 'rgba(0,0,0,0.45)', ant: '#262626' })
+            : { gaster: '#333333', band: 'rgba(0,0,0,0.35)', petiole: '#3a3a3a', thorax: '#3a3a3a', head: '#c01810', eye: 'rgba(0,0,0,0.45)', ant: '#1f1f1f' })
         : { gaster: '#c2c2c2', band: 'rgba(0,0,0,0.22)', petiole: '#cfcfcf', thorax: '#cccccc', head: '#dddddd', eye: 'rgba(20,20,20,0.55)', ant: '#6a6a6a' };
 
     // Gaster sits back behind a short, thin petiole stalk so the abdomen is clearly
@@ -275,7 +275,7 @@ export class PixiBackdrop {
         this.antLayer = new Container();
         // A subtle light outline around every ant (applied post-tint, on the alpha edge)
         // so the near-black colony reads against the dark dirt without being lightened.
-        this.antLayer.filters = [new OutlineFilter({ thickness: 1.2, color: 0xb8b0a0, alpha: 0.7, quality: 0.1 })];
+        this.antLayer.filters = [new OutlineFilter({ thickness: 1.2, color: 0xe2ddd0, alpha: 0.85, quality: 0.1 })];
         this.overlayLayer = new Container();   // carried-cargo dots over the ants
         this.flashLayer = new Container();
         this.flashLayer.blendMode = 'add';     // combat sparks glow

@@ -72,7 +72,7 @@ export class Colony {
         // Messor-barbarus look: our colony = near-black bodies, the rival = yellowish
         // bodies. Both colonies' SOLDIERS get a red head (baked into their textures), so
         // the body colour is what tells the two armies apart in a fight.
-        const WORKER_TINTS = [0x636363, 0xd9bf52, 0x88c0a0, 0xd0a0d0]; // 0 = near-black, 1 = yellow
+        const WORKER_TINTS = [0x4d4d4d, 0xd9bf52, 0x88c0a0, 0xd0a0d0]; // 0 = near-black, 1 = yellow
         const SOLDIER_TINTS = [0xffffff, 0xffffff, 0xffffff, 0xffffff]; // soldiers are fully baked
         const TEAM_COLORS = ['', '#d9bf52', '#88c0a0', '#d0a0d0'];
         const WORKER_2D = ['#565656', '#c9a83e', '#7ab090', '#c090c0']; // 0 = dark, 1 = yellow
