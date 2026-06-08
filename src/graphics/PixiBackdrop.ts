@@ -53,7 +53,7 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
             // rival soldier: yellowish body, red head
             ? { gaster: '#c2a23c', band: 'rgba(0,0,0,0.28)', petiole: '#c9a83e', thorax: '#c6a53e', head: '#c01810', eye: 'rgba(0,0,0,0.4)',  ant: '#7a6420' }
             // our soldier: near-black body, red head (Messor barbarus)
-            : { gaster: '#5a3a20', band: 'rgba(0,0,0,0.3)', petiole: '#634026', thorax: '#634026', head: '#c01810', eye: 'rgba(0,0,0,0.45)', ant: '#3a2614' })
+            : { gaster: '#7a4a26', band: 'rgba(0,0,0,0.3)', petiole: '#85522c', thorax: '#85522c', head: '#c01810', eye: 'rgba(0,0,0,0.45)', ant: '#4a2e18' })
         : { gaster: '#c2c2c2', band: 'rgba(0,0,0,0.22)', petiole: '#cfcfcf', thorax: '#cccccc', head: '#dddddd', eye: 'rgba(20,20,20,0.55)', ant: '#6a6a6a' };
 
     // Gaster sits back behind a short, thin petiole stalk so the abdomen is clearly
@@ -439,9 +439,9 @@ export class PixiBackdrop {
                 // (additive) pheromone clouds.
                 sh.visible = true;
                 sh.position.set(a.x, a.y + 1.2);
-                sh.scale.set(dz * 0.22);
+                sh.scale.set(dz * 0.3);
                 sh.tint = 0x000000;
-                sh.alpha = 0.14;
+                sh.alpha = 0.24; // a touch stronger so brown ants lift off the brown earth
 
                 s.visible = true;
                 // Rival soldiers use the dedicated dark texture (untinted); everyone else
