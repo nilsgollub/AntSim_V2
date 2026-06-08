@@ -1066,223 +1066,332 @@ export class Renderer {
         // this.drawShadow(0, 0, 6, this.ctx);
 
         if (insect.type === 'PREY') {
-            // Silverfish / Springtail look
-            this.ctx.rotate(insect.angle + Math.PI / 2); // Face forward
+            // Silverfish — tapered segmented silver body, long antennae + 3 tail filaments.
+            this.ctx.rotate(insect.angle + Math.PI / 2);
+            this.ctx.lineCap = 'round';
+            this.ctx.lineJoin = 'round';
+            const wiggle = Math.sin(Date.now() * 0.02) * 1.2;
 
-            // Wiggle animation
-            const wiggle = Math.sin(Date.now() * 0.02) * 2;
-
-            // Legs (Many, small)
-            this.drawLegs(6, 4, '#888', 2.0, this.ctx, true);
-
-            // Body (Teardrop, segmented)
-            this.ctx.fillStyle = '#A9A9A9'; // Dark Gray
+            // Legs — 6 small, jointed, splayed.
+            this.ctx.strokeStyle = '#8a8a8a';
+            this.ctx.lineWidth = 0.7;
+            const pLegs: [number, number, number, number, number, number][] = [
+                [2, -3, 4.5, -4, 6.5, -5],
+                [2.5, -1, 5, -1, 7, 0],
+                [2, 1, 4.5, 2, 6.5, 4],
+            ];
+            for (const [ax, ay, kx, ky, fx, fy] of pLegs) {
+                for (const s of [1, -1]) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(ax * s, ay); this.ctx.lineTo(kx * s, ky); this.ctx.lineTo(fx * s, fy);
+                    this.ctx.stroke();
+                }
+            }
+            // Body — silvery, broad at the head, tapering to the tail.
+            const bg = this.ctx.createLinearGradient(-4, 0, 4, 0);
+            bg.addColorStop(0, '#9a9a9a'); bg.addColorStop(0.5, '#d2d2d2'); bg.addColorStop(1, '#9a9a9a');
+            this.ctx.fillStyle = bg;
             this.ctx.beginPath();
-            this.ctx.moveTo(0, -6);
-            this.ctx.quadraticCurveTo(4 + wiggle, 0, 0, 8); // Tail
-            this.ctx.quadraticCurveTo(-4, 0, 0, -6); // Head
+            this.ctx.moveTo(0, -7.5);
+            this.ctx.quadraticCurveTo(4.5, -5, 4, 0);
+            this.ctx.quadraticCurveTo(3.2, 7, 0, 11);
+            this.ctx.quadraticCurveTo(-3.2, 7, -4, 0);
+            this.ctx.quadraticCurveTo(-4.5, -5, 0, -7.5);
             this.ctx.fill();
-
-            // Tail bristles
-            this.ctx.strokeStyle = '#888';
-            this.ctx.lineWidth = 0.5;
+            // Segment plates
+            this.ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+            this.ctx.lineWidth = 0.6;
+            for (const yy of [-3, 0, 3, 6]) {
+                const rw = 4 * Math.sqrt(Math.max(0, 1 - Math.pow((yy - 1) / 9, 2)));
+                this.ctx.beginPath();
+                this.ctx.moveTo(-rw, yy); this.ctx.quadraticCurveTo(0, yy + 1.4, rw, yy); this.ctx.stroke();
+            }
+            // Eyes
+            this.ctx.fillStyle = 'rgba(20,20,20,0.65)';
             this.ctx.beginPath();
-            this.ctx.moveTo(0, 8); this.ctx.lineTo(0, 12);
-            this.ctx.moveTo(0, 8); this.ctx.lineTo(-2, 11);
-            this.ctx.moveTo(0, 8); this.ctx.lineTo(2, 11);
-            this.ctx.moveTo(0, 8); this.ctx.lineTo(2, 11);
+            this.ctx.arc(-1.3, -6, 0.6, 0, Math.PI * 2); this.ctx.arc(1.3, -6, 0.6, 0, Math.PI * 2);
+            this.ctx.fill();
+            // Antennae (long, forward + out)
+            this.ctx.strokeStyle = '#8a8a8a';
+            this.ctx.lineWidth = 0.6;
+            this.ctx.beginPath();
+            this.ctx.moveTo(-1.3, -6.5); this.ctx.lineTo(-3.5, -11); this.ctx.lineTo(-4.5 - wiggle * 0.3, -15);
+            this.ctx.moveTo(1.3, -6.5); this.ctx.lineTo(3.5, -11); this.ctx.lineTo(4.5 + wiggle * 0.3, -15);
             this.ctx.stroke();
-
-            // Antennae
+            // Tail filaments (3 cerci)
             this.ctx.beginPath();
-            this.ctx.moveTo(0, -6); this.ctx.lineTo(-3, -10);
-            this.ctx.fill();
-
-            // Thorax/Head
-            this.ctx.fillStyle = '#222';
-            this.ctx.beginPath();
-            this.ctx.arc(0, -4, 3.5, 0, Math.PI * 2);
-            this.ctx.fill();
-
-            // Mandibles
-            this.ctx.strokeStyle = '#522';
-            this.ctx.lineWidth = 1.5;
-            this.ctx.beginPath();
-            this.ctx.moveTo(-2, -6); this.ctx.lineTo(-1, -9);
-            this.ctx.moveTo(2, -6); this.ctx.lineTo(1, -9);
+            this.ctx.moveTo(0, 10); this.ctx.lineTo(wiggle * 0.4, 15.5);
+            this.ctx.moveTo(0, 10); this.ctx.lineTo(-2.5, 14);
+            this.ctx.moveTo(0, 10); this.ctx.lineTo(2.5, 14);
             this.ctx.stroke();
 
         } else if (insect.type === 'SPIDER') {
-            // Wolf Spider
+            // Wolf spider — radiating jointed legs, brown-charcoal body, subtle eyes.
             this.ctx.rotate(insect.angle + Math.PI / 2);
-
-            // 8 Legs (Long, jointed)
-            this.drawLegs(8, 12, '#3e2723', 1.0);
-
-            // Abdomen (Large, fuzzy)
-            this.ctx.fillStyle = '#1a1a1a'; // Much darker (Black)
-            this.ctx.strokeStyle = '#AAA'; // Light Grey Outline
-            this.ctx.lineWidth = 0.8;
+            const legCol = '#2a211a';
+            this.ctx.lineCap = 'round';
+            this.ctx.lineJoin = 'round';
+            this.ctx.strokeStyle = legCol;
+            this.ctx.lineWidth = 1.1;
+            // [attachX, attachY, kneeX, kneeY, footX, footY] for the right side; mirrored left.
+            // Knee sits higher/further out than attach+foot → classic bent-leg fan.
+            const sLegs: [number, number, number, number, number, number][] = [
+                [3, -6,  9, -12, 15, -14],  // front pair → forward
+                [4, -4, 12,  -7, 18,  -6],
+                [4, -2, 12,   1, 18,   3],
+                [3,  0,  9,   6, 14,  11],  // rear pair → backward
+            ];
+            for (const [ax, ay, kx, ky, fx, fy] of sLegs) {
+                for (const s of [1, -1]) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(ax * s, ay);
+                    this.ctx.lineTo(kx * s, ky);
+                    this.ctx.lineTo(fx * s, fy);
+                    this.ctx.stroke();
+                }
+            }
+            // Abdomen (opisthosoma) — large, with a darker median folium marking.
+            this.ctx.fillStyle = '#4a3b2c';
+            this.ctx.beginPath(); this.ctx.ellipse(0, 4, 5.2, 6.5, 0, 0, Math.PI * 2); this.ctx.fill();
+            this.ctx.fillStyle = 'rgba(0,0,0,0.35)';
             this.ctx.beginPath();
-            this.ctx.ellipse(0, 3, 5, 6, 0, 0, Math.PI * 2);
+            this.ctx.moveTo(0, -1);
+            this.ctx.quadraticCurveTo(2.6, 4, 0, 10);
+            this.ctx.quadraticCurveTo(-2.6, 4, 0, -1);
             this.ctx.fill();
-            this.ctx.stroke();
-
-            // Cephalothorax (Smaller)
-            this.ctx.fillStyle = '#000'; // Pure Black
+            // Cephalothorax (prosoma)
+            this.ctx.fillStyle = '#3a2e22';
+            this.ctx.beginPath(); this.ctx.ellipse(0, -4.5, 4, 4.5, 0, 0, Math.PI * 2); this.ctx.fill();
+            // Pedipalps (short front appendages beside the chelicerae)
+            this.ctx.lineWidth = 1.2;
             this.ctx.beginPath();
-            this.ctx.ellipse(0, -4, 4, 4, 0, 0, Math.PI * 2);
+            this.ctx.moveTo(-1.5, -8); this.ctx.lineTo(-3, -11);
+            this.ctx.moveTo(1.5, -8); this.ctx.lineTo(3, -11);
+            this.ctx.stroke();
+            // Eyes — two large forward eyes + a small row (wolf-spider arrangement) with a glint.
+            this.ctx.fillStyle = '#111';
+            this.ctx.beginPath();
+            this.ctx.arc(-1.6, -6.6, 1.1, 0, Math.PI * 2);
+            this.ctx.arc(1.6, -6.6, 1.1, 0, Math.PI * 2);
             this.ctx.fill();
-            this.ctx.stroke();
-
-            // Eyes (Many)
-            this.ctx.fillStyle = '#F00'; // Glowing Red Eyes
             this.ctx.beginPath();
-            this.ctx.rect(-1.5, -7, 1, 1);
-            this.ctx.rect(0.5, -7, 1, 1);
-            this.ctx.rect(-3.5, -6, 1, 1); // Extra eyes
-            this.ctx.rect(2.5, -6, 1, 1);
+            this.ctx.arc(-3, -5.5, 0.5, 0, Math.PI * 2);
+            this.ctx.arc(3, -5.5, 0.5, 0, Math.PI * 2);
+            this.ctx.arc(-0.9, -4.6, 0.4, 0, Math.PI * 2);
+            this.ctx.arc(0.9, -4.6, 0.4, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            this.ctx.beginPath();
+            this.ctx.arc(-1.9, -7.0, 0.35, 0, Math.PI * 2);
+            this.ctx.arc(1.3, -7.0, 0.35, 0, Math.PI * 2);
             this.ctx.fill();
 
         } else if (insect.type === 'BEETLE') {
-            // Hard Shell Beetle
+            // Ground beetle — domed bronze-black elytra, pronotum, head + clubbed antennae.
             this.ctx.rotate(insect.angle + Math.PI / 2);
-            this.drawLegs(6, 5, '#000', 0.8);
-
-            // Body (Oval)
-            const grad = this.ctx.createLinearGradient(-5, 0, 5, 0);
-            grad.addColorStop(0, '#111');
-            grad.addColorStop(0.5, '#333'); // Shiny
-            grad.addColorStop(1, '#111');
+            this.ctx.lineCap = 'round';
+            this.ctx.lineJoin = 'round';
+            // Legs — 6 jointed, dark.
+            this.ctx.strokeStyle = '#1a1510';
+            this.ctx.lineWidth = 1.0;
+            const beLegs: [number, number, number, number, number, number][] = [
+                [3, -4, 6, -6, 9, -7],
+                [3.5, -1, 7, -1, 10, 0],
+                [3, 2, 6, 5, 9, 8],
+            ];
+            for (const [ax, ay, kx, ky, fx, fy] of beLegs) {
+                for (const s of [1, -1]) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(ax * s, ay); this.ctx.lineTo(kx * s, ky); this.ctx.lineTo(fx * s, fy);
+                    this.ctx.stroke();
+                }
+            }
+            // Head + clubbed antennae
+            this.ctx.strokeStyle = '#1a1510';
+            this.ctx.lineWidth = 0.8;
+            this.ctx.beginPath();
+            this.ctx.moveTo(-1.5, -8.5); this.ctx.lineTo(-3.5, -11.5);
+            this.ctx.moveTo(1.5, -8.5); this.ctx.lineTo(3.5, -11.5);
+            this.ctx.stroke();
+            this.ctx.fillStyle = '#15110c';
+            this.ctx.beginPath(); this.ctx.arc(-3.5, -11.8, 0.9, 0, Math.PI * 2); this.ctx.arc(3.5, -11.8, 0.9, 0, Math.PI * 2); this.ctx.fill();
+            this.ctx.beginPath(); this.ctx.arc(0, -7.5, 2.6, 0, Math.PI * 2); this.ctx.fill();
+            // Pronotum (thorax shield)
+            this.ctx.fillStyle = '#241d14';
+            this.ctx.beginPath(); this.ctx.ellipse(0, -4.5, 4, 2.6, 0, 0, Math.PI * 2); this.ctx.fill();
+            // Elytra (domed wing cases) — warm bronze-black sheen.
+            const grad = this.ctx.createLinearGradient(-5.5, 0, 5.5, 0);
+            grad.addColorStop(0, '#15110c');
+            grad.addColorStop(0.5, '#4a3d28');
+            grad.addColorStop(1, '#15110c');
             this.ctx.fillStyle = grad;
-
+            this.ctx.beginPath(); this.ctx.ellipse(0, 1.5, 5.5, 7.5, 0, 0, Math.PI * 2); this.ctx.fill();
+            // Elytra split + parallel striations
+            this.ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+            this.ctx.lineWidth = 0.8;
             this.ctx.beginPath();
-            this.ctx.ellipse(0, 0, 5, 7, 0, 0, Math.PI * 2);
-            this.ctx.fill();
-            // Outline for visibility
-            this.ctx.strokeStyle = '#DDD';
-            this.ctx.lineWidth = 0.5;
+            this.ctx.moveTo(0, -4); this.ctx.lineTo(0, 8.5);
+            this.ctx.moveTo(-2.6, -2); this.ctx.quadraticCurveTo(-3.2, 2, -2.2, 6.5);
+            this.ctx.moveTo(2.6, -2); this.ctx.quadraticCurveTo(3.2, 2, 2.2, 6.5);
             this.ctx.stroke();
-
-            // Elytra Line (Wing case split)
-            this.ctx.strokeStyle = '#000';
-            this.ctx.lineWidth = 1;
-            this.ctx.beginPath();
-            this.ctx.moveTo(0, -2); this.ctx.lineTo(0, 7);
-            this.ctx.stroke();
-
-            // Head
-            this.ctx.fillStyle = '#000';
-            this.ctx.beginPath();
-            this.ctx.arc(0, -6, 3, 0, Math.PI * 2);
-            this.ctx.fill();
+            // Glossy highlight
+            this.ctx.fillStyle = 'rgba(255,255,255,0.14)';
+            this.ctx.beginPath(); this.ctx.ellipse(-2, -1.5, 1.6, 3.2, 0.3, 0, Math.PI * 2); this.ctx.fill();
 
         } else if (insect.type === 'LADYBUG') {
+            // Ladybug — domed red elytra, symmetric spots, black head with cheek spots.
             this.ctx.rotate(insect.angle + Math.PI / 2);
-            this.drawLegs(6, 4, '#000', 1.0);
-
-            // Shell
-            const grad = this.ctx.createRadialGradient(-2, -2, 0, 0, 0, 6);
-            grad.addColorStop(0, '#FF4400');
-            grad.addColorStop(1, '#CC0000');
-            this.ctx.fillStyle = grad;
-
+            this.ctx.lineCap = 'round';
+            this.ctx.lineJoin = 'round';
+            // Legs — 6 short black, jointed.
+            this.ctx.strokeStyle = '#111';
+            this.ctx.lineWidth = 0.9;
+            const lLegs: [number, number, number, number, number, number][] = [
+                [3, -3, 5, -4, 7, -5],
+                [3.5, -1, 6, -1, 8, 0],
+                [3, 2, 5, 4, 7, 6],
+            ];
+            for (const [ax, ay, kx, ky, fx, fy] of lLegs) {
+                for (const s of [1, -1]) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(ax * s, ay); this.ctx.lineTo(kx * s, ky); this.ctx.lineTo(fx * s, fy);
+                    this.ctx.stroke();
+                }
+            }
+            // Head (black) + tiny antennae + white cheek spots.
+            this.ctx.strokeStyle = '#111';
+            this.ctx.lineWidth = 0.7;
             this.ctx.beginPath();
-            this.ctx.ellipse(0, 0, 5, 6, 0, 0, Math.PI * 2);
-            this.ctx.fill();
-
-            // Spots
-            this.ctx.fillStyle = '#000';
-            this.ctx.beginPath();
-            this.ctx.arc(-2.5, -2, 1.2, 0, Math.PI * 2);
-            this.ctx.arc(2.5, -2, 1.2, 0, Math.PI * 2);
-            this.ctx.arc(-2, 3, 1.2, 0, Math.PI * 2);
-            this.ctx.arc(2, 3, 1.2, 0, Math.PI * 2);
-            this.ctx.arc(0, 0, 1, 0, Math.PI * 2);
-            this.ctx.fill();
-
-            // Head (Pronotum)
-            this.ctx.fillStyle = '#000';
-            this.ctx.beginPath();
-            this.ctx.arc(0, -5, 3, 0, Math.PI * 2);
-            this.ctx.fill();
-
-            // White spots on head
+            this.ctx.moveTo(-1.2, -7); this.ctx.lineTo(-2.6, -9.5);
+            this.ctx.moveTo(1.2, -7); this.ctx.lineTo(2.6, -9.5);
+            this.ctx.stroke();
+            this.ctx.fillStyle = '#0a0a0a';
+            this.ctx.beginPath(); this.ctx.arc(0, -5.8, 2.8, 0, Math.PI * 2); this.ctx.fill();
             this.ctx.fillStyle = '#FFF';
+            this.ctx.beginPath(); this.ctx.arc(-1.3, -6.6, 0.7, 0, Math.PI * 2); this.ctx.arc(1.3, -6.6, 0.7, 0, Math.PI * 2); this.ctx.fill();
+            // Shell
+            const grad = this.ctx.createRadialGradient(-2, -2, 0, 0, 1, 7);
+            grad.addColorStop(0, '#ff5a2a');
+            grad.addColorStop(1, '#c00000');
+            this.ctx.fillStyle = grad;
+            this.ctx.beginPath(); this.ctx.ellipse(0, 1, 5.5, 6.5, 0, 0, Math.PI * 2); this.ctx.fill();
+            // Elytra split line
+            this.ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+            this.ctx.lineWidth = 0.8;
+            this.ctx.beginPath(); this.ctx.moveTo(0, -4); this.ctx.lineTo(0, 7); this.ctx.stroke();
+            // Symmetric spots
+            this.ctx.fillStyle = '#0a0a0a';
             this.ctx.beginPath();
-            this.ctx.arc(-1.5, -6, 0.8, 0, Math.PI * 2);
-            this.ctx.arc(1.5, -6, 0.8, 0, Math.PI * 2);
+            for (const [sx, sy, sr] of [[-2.8, -1.2, 1.1], [2.8, -1.2, 1.1], [-3, 2.6, 1.1], [3, 2.6, 1.1], [-1.4, 5, 0.9], [1.4, 5, 0.9]] as [number, number, number][]) {
+                this.ctx.moveTo(sx + sr, sy); this.ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+            }
             this.ctx.fill();
+            // Glossy highlight
+            this.ctx.fillStyle = 'rgba(255,255,255,0.22)';
+            this.ctx.beginPath(); this.ctx.ellipse(-2.2, -1.5, 1.4, 2.2, 0.4, 0, Math.PI * 2); this.ctx.fill();
 
         } else if (insect.type === 'PREDATOR') {
-            // Tiger Beetle / Aggressive Bug
+            // Predatory beetle — segmented dark-crimson body, sickle mandibles, bulging eyes,
+            // long spiny legs. Reads as the colony's main threat.
             this.ctx.rotate(insect.angle + Math.PI / 2);
-            this.drawLegs(6, 8, '#800000', 1.5); // Long, dark red legs
-
-            // Body (Elongated, metallic)
-            const grad = this.ctx.createLinearGradient(0, -8, 0, 8);
-            grad.addColorStop(0, '#FF0000'); // Red
-            grad.addColorStop(0.5, '#B71C1C'); // Dark Red
-            grad.addColorStop(1, '#800000'); // Maroon
+            this.ctx.lineCap = 'round';
+            this.ctx.lineJoin = 'round';
+            // Legs — 6 long, jointed, dark.
+            this.ctx.strokeStyle = '#3a0a08';
+            this.ctx.lineWidth = 1.2;
+            const prLegs: [number, number, number, number, number, number][] = [
+                [3, -5, 8, -8, 12, -9],
+                [3.5, -1, 9, -1, 13, 1],
+                [3, 3, 8, 7, 12, 11],
+            ];
+            for (const [ax, ay, kx, ky, fx, fy] of prLegs) {
+                for (const s of [1, -1]) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(ax * s, ay); this.ctx.lineTo(kx * s, ky); this.ctx.lineTo(fx * s, fy);
+                    this.ctx.stroke();
+                }
+            }
+            // Abdomen (elongated) — crimson with a bronze sheen + segment bands.
+            const grad = this.ctx.createLinearGradient(-5, 0, 5, 0);
+            grad.addColorStop(0, '#5a0e0a');
+            grad.addColorStop(0.5, '#c0241a');
+            grad.addColorStop(1, '#5a0e0a');
             this.ctx.fillStyle = grad;
-
+            this.ctx.beginPath(); this.ctx.ellipse(0, 2, 5, 8, 0, 0, Math.PI * 2); this.ctx.fill();
+            this.ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+            this.ctx.lineWidth = 0.7;
+            for (const yy of [0, 3, 6]) {
+                const rw = 5 * Math.sqrt(Math.max(0, 1 - Math.pow((yy - 2) / 8, 2)));
+                this.ctx.beginPath(); this.ctx.moveTo(-rw, yy); this.ctx.quadraticCurveTo(0, yy + 1.3, rw, yy); this.ctx.stroke();
+            }
+            // Pronotum (thorax)
+            this.ctx.fillStyle = '#8a1410';
+            this.ctx.beginPath(); this.ctx.ellipse(0, -6, 4, 3, 0, 0, Math.PI * 2); this.ctx.fill();
+            // Head
+            this.ctx.fillStyle = '#a01812';
+            this.ctx.beginPath(); this.ctx.arc(0, -10, 3.4, 0, Math.PI * 2); this.ctx.fill();
+            // Sickle mandibles — dark, curved, crossing forward.
+            this.ctx.strokeStyle = '#1a0907';
+            this.ctx.lineWidth = 1.6;
             this.ctx.beginPath();
-            this.ctx.ellipse(0, 0, 5, 9, 0, 0, Math.PI * 2); // Slightly larger
-            this.ctx.fill();
-
-            // Head (Large mandibles)
-            this.ctx.fillStyle = '#B71C1C';
-            this.ctx.beginPath();
-            this.ctx.arc(0, -8, 4, 0, Math.PI * 2);
-            this.ctx.fill();
-
-            // Mandibles (Huge)
-            this.ctx.strokeStyle = '#FFF';
-            this.ctx.lineWidth = 2;
-            this.ctx.beginPath();
-            this.ctx.moveTo(-2, -8); this.ctx.lineTo(-2, -14); this.ctx.lineTo(2, -11);
-            this.ctx.moveTo(2, -8); this.ctx.lineTo(2, -14); this.ctx.lineTo(-2, -11);
+            this.ctx.moveTo(-2.4, -11.5); this.ctx.quadraticCurveTo(-5, -15.5, -0.8, -16.5);
+            this.ctx.moveTo(2.4, -11.5); this.ctx.quadraticCurveTo(5, -15.5, 0.8, -16.5);
             this.ctx.stroke();
-
-            // Eyes (Big, bulging)
-            this.ctx.fillStyle = '#000';
-            this.ctx.beginPath();
-            this.ctx.arc(-3.5, -8, 1.8, 0, Math.PI * 2);
-            this.ctx.arc(3.5, -8, 1.8, 0, Math.PI * 2);
-            this.ctx.fill();
+            // Bulging eyes with a glint.
+            this.ctx.fillStyle = '#0a0a0a';
+            this.ctx.beginPath(); this.ctx.arc(-3, -10.5, 1.7, 0, Math.PI * 2); this.ctx.arc(3, -10.5, 1.7, 0, Math.PI * 2); this.ctx.fill();
+            this.ctx.fillStyle = 'rgba(255,255,255,0.55)';
+            this.ctx.beginPath(); this.ctx.arc(-3.4, -11, 0.5, 0, Math.PI * 2); this.ctx.arc(2.6, -11, 0.5, 0, Math.PI * 2); this.ctx.fill();
 
         } else if (insect.type === 'APHID') {
-            // APHID
+            // Aphid — plump pear-shaped lime body, antennae, cornicles (tail pipes).
             this.ctx.rotate(insect.angle + Math.PI / 2);
-
-            // Legs (Small, translucent)
-            this.drawLegs(6, 3, 'rgba(100, 200, 100, 0.5)', 0.5);
-
-            // Body (Plump, pear-shaped)
-            // Head
-            this.ctx.fillStyle = '#AEEA00'; // Lime Green
+            this.ctx.lineCap = 'round';
+            this.ctx.lineJoin = 'round';
+            // Legs — 6 short, soft green, jointed.
+            this.ctx.strokeStyle = 'rgba(90,150,40,0.7)';
+            this.ctx.lineWidth = 0.7;
+            const aLegs: [number, number, number, number, number, number][] = [
+                [2, -2, 4, -3, 5.5, -4],
+                [2.5, 0, 4.5, 0, 6, 1],
+                [2, 2, 4, 4, 5.5, 6],
+            ];
+            for (const [ax, ay, kx, ky, fx, fy] of aLegs) {
+                for (const s of [1, -1]) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(ax * s, ay); this.ctx.lineTo(kx * s, ky); this.ctx.lineTo(fx * s, fy);
+                    this.ctx.stroke();
+                }
+            }
+            // Antennae (long, forward + out)
+            this.ctx.strokeStyle = 'rgba(90,150,40,0.8)';
+            this.ctx.lineWidth = 0.6;
             this.ctx.beginPath();
-            this.ctx.arc(0, -3, 2, 0, Math.PI * 2);
-            this.ctx.fill();
-
-            // Abdomen
-            this.ctx.beginPath();
-            this.ctx.ellipse(0, 1, 3.5, 4.5, 0, 0, Math.PI * 2);
-            this.ctx.fill();
-
+            this.ctx.moveTo(-1.2, -4); this.ctx.lineTo(-2.5, -7); this.ctx.lineTo(-3, -10);
+            this.ctx.moveTo(1.2, -4); this.ctx.lineTo(2.5, -7); this.ctx.lineTo(3, -10);
+            this.ctx.stroke();
+            // Abdomen (plump) + head
+            const ag = this.ctx.createRadialGradient(-1.2, 0, 0, 0, 1, 5);
+            ag.addColorStop(0, '#c4f23a');
+            ag.addColorStop(1, '#8fc41e');
+            this.ctx.fillStyle = ag;
+            this.ctx.beginPath(); this.ctx.ellipse(0, 1.5, 3.8, 4.8, 0, 0, Math.PI * 2); this.ctx.fill();
+            this.ctx.fillStyle = '#a9d62a';
+            this.ctx.beginPath(); this.ctx.arc(0, -3.2, 2.1, 0, Math.PI * 2); this.ctx.fill();
+            // Highlight
+            this.ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            this.ctx.beginPath(); this.ctx.ellipse(-1.3, -0.5, 1, 1.8, 0.3, 0, Math.PI * 2); this.ctx.fill();
             // Eyes
-            this.ctx.fillStyle = '#000';
+            this.ctx.fillStyle = 'rgba(20,20,20,0.7)';
             this.ctx.beginPath();
-            this.ctx.arc(-1.5, -3.5, 0.5, 0, Math.PI * 2);
-            this.ctx.arc(1.5, -3.5, 0.5, 0, Math.PI * 2);
+            this.ctx.arc(-1.4, -3.6, 0.5, 0, Math.PI * 2); this.ctx.arc(1.4, -3.6, 0.5, 0, Math.PI * 2);
             this.ctx.fill();
-
-            // Cornicles (Tail pipes - characteristic of aphids)
-            this.ctx.strokeStyle = '#33691E'; // Dark Green
+            // Cornicles (tail pipes)
+            this.ctx.strokeStyle = '#5a8a18';
             this.ctx.lineWidth = 1;
             this.ctx.beginPath();
-            this.ctx.moveTo(-2, 3); this.ctx.lineTo(-2.5, 5);
-            this.ctx.moveTo(2, 3); this.ctx.lineTo(2.5, 5);
+            this.ctx.moveTo(-2.4, 4.5); this.ctx.lineTo(-3, 7);
+            this.ctx.moveTo(2.4, 4.5); this.ctx.lineTo(3, 7);
             this.ctx.stroke();
         } else {
             // Fallback for unknown types (Debug: Pink Square)
