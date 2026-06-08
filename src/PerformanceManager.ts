@@ -138,7 +138,10 @@ export class PerformanceManager {
             case QualityLevel.ULTRA: newLevel = QualityLevel.HIGH; break;
             case QualityLevel.HIGH: newLevel = QualityLevel.MEDIUM; break;
             case QualityLevel.MEDIUM: newLevel = QualityLevel.LOW; break;
-            case QualityLevel.LOW: newLevel = QualityLevel.ULTRA_LOW; break;
+            // Floor at LOW: ULTRA_LOW barely helps FPS over LOW (ant cap 80 vs 120) but
+            // drops the grass → looks barren. Better to sit at LOW with fewer FPS.
+            // (ULTRA_LOW stays available as a manual/URL choice.)
+            case QualityLevel.LOW: return;
             case QualityLevel.ULTRA_LOW: return;
         }
 
