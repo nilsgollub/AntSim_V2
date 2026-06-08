@@ -69,10 +69,13 @@ export class Colony {
         // original single-colony formulas exactly → colony 0 stays byte-identical.
         // Index-based palette. 0 = us (warm brown workers, natural soldiers),
         // 1 = rival (amber workers, black soldiers via dedicated texture).
-        const WORKER_TINTS = [0xa89884, 0xddb24e, 0x88c0a0, 0xd0a0d0]; // own = muted earthy brown
-        const SOLDIER_TINTS = [0xffffff, 0xffffff, 0xffffff, 0xffffff];
-        const TEAM_COLORS = ['', '#cba046', '#88c0a0', '#d0a0d0'];
-        const WORKER_2D = ['#7e7058', '#cba046', '#7ab090', '#c090c0']; // own = muted taupe-brown
+        // Messor-barbarus look: our colony = near-black bodies, the rival = yellowish
+        // bodies. Both colonies' SOLDIERS get a red head (baked into their textures), so
+        // the body colour is what tells the two armies apart in a fight.
+        const WORKER_TINTS = [0x636363, 0xd9bf52, 0x88c0a0, 0xd0a0d0]; // 0 = near-black, 1 = yellow
+        const SOLDIER_TINTS = [0xffffff, 0xffffff, 0xffffff, 0xffffff]; // soldiers are fully baked
+        const TEAM_COLORS = ['', '#d9bf52', '#88c0a0', '#d0a0d0'];
+        const WORKER_2D = ['#565656', '#c9a83e', '#7ab090', '#c090c0']; // 0 = dark, 1 = yellow
         const SOLDIER_2D = ['', '#2b271f', '', ''];
         this.workerTint = WORKER_TINTS[id % WORKER_TINTS.length];
         this.soldierTint = SOLDIER_TINTS[id % SOLDIER_TINTS.length];

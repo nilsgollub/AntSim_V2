@@ -23,7 +23,7 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
     // Legs — 6 jointed (attach → knee → foot), 3 per side; `phase` swings them fore-aft
     // for a tripod walk cycle. Front pair reaches forward beside the head, rear angles
     // back. Scaled with the body (S).
-    ctx.strokeStyle = enemy ? '#4a443a' : (soldier ? '#2a1410' : '#707070');
+    ctx.strokeStyle = enemy ? '#7a6420' : (soldier ? '#262626' : '#707070');
     ctx.lineWidth = 0.6;
     const legDefs: [number, number, number, number, number][] = [
         [0.6, 2.6, 2.4, 4.4, 3.4],
@@ -50,8 +50,10 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
     // time); our soldier = dark red; rival soldier = dark charcoal.
     const C = soldier
         ? (enemy
-            ? { gaster: '#241f19', band: 'rgba(0,0,0,0.35)', petiole: '#2e2820', thorax: '#2a241c', head: '#38322a', eye: 'rgba(0,0,0,0.5)', ant: '#5c564a' }
-            : { gaster: '#4a0404', band: 'rgba(0,0,0,0.3)',  petiole: '#5a0a0a', thorax: '#4b0000', head: '#900000', eye: 'rgba(0,0,0,0.5)',  ant: '#7a1a1a' })
+            // rival soldier: yellowish body, red head
+            ? { gaster: '#c2a23c', band: 'rgba(0,0,0,0.28)', petiole: '#c9a83e', thorax: '#c6a53e', head: '#c01810', eye: 'rgba(0,0,0,0.4)',  ant: '#7a6420' }
+            // our soldier: near-black body, red head (Messor barbarus)
+            : { gaster: '#3f3f3f', band: 'rgba(0,0,0,0.35)', petiole: '#454545', thorax: '#454545', head: '#c01810', eye: 'rgba(0,0,0,0.45)', ant: '#262626' })
         : { gaster: '#c2c2c2', band: 'rgba(0,0,0,0.22)', petiole: '#cfcfcf', thorax: '#cccccc', head: '#dddddd', eye: 'rgba(20,20,20,0.55)', ant: '#6a6a6a' };
 
     // Gaster sits back behind a short, thin petiole stalk so the abdomen is clearly
