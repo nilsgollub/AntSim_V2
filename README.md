@@ -8,9 +8,20 @@
 > **▶ [Try it live in your browser](https://nilsgollub.github.io/AntSim_V2/?colonies=2)** — no install needed.
 
 <p align="center">
-  <img src="docs/preview.gif" alt="AntSim — pheromone trails fanning out from the nest entrance" width="720">
-  <br><em>Pheromone highways radiate from the nest entrance: gold = sugar, blue = the way home, red = alarm.</em>
+  <img src="docs/preview.gif" alt="AntSim — ants streaming from the nest entrance over the meadow floor" width="720">
+  <br><em>Ants stream from the nest entrance across the meadow floor, laying and following pheromone trails.</em>
 </p>
+
+<table align="center">
+  <tr>
+    <td><img src="docs/screen-world.png" alt="Workers foraging on the warm meadow floor" width="360"></td>
+    <td><img src="docs/screen-nest.png" alt="The nest interior: queen, brood and food stores" width="150"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Foragers on the warm meadow floor — grass,<br>pebbles, leaves and prey insects.</em></td>
+    <td align="center"><em>Nest interior:<br>queen, brood &amp; stores.</em></td>
+  </tr>
+</table>
 
 An agent-based ant-colony simulation in TypeScript: a deterministic, emergent little
 world where workers forage along pheromone trails, a queen lays brood, soldiers mob
