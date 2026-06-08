@@ -483,109 +483,88 @@ export class Renderer {
         // Shadow
         this.drawShadow(0, 0, 15, ctx);
 
-        // Legs (Attached to Thorax)
-        ctx.strokeStyle = '#8B4513';
+        // Same family as the new ants: colony body colour (own warm brown / rival amber)
+        // with a red head like the soldiers (Messor barbarus). She faces "up" (-y) here.
+        const body: string = queen.colony?.workerColor2D || '#7a4f2c';
+        const legCol = Renderer.darken(body, 0.55);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // Legs — jointed (attach → knee → foot), STATIC resting pose. She just sits and
+        // lays, so no walk cycle: front pair reaches forward, mid splays out, rear angles back.
+        ctx.strokeStyle = legCol;
         ctx.lineWidth = 2;
-        const legTime = Date.now() * 0.005;
-
-        for (let i = 0; i < 3; i++) {
-            const yOffset = -5 + i * 5; // Spread along thorax
-
-            // Right legs
-            ctx.beginPath();
-            ctx.moveTo(4, yOffset);
-            ctx.quadraticCurveTo(15, yOffset - 5, 20, yOffset + 10 + Math.sin(legTime + i) * 3);
-            ctx.stroke();
-
-            // Left legs
-            ctx.beginPath();
-            ctx.moveTo(-4, yOffset);
-            ctx.quadraticCurveTo(-15, yOffset - 5, -20, yOffset + 10 + Math.sin(legTime + i + Math.PI) * 3);
-            ctx.stroke();
+        const qLegs: [number, number, number, number, number][] = [
+            [-6, 15, -9, 20, -15],   // front: reach forward
+            [ 0, 16,  1, 22,   2],   // mid: straight out
+            [ 6, 14,  9, 19,  16],   // rear: angle back
+        ];
+        for (const [ay, kx, ky, fx, fy] of qLegs) {
+            for (const s of [1, -1]) {
+                ctx.beginPath();
+                ctx.moveTo(4 * s, ay);
+                ctx.lineTo(kx * s, ky);
+                ctx.lineTo(fx * s, fy);
+                ctx.stroke();
+            }
         }
 
-        // Abdomen (Physogastric - Swollen with eggs)
+        // Abdomen (physogastric — swollen with eggs); a gentle breathing pulse only.
         const pulse = 1.0 + Math.sin(Date.now() * 0.002) * 0.02;
-
-        ctx.fillStyle = '#A0522D'; // Sienna base
-        ctx.beginPath();
-        // Elongated, swollen oval
-        ctx.ellipse(0, 22, 14 * pulse, 20 * pulse, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Darker Segments (Stripes)
-        ctx.fillStyle = 'rgba(60, 30, 10, 0.4)';
-        for (let i = 0; i < 5; i++) {
+        const gcy = 26, grx = 14 * pulse, gry = 19 * pulse;
+        ctx.fillStyle = body;
+        ctx.beginPath(); ctx.ellipse(0, gcy, grx, gry, 0, 0, Math.PI * 2); ctx.fill();
+        // Segment bands — thin curved arcs following the gaster's curve.
+        ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+        ctx.lineWidth = 1.2;
+        for (let i = 1; i <= 4; i++) {
+            const yy = gcy + (i - 2.5) * 8;
+            const t = (yy - gcy) / gry;
+            const rw = (13 * pulse) * Math.sqrt(Math.max(0, 1 - t * t));
             ctx.beginPath();
-            // Curved stripes
-            ctx.ellipse(0, 12 + i * 6, 13 * pulse * (1 - i * 0.05), 2, 0, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.moveTo(-rw, yy);
+            ctx.quadraticCurveTo(0, yy + 2.5, rw, yy);
+            ctx.stroke();
         }
-
-        // Specular Highlight on Abdomen
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        // Specular highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.18)';
         ctx.beginPath();
         ctx.ellipse(-5, 20, 4, 10, 0.2, 0, Math.PI * 2);
         ctx.fill();
 
-        // Petiole (Waist)
-        ctx.fillStyle = '#5d4037';
+        // Petiole — thin wasp waist pinching the gaster off from the thorax.
+        ctx.fillStyle = body;
+        ctx.beginPath(); ctx.ellipse(0, 4, 3, 3, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Thorax (humped mesosoma) + faint wing scars (queens shed their wings).
+        ctx.fillStyle = body;
+        ctx.beginPath(); ctx.ellipse(0, -9, 9, 11, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(0,0,0,0.28)';
         ctx.beginPath();
-        ctx.ellipse(0, 0, 4, 4, 0, 0, Math.PI * 2);
+        ctx.ellipse(-4, -11, 1.8, 4, 0.3, 0, Math.PI * 2);
+        ctx.ellipse(4, -11, 1.8, 4, -0.3, 0, Math.PI * 2);
         ctx.fill();
 
-        // Thorax (Muscular, Humped)
-        ctx.fillStyle = '#8B4513';
-        ctx.beginPath();
-        // Rounded rectangle/oval shape
-        ctx.ellipse(0, -10, 9, 11, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Wing Scars (Black marks on thorax)
-        ctx.fillStyle = '#221';
-        ctx.beginPath();
-        ctx.ellipse(-4, -12, 2, 4, 0.3, 0, Math.PI * 2);
-        ctx.ellipse(4, -12, 2, 4, -0.3, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Head (Heart shaped)
-        ctx.fillStyle = '#8B4513'; // Same as thorax
+        // Head — red, rounded (Messor); eyes + geniculate antennae, no mandibles.
         ctx.save();
-        ctx.translate(0, -24); // Move to head pos
-
+        ctx.translate(0, -21);
+        ctx.fillStyle = '#c01810';
+        ctx.beginPath(); ctx.ellipse(0, 0, 7.5, 7, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.18)'; // chitin highlight
+        ctx.beginPath(); ctx.ellipse(-2.5, -3, 2.5, 1.6, -0.5, 0, Math.PI * 2); ctx.fill();
+        // Eyes
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
         ctx.beginPath();
-        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+        ctx.ellipse(-4, -1.5, 1.6, 2, 0, 0, Math.PI * 2);
+        ctx.ellipse(4, -1.5, 1.6, 2, 0, 0, Math.PI * 2);
         ctx.fill();
-
-        // Mandibles
-        ctx.strokeStyle = '#3e2723';
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(-3, -4); ctx.lineTo(-6, -10);
-        ctx.moveTo(3, -4); ctx.lineTo(6, -10);
-        ctx.stroke();
-
-        // Antennae (Elbowed)
-        ctx.strokeStyle = '#8B4513';
+        // Antennae — scape ~90° out to the side, then funiculus bends forward (up).
+        ctx.strokeStyle = legCol;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        // Left
-        ctx.moveTo(-4, -2);
-        ctx.lineTo(-12, -6); // Scape
-        ctx.lineTo(-18, 4); // Funiculus
-        // Right
-        ctx.moveTo(4, -2);
-        ctx.lineTo(12, -6);
-        ctx.lineTo(18, 4);
+        ctx.moveTo(-5, 0); ctx.lineTo(-11, -3); ctx.lineTo(-14, -10);
+        ctx.moveTo(5, 0); ctx.lineTo(11, -3); ctx.lineTo(14, -10);
         ctx.stroke();
-
-        // Eyes
-        ctx.fillStyle = '#000';
-        ctx.beginPath();
-        ctx.arc(-5, -1, 2, 0, Math.PI * 2);
-        ctx.arc(5, -1, 2, 0, Math.PI * 2);
-        ctx.fill();
-
         ctx.restore(); // End Head transform
 
         ctx.restore(); // End Queen transform
