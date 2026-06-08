@@ -6,7 +6,10 @@ export class Camera {
     private worldW: number;
     private worldH: number;
 
-    static readonly MIN_ZOOM = 0.4;
+    // 1.0 = the whole world exactly fills the canvas (world aspect matches the canvas
+    // box, see config.ts). Zooming out further would only reveal black void around the
+    // world, so 1.0 is the floor.
+    static readonly MIN_ZOOM = 1.0;
     static readonly MAX_ZOOM = 6.0;
 
     constructor(worldW: number, worldH: number) {
