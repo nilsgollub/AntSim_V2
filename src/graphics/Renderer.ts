@@ -417,9 +417,10 @@ export class Renderer {
         // 4. Nest Entrance (Visual Marker)
         this.drawEntrance();
 
-        // 4.5 Vegetation (Grass)
-        // Draw on MEDIUM, HIGH, ULTRA
-        if (PerformanceManager.level !== QualityLevel.LOW && PerformanceManager.level !== QualityLevel.ULTRA_LOW) {
+        // 4.5 Vegetation (Grass) — cached sprites, cheap. Drawn on LOW too (otherwise the
+        // world looks barren); only the emergency ULTRA_LOW floor skips it. (In WebGL it's
+        // baked into the decoration texture, so this 2D path only matters as a fallback.)
+        if (PerformanceManager.level !== QualityLevel.ULTRA_LOW) {
             for (const g of world.grass) {
                 this.drawGrass(g);
             }
