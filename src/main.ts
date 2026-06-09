@@ -56,6 +56,10 @@ let world = new World();
 const renderer = new Renderer(canvas);
 const camera   = new Camera(CONFIG.width, CONFIG.height);
 renderer.camera = camera;
+// Debug handles for the cinematic director / camera (handy for screensaver tuning).
+(window as any)._cam = camera;
+(window as any)._cine = () => cinematic;
+(window as any)._cfg = CONFIG;
 
 // ── WebGL backdrop (experimental, opt-in) ────────────────────────────────────
 // Renders the dirt + pheromone field on the GPU behind the 2D entity canvas.
@@ -914,43 +918,116 @@ function recordFps(fps: number, now: number) {
 // When idle, the camera slowly drifts and cuts between "action" spots (raids,
 // combat, milking, the busy nest entrance) so the screensaver is never static.
 // Any user interaction pauses it; it resumes after a short idle.
+// A "shot" is one of four framings the director rotates through, so the screensaver
+// feels edited rather than randomly panned:
+//   WIDE     — establishing: pull out near MIN_ZOOM, centred on where the action is
+//   ENTRANCE — the bustling nest mouth of one colony
+//   EVENT    — a raid / fight / aphid-milking, tracked live (these ants move)
+//   FOLLOW   — ride along with one individual ant (laden forager, raider, fighter)
+// FOLLOW/EVENT keep a live reference to their ant and re-centre on it every frame,
+// cutting to a fresh shot the moment it ducks into the nest or dies.
+type CineAnt = { x: number; y: number; location: string; energy: number; state: string; carrying: string; colony: { entranceWorld: { x: number; y: number } } };
+type ShotKind = 'WIDE' | 'ENTRANCE' | 'EVENT' | 'FOLLOW';
 const cinematic = {
     pausedUntil: 0,
     target: null as { x: number; y: number; zoom: number } | null,
+    kind: 'WIDE' as ShotKind,
+    followAnt: null as CineAnt | null,
     nextPick: 0,
     phase: 0,
+    shotQueue: [] as ShotKind[],
     notifyInteraction() { this.pausedUntil = performance.now() + 25000; },
-    pickTarget() {
-        const cands: { x: number; y: number; zoom: number; w: number }[] = [];
-        for (const c of world.colonies) {
-            for (const a of c.ants) {
-                if (a.location !== 'WORLD') continue;
-                const s = (a as { state: string }).state;
-                if (s === 'RAIDING') cands.push({ x: a.x, y: a.y, zoom: 2.6, w: 6 });
-                else if (s === 'ATTACKING' || s === 'FLEEING') cands.push({ x: a.x, y: a.y, zoom: 3.0, w: 3 });
-                else if (s === 'MILKING') cands.push({ x: a.x, y: a.y, zoom: 3.2, w: 1.5 });
-            }
-            cands.push({ x: c.entranceWorld.x, y: c.entranceWorld.y, zoom: 2.2, w: 1.2 });
+
+    // Rotate through the framings in a fixed, varied pattern (rather than rolling the
+    // dice each cut, which can stall on one type) so the viewer reliably gets the whole
+    // tour: ride an ant, see the nest mouth, ride another, pull wide, catch an event.
+    // Kinds with no material right now (no event ant, no field ant) are skipped.
+    nextKind(events: CineAnt[], ants: CineAnt[]): ShotKind {
+        if (!this.shotQueue.length) this.shotQueue = ['FOLLOW', 'ENTRANCE', 'FOLLOW', 'WIDE', 'EVENT'];
+        for (let i = 0; i < this.shotQueue.length; i++) {
+            const k = this.shotQueue[i];
+            if (k === 'EVENT' && !events.length) continue;
+            if (k === 'FOLLOW' && !ants.length) continue;
+            this.shotQueue.splice(i, 1);
+            return k;
         }
-        let pick: { x: number; y: number; zoom: number } | undefined;
-        if (cands.length) {
-            const tot = cands.reduce((s, c) => s + c.w, 0);
-            let r = Math.random() * tot;
-            for (const c of cands) { r -= c.w; if (r <= 0) { pick = c; break; } }
-        }
-        if (!pick) pick = { x: CONFIG.width * (0.3 + Math.random() * 0.4), y: CONFIG.height * (0.3 + Math.random() * 0.4), zoom: 1.9 };
-        this.target = { x: pick.x, y: pick.y, zoom: pick.zoom * (0.9 + Math.random() * 0.3) };
-        this.nextPick = performance.now() + 8000 + Math.random() * 5000;
+        return 'WIDE';
     },
+
+    worldAnts(): CineAnt[] {
+        const out: CineAnt[] = [];
+        for (const c of world.colonies) for (const a of c.ants) if (a.location === 'WORLD') out.push(a as unknown as CineAnt);
+        return out;
+    },
+
+    // Pick an ant with the most "runway" (farthest from its own entrance) out of a few
+    // random samples, so a FOLLOW shot lasts instead of cutting the instant the ant pops
+    // back into the nest.
+    pickWithRunway(pool: CineAnt[]): CineAnt {
+        let best = pool[Math.floor(Math.random() * pool.length)];
+        let bestD = -1;
+        for (let i = 0; i < 5; i++) {
+            const a = pool[Math.floor(Math.random() * pool.length)];
+            const e = a.colony.entranceWorld;
+            const d = (a.x - e.x) ** 2 + (a.y - e.y) ** 2;
+            if (d > bestD) { bestD = d; best = a; }
+        }
+        return best;
+    },
+
+    pickShot() {
+        const now = performance.now();
+        const ants = this.worldAnts();
+        const events = ants.filter(a => { const s = a.state; return s === 'RAIDING' || s === 'ATTACKING' || s === 'FLEEING' || s === 'MILKING'; });
+
+        const kind = this.nextKind(events, ants);
+        this.kind = kind;
+        this.followAnt = null;
+
+        let hold: number;
+        if (kind === 'WIDE') {
+            let cx = CONFIG.width / 2, cy = CONFIG.height / 2;
+            if (ants.length) { // frame the crowd's centre of mass
+                cx = ants.reduce((s, a) => s + a.x, 0) / ants.length;
+                cy = ants.reduce((s, a) => s + a.y, 0) / ants.length;
+            }
+            this.target = { x: cx, y: cy, zoom: 1.05 + Math.random() * 0.25 };
+            hold = 11000 + Math.random() * 4000;
+        } else if (kind === 'ENTRANCE') {
+            const c = world.colonies[Math.floor(Math.random() * world.colonies.length)];
+            this.target = { x: c.entranceWorld.x, y: c.entranceWorld.y, zoom: 2.1 + Math.random() * 0.4 };
+            hold = 8000 + Math.random() * 3000;
+        } else if (kind === 'EVENT') {
+            const a = events[Math.floor(Math.random() * events.length)];
+            this.followAnt = a;
+            const z = a.state === 'RAIDING' ? 2.6 : a.state === 'MILKING' ? 3.2 : 3.0;
+            this.target = { x: a.x, y: a.y, zoom: z };
+            hold = 7000 + Math.random() * 4000;
+        } else { // FOLLOW
+            const carriers = ants.filter(a => a.carrying && a.carrying !== 'NONE');
+            const pool = events.length ? events : (carriers.length ? carriers : ants);
+            const a = this.pickWithRunway(pool);
+            this.followAnt = a;
+            this.target = { x: a.x, y: a.y, zoom: 2.8 + Math.random() * 0.4 };
+            hold = 8000 + Math.random() * 4000;
+        }
+        this.nextPick = now + hold;
+    },
+
     update() {
         if (!cinematicEnabled) return;
         const now = performance.now();
         if (now < this.pausedUntil) return;            // user is steering — hands off
-        if (!this.target || now >= this.nextPick) this.pickTarget();
+        // Cut to a new shot on a timer, or the instant a tracked ant leaves the world / dies.
+        const gone = this.followAnt && (this.followAnt.location !== 'WORLD' || this.followAnt.energy <= 0);
+        if (!this.target || now >= this.nextPick || gone) this.pickShot();
         const t = this.target!;
+        if (this.followAnt) { t.x = this.followAnt.x; t.y = this.followAnt.y; } // live re-centre
+
         this.phase += 0.004;
-        const dx = Math.cos(this.phase) * 7, dy = Math.sin(this.phase * 0.7) * 5; // gentle live drift
-        const k = 0.014;                               // slow ease toward the target
+        const driftAmp = this.followAnt ? 2 : 7;       // less fake drift while a live ant supplies motion
+        const dx = Math.cos(this.phase) * driftAmp, dy = Math.sin(this.phase * 0.7) * driftAmp * 0.7;
+        const k = this.followAnt ? 0.08 : 0.014;       // snappier tracking for follows, slow glide otherwise
         camera.zoom += (t.zoom - camera.zoom) * k;
         camera.x += (t.x + dx - camera.x) * k;
         camera.y += (t.y + dy - camera.y) * k;

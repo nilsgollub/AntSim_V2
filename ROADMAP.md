@@ -20,7 +20,14 @@ bewusst neu gepinnt, wo nötig):
   Tropfen-Ringe).
 - [x] **Aphiden-Farming**: sesshafte Herde am Schwerpunkt, von Ameisen gemolken.
 - [x] **Kino-Kamera** (Screensaver): Auto-Drift + Schnitte auf Action, pausiert
-  bei Interaktion.
+  bei Interaktion. **Shot-Regie (Juni 2026)**: rotiert in fester, abwechslungsreicher
+  Reihenfolge durch vier Framings statt wahllos zu schwenken — `WIDE` (Gesamtansicht
+  nahe MIN_ZOOM, zentriert auf den Action-Schwerpunkt), `ENTRANCE` (Nest-Eingang),
+  `EVENT` (Raid/Kampf/Milking) und `FOLLOW` (reitet live mit einer einzelnen Ameise —
+  bevorzugt beladene Forager/Raider/Kämpfer mit „Runway" weg vom Eingang). FOLLOW/EVENT
+  halten eine Live-Referenz und zentrieren jeden Frame neu auf die Ameise (Tracking-
+  Median ~19 px im Smoke-Test), schneiden weg sobald sie ins Nest taucht oder stirbt.
+  Reine Screensaver-Logik (`Math.random`) → kein Golden-Einfluss.
 - [x] **Tag/Nacht-Atmosphäre**: Sonnen-/Mondbogen, Dämmerung, Glühwürmchen.
 - [x] **Trag-Objekte als Icons** (Zucker/Protein/Brut/Leiche); **Kampf-Politur**
   (rote Kampf-Aura + Mandibeln-Clash-Funken).
