@@ -1839,25 +1839,48 @@ export class Renderer {
         ctx.fillRect(0, 0, this.width, this.height);
     }
 
+    private rainRipples: { x: number; y: number; age: number }[] = [];
     drawRain(world: World) {
         if (!world.raining) return;
         const ctx = this.ctx;
+        const lowFx = PerformanceManager.level === QualityLevel.ULTRA_LOW;
         ctx.save();
-        // Overcast darkening.
-        ctx.fillStyle = 'rgba(40, 50, 70, 0.18)';
+        // Overcast wet darkening.
+        ctx.fillStyle = 'rgba(40, 50, 70, 0.20)';
         ctx.fillRect(0, 0, this.width, this.height);
-        // Falling streaks (screen-space, render-only randomness → no sim impact).
-        ctx.strokeStyle = 'rgba(180, 200, 230, 0.35)';
-        ctx.lineWidth = 1;
+
+        // Two depth layers of wind-slanted streaks (far = faint/short, near = bright/long).
+        const slant = 2.2;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = 'rgba(170, 190, 225, 0.16)'; ctx.lineWidth = 0.8;
         ctx.beginPath();
-        for (let i = 0; i < 140; i++) {
-            const x = Math.random() * this.width;
-            const y = Math.random() * this.height;
-            const len = 8 + Math.random() * 9;
-            ctx.moveTo(x, y);
-            ctx.lineTo(x - 2, y + len); // slight slant
+        for (let i = 0; i < 90; i++) {
+            const x = Math.random() * this.width, y = Math.random() * this.height, len = 6 + Math.random() * 6;
+            ctx.moveTo(x, y); ctx.lineTo(x - slant * 0.6, y + len);
         }
         ctx.stroke();
+        ctx.strokeStyle = 'rgba(198, 214, 242, 0.4)'; ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        for (let i = 0; i < 80; i++) {
+            const x = Math.random() * this.width, y = Math.random() * this.height, len = 12 + Math.random() * 12;
+            ctx.moveTo(x, y); ctx.lineTo(x - slant, y + len);
+        }
+        ctx.stroke();
+
+        // Droplet impact rings: spawn a few each frame, expand + fade (flattened = on-ground).
+        if (!lowFx) {
+            for (let s = 0; s < 2; s++) this.rainRipples.push({ x: Math.random() * this.width, y: Math.random() * this.height, age: 0 });
+            ctx.strokeStyle = 'rgba(205, 222, 246, 1)'; ctx.lineWidth = 0.8;
+            for (let i = this.rainRipples.length - 1; i >= 0; i--) {
+                const r = this.rainRipples[i]; r.age++;
+                const t = r.age / 16;
+                if (t >= 1) { this.rainRipples.splice(i, 1); continue; }
+                ctx.globalAlpha = (1 - t) * 0.5;
+                const rad = 1 + t * 5;
+                ctx.beginPath(); ctx.ellipse(r.x, r.y, rad, rad * 0.45, 0, 0, Math.PI * 2); ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+        }
         ctx.restore();
     }
 
