@@ -247,6 +247,8 @@ select {
   font-size: 11px;
   color: #ccc;
   width: calc(100% - 24px);
+  max-height: 75vh;
+  overflow-y: auto;
   pointer-events: auto;
   z-index: 200;
 }
@@ -351,5 +353,20 @@ select {
     bottom: 25px;
     right: 5px;
     flex-direction: row;
+  }
+
+  /* In portrait the panels live in the cramped bottom nest strip (26dvh) and grow off
+     the screen. Anchor them to the viewport top instead, full width, and let them scroll. */
+  #graphics-panel,
+  #tuner-panel,
+  #sliders-panel,
+  #stats-graph-panel {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-height: 84dvh;
+    overflow-y: auto;
   }
 }
