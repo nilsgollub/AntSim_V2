@@ -61,7 +61,7 @@ function bakeAnt(type: 'WORKER' | 'SOLDIER', phase: number, enemy = false): Text
             // rival soldier: yellowish body, red head
             ? { gaster: '#c2a23c', band: 'rgba(0,0,0,0.28)', petiole: '#c9a83e', thorax: '#c6a53e', head: '#c01810', eye: 'rgba(0,0,0,0.4)',  ant: '#7a6420' }
             // our soldier: near-black body, red head (Messor barbarus)
-            : { gaster: '#7a4a26', band: 'rgba(0,0,0,0.3)', petiole: '#85522c', thorax: '#85522c', head: '#c01810', eye: 'rgba(0,0,0,0.45)', ant: '#4a2e18' })
+            : { gaster: '#8a5530', band: 'rgba(0,0,0,0.3)', petiole: '#965f36', thorax: '#965f36', head: '#c01810', eye: 'rgba(0,0,0,0.45)', ant: '#56371d' })
         : { gaster: '#c2c2c2', band: 'rgba(0,0,0,0.22)', petiole: '#cfcfcf', thorax: '#cccccc', head: '#dddddd', eye: 'rgba(20,20,20,0.55)', ant: '#6a6a6a' };
 
     // Gaster sits back behind a short, thin petiole stalk so the abdomen is clearly

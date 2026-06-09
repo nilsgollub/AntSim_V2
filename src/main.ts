@@ -65,6 +65,18 @@ let backdrop: PixiBackdrop | null = null;
 let bloomEnabled = true;
 let bloomIntensity = 0.7;
 let cinematicEnabled = true; // screensaver auto-camera (declared early — restoreUiState reads it)
+let antColor: string | null = null; // user override for colony 0's worker colour ('' = colony default)
+
+// Recolour colony 0's workers to the user-picked colour (WebGL tint + 2D colour read it
+// straight from the colony, so just mutating the fields is enough). Re-applied after a
+// restart since a fresh colony resets to its default tint.
+function applyAntColor() {
+    if (!antColor) return;
+    const c0 = world.colonies[0];
+    if (!c0) return;
+    c0.workerTint = parseInt(antColor.slice(1), 16);
+    c0.workerColor2D = antColor;
+}
 
 function webglAvailable(): boolean {
     try {
@@ -292,6 +304,7 @@ function saveUiState() {
             quality: PerformanceManager.level,
             pheromones: renderer.showPheromones,
             pheromoneIntensity: renderer.pheromoneIntensity,
+            antColor,
             speed: simSpeed,
             dayNight: renderer.dayNight,
             dayNightIntensity: renderer.dayNightIntensity,
@@ -324,6 +337,13 @@ pheromoneToggle.addEventListener('change', () => {
 const pheromoneRange = document.getElementById('pheromoneRange') as HTMLInputElement;
 pheromoneRange.addEventListener('input', () => {
     renderer.pheromoneIntensity = parseFloat(pheromoneRange.value);
+    saveUiState();
+});
+
+const antColorPicker = document.getElementById('antColorPicker') as HTMLInputElement;
+antColorPicker.addEventListener('input', () => {
+    antColor = antColorPicker.value;
+    applyAntColor();
     saveUiState();
 });
 
@@ -405,6 +425,7 @@ const EXTINCT_RESTART_FRAMES = 480;
 
 function restartWorld() {
     world = new World();
+    applyAntColor(); // a fresh colony resets to its default tint → re-apply the user's pick
     clearSelection();
     camera.reset();
     deadTicks = 0;
@@ -776,7 +797,7 @@ function drawStats() {
 
 // ── Restore persisted UI state ───────────────────────────────────────────────
 (function restoreUiState() {
-    let saved: { quality?: string; pheromones?: boolean; pheromoneIntensity?: number; speed?: number; dayNight?: boolean; dayNightIntensity?: number; bloom?: boolean; bloomIntensity?: number; cinematic?: boolean } | null = null;
+    let saved: { quality?: string; pheromones?: boolean; pheromoneIntensity?: number; antColor?: string; speed?: number; dayNight?: boolean; dayNightIntensity?: number; bloom?: boolean; bloomIntensity?: number; cinematic?: boolean } | null = null;
     try {
         const raw = localStorage.getItem(UI_KEY);
         if (raw) saved = JSON.parse(raw);
@@ -797,6 +818,11 @@ function drawStats() {
     if (typeof saved.cinematic === 'boolean') {
         cinematicEnabled = saved.cinematic;
         (document.getElementById('cinematicToggle') as HTMLInputElement).checked = saved.cinematic;
+    }
+    if (typeof saved.antColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(saved.antColor)) {
+        antColor = saved.antColor;
+        (document.getElementById('antColorPicker') as HTMLInputElement).value = saved.antColor;
+        applyAntColor();
     }
     if (typeof saved.speed === 'number' && Number.isFinite(saved.speed)) {
         applySpeed(saved.speed, false);
