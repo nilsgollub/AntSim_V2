@@ -290,6 +290,7 @@ function saveUiState() {
         localStorage.setItem(UI_KEY, JSON.stringify({
             quality: PerformanceManager.level,
             pheromones: renderer.showPheromones,
+            pheromoneIntensity: renderer.pheromoneIntensity,
             speed: simSpeed,
             dayNight: renderer.dayNight,
             dayNightIntensity: renderer.dayNightIntensity,
@@ -315,6 +316,12 @@ speedDownBtn.addEventListener('click', () => stepSpeed(-1));
 speedUpBtn.addEventListener('click', () => stepSpeed(1));
 pheromoneToggle.addEventListener('change', () => {
     renderer.showPheromones = pheromoneToggle.checked;
+    saveUiState();
+});
+
+const pheromoneRange = document.getElementById('pheromoneRange') as HTMLInputElement;
+pheromoneRange.addEventListener('input', () => {
+    renderer.pheromoneIntensity = parseFloat(pheromoneRange.value);
     saveUiState();
 });
 
@@ -745,7 +752,7 @@ function drawStats() {
 
 // ── Restore persisted UI state ───────────────────────────────────────────────
 (function restoreUiState() {
-    let saved: { quality?: string; pheromones?: boolean; speed?: number; dayNight?: boolean; dayNightIntensity?: number; bloom?: boolean; bloomIntensity?: number } | null = null;
+    let saved: { quality?: string; pheromones?: boolean; pheromoneIntensity?: number; speed?: number; dayNight?: boolean; dayNightIntensity?: number; bloom?: boolean; bloomIntensity?: number } | null = null;
     try {
         const raw = localStorage.getItem(UI_KEY);
         if (raw) saved = JSON.parse(raw);
@@ -758,6 +765,10 @@ function drawStats() {
     if (typeof saved.pheromones === 'boolean') {
         renderer.showPheromones = saved.pheromones;
         pheromoneToggle.checked = saved.pheromones;
+    }
+    if (typeof saved.pheromoneIntensity === 'number' && Number.isFinite(saved.pheromoneIntensity)) {
+        renderer.pheromoneIntensity = saved.pheromoneIntensity;
+        (document.getElementById('pheromoneRange') as HTMLInputElement).value = String(saved.pheromoneIntensity);
     }
     if (typeof saved.speed === 'number' && Number.isFinite(saved.speed)) {
         applySpeed(saved.speed, false);
@@ -885,7 +896,7 @@ function loop(now: number) {
 
     // Render (always, even when paused)
     renderer.render(world);
-    if (backdrop) backdrop.render(world, camera, renderer.showPheromones);
+    if (backdrop) backdrop.render(world, camera, renderer.showPheromones, renderer.pheromoneIntensity);
 }
 
 requestAnimationFrame(loop);

@@ -339,8 +339,9 @@ export class PixiBackdrop {
         this.pheroSprite.height = logicalH;
     }
 
-    render(world: World, camera: Camera | null, showPheromones: boolean) {
+    render(world: World, camera: Camera | null, showPheromones: boolean, pheromoneIntensity = 1) {
         if (!this.ready || !this.app) return;
+        this.pheroSprite.alpha = Math.min(1, 0.85 * pheromoneIntensity);
 
         // Match the 2D layer's transform exactly: screen = (W/2 + (wx-camX)*zoom)*rs
         const rs = this.resolutionScale;

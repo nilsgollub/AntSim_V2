@@ -18,6 +18,7 @@ export class Renderer {
     nestCanvas!: HTMLCanvasElement;
     nestCtx!: CanvasRenderingContext2D;
     showPheromones: boolean = true; // the pheromone highways are the headline feature → on by default
+    pheromoneIntensity: number = 1.0; // user-tunable optical strength of the trail overlay
 
     // Camera — set from main.ts before calling render().
     camera: Camera | null = null;
@@ -378,7 +379,7 @@ export class Renderer {
             ctx.save();
             ctx.imageSmoothingEnabled = true;
             ctx.globalCompositeOperation = 'lighter';
-            ctx.globalAlpha = 0.55;
+            ctx.globalAlpha = Math.min(1, 0.55 * this.pheromoneIntensity);
             // The bilinear upscale of the low-res overlay already softens it; the
             // blur just adds glow. Keep the radius small — a full-canvas blur every
             // frame is one of the most expensive 2D-canvas ops, especially big.
