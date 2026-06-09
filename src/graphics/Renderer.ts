@@ -463,7 +463,6 @@ export class Renderer {
         // Screen-space post-effects (no camera transform, drawn over everything).
         // Day/night ambient tint — runs at every quality level (cheap fillRects).
         this.drawLighting(world);
-        this.drawSky(world);        // sun/moon arc over the dark tint
         this.drawFireflies(world);  // glowworms drifting at night
         this.drawRain(world);
         if (PerformanceManager.level === QualityLevel.ULTRA) {
@@ -1931,43 +1930,6 @@ export class Renderer {
         else if (t < 0.8) d = (t - 0.7) / 0.1;
         else d = 1;
         return d * this.dayNightIntensity;
-    }
-
-    // A sun (day) / moon (night) that arcs across the top of the view with the time of day.
-    drawSky(world: World) {
-        if (!this.dayNight) return;
-        const ctx = this.ctx;
-        const t = world.timeOfDay;
-        const isSun = t >= 0.2 && t < 0.8;
-        const p = isSun ? (t - 0.2) / 0.6 : (((t - 0.8) + 1) % 1) / 0.4; // 0..1 across the sky
-        const x = p * this.width;
-        const y = this.height * 0.30 - Math.sin(p * Math.PI) * this.height * 0.22;
-        const r = Math.max(14, this.width * 0.04);
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        const halo = ctx.createRadialGradient(x, y, 0, x, y, r * 3.6);
-        if (isSun) {
-            halo.addColorStop(0, 'rgba(255,240,180,0.9)');
-            halo.addColorStop(0.25, 'rgba(255,200,90,0.45)');
-            halo.addColorStop(1, 'rgba(255,180,60,0)');
-        } else {
-            halo.addColorStop(0, 'rgba(220,230,255,0.8)');
-            halo.addColorStop(0.25, 'rgba(170,190,235,0.35)');
-            halo.addColorStop(1, 'rgba(150,170,220,0)');
-        }
-        ctx.fillStyle = halo;
-        ctx.beginPath(); ctx.arc(x, y, r * 3.6, 0, Math.PI * 2); ctx.fill();
-        // crisp disc
-        ctx.fillStyle = isSun ? 'rgba(255,246,205,0.95)' : 'rgba(226,233,246,0.92)';
-        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-        if (!isSun) { // a couple of soft craters
-            ctx.fillStyle = 'rgba(120,130,160,0.25)';
-            ctx.beginPath();
-            ctx.arc(x - r * 0.3, y - r * 0.2, r * 0.22, 0, Math.PI * 2);
-            ctx.arc(x + r * 0.28, y + r * 0.18, r * 0.15, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        ctx.restore();
     }
 
     private fireflies: { x: number; y: number; vx: number; vy: number; ph: number }[] = [];
