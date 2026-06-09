@@ -279,7 +279,28 @@ bewusst neu gepinnt, wo nötig):
 - [x] Screenshot-/Export-Funktion: 📷-Button komponiert die Weltansicht (WebGL-Layer via Pixi
   `extract` + 2D-Overlay) zu einem PNG-Download (`antsim_seed<n>_t<tick>.png`). Funktioniert in
   WebGL- *und* 2D-Modus.
-- [~] **Robuste Nest-Navigation**: Kreis-Union + Greedy-Pfadsuche war die Wurzel des Hängens.
+- [x] **Robuste Nest-Navigation — Kammer-Baum-Router + Schläfer-Escape-Fix** (Juni 2026): Eine
+  Wegwerf-Sonde (5 Seeds @8k) zeigte, dass Nest-Ameisen **~30 % ihrer Zeit im Escape-Burst** verbrachten
+  und 3–13 % „solide verkeilt" waren — der Anti-Jitter-Burst war kein Notnagel, sondern feuerte
+  permanent. Zwei Ursachen, zwei Fixe:
+  (1) **Schläfer-Escape-Bug**: der per-Frame-Stuck-Detektor schloss rastende Ameisen (`speedMultiplier=0`,
+  „Zzz") nicht aus → `stuckTimer` kletterte auch im Schlaf → alle 25 Frames ein Escape-Burst, der die
+  Dösende mit erzwungenem Tempo zu einem Knoten zerrte (sie konnten nie wirklich schlafen). Behoben:
+  Stuck-Zählung nur bei `speedMultiplier > 0`. Zusätzlich feuert der windowed-Detektor nur noch, wenn
+  geringer Netto-Fortschritt **mit einer echten Wandkollision im Fenster** zusammenfällt (`wallSlidInWindow`)
+  — eine langsam im Gedränge dümpelnde Ameise wird nicht mehr fehl-„escaped".
+  (2) **Kammer-Baum-Router** (`Nest.nestWaypoint`): die ~830 dichten Tunnel-Knoten machten echtes BFS
+  pro Ameise zu teuer, aber die Routing-Entscheidung lebt auf den nur ~6 Kammern — und die bilden einen
+  **Baum** mit **geradlinigen** Tunneln (jeder Tunnel verbindet Eltern- und Kind-Kammerzentrum direkt).
+  Damit ist die Linie zwischen baum-benachbarten Kammerzentren garantiert frei → Routing = winziger
+  Baum-Walk (LOS-Shortcut zum Ziel mit Körper-Clearance `nestRouteClearance`, sonst Zentrum der nächsten
+  Kammer Richtung Ziel). Keine Greedy-Oszillation (Hop-Distanz ist eine echte Metrik), kein `rand()`.
+  `steerThroughNest` + `getNextNodeTowards` delegieren daran; die alte Greedy-Suche + `Ant.nestLineClear`
+  entfernt. **Ergebnis (gleiche Sonde): Escape ~30 % → 0,4–3,9 %, solide verkeilt 3–13 % → ~0 %, Bursts
+  300+/1k → 2–21/1k.** Golden bewusst neu gepinnt (nur Vorrats-Liefertiming verschoben: sugar/protein
+  ±wenige Einheiten, Population/Brut/Königin identisch); colony-Test auf Peak-Vorrat robustifiziert
+  (Kriegs-Verlierer kann momentan auf 0 geplündert sein). 93/93 grün.
+- [~] **Robuste Nest-Navigation (Alt-Notiz)**: Kreis-Union + Greedy-Pfadsuche war die Wurzel des Hängens.
   Ersetzbar durch Raum-Graph mit expliziten Kanten + A* (robust by design). Teil-entschärft
   (Stern-Topologie + Wall-Sliding, bereits im Hauptbranch). **Anti-Jitter ergänzt**: Nest-Ameisen
   blieben an konkaven Ecken hängen und zitterten dort ein paar Pixel hin und her — die alte

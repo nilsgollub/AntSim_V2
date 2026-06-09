@@ -264,6 +264,12 @@ export const CONFIG = {
     // size as the baseline nest — a bigger nest gains room, not bigger rooms.
     nestScaleRef: 300 * WORLD_SCALE * (NEST_FRACTION / 0.20),
 
+    // Body-clearance (px) for the nest router's line-of-sight test. A straight path is
+    // only taken if it stays this far inside the nest walls; lines that merely graze a
+    // concave corner are routed around via a chamber centre instead (the ant would
+    // otherwise wall-slide/wedge along the boundary). ≈ ant body radius + margin.
+    nestRouteClearance: 6,
+
     // Dynamic nest excavation: the colony digs extra satellite chambers as it grows.
     nest: {
         excavateEvery: 10,                      // +1 satellite chamber per this many ants

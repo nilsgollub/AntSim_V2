@@ -2,7 +2,13 @@ import { rand } from '../rng';
 import { CONFIG } from '../config';
 
 export type ChamberRole = 'QUEEN' | 'BROOD' | 'STORAGE' | 'CEMETERY';
-export interface Chamber { x: number; y: number; radius: number; type: ChamberRole; }
+export interface Chamber {
+    x: number; y: number; radius: number; type: ChamberRole;
+    // The chamber this one was excavated from (its tunnel connects parent→this as a
+    // STRAIGHT corridor). The founding chamber (hub) has no parent. These parent links
+    // make the chambers a tree, which is what the robust router walks.
+    parent?: Chamber;
+}
 
 export class Nest {
     width: number;
@@ -146,6 +152,7 @@ export class Nest {
             if (tooClose) continue;
 
             const chamber = this.addChamber(nx, ny, newR, 'STORAGE');
+            chamber.parent = parent; // tree edge: tunnel below connects parent→chamber straight
             this.createOrganicTunnel(parent.x, parent.y, parent.radius, nx, ny, newR, 22 * rScale);
             return chamber;
         }
@@ -242,49 +249,121 @@ export class Nest {
         return nearest;
     }
 
-    // Simple greedy pathfinding over overlapping nodes.
-    getNextNodeTowards(x: number, y: number, targetX: number, targetY: number) {
-        const currentNodes = this.nodes.filter(n => {
-            const dx = x - n.x;
-            const dy = y - n.y;
-            return dx * dx + dy * dy < (n.radius + 10) * (n.radius + 10);
-        });
+    // True if every sampled point on the segment (x1,y1)→(x2,y2) lies inside the nest
+    // union — i.e. no wall blocks the straight line. Coarse ~10px sampling, early-out.
+    lineClear(x1: number, y1: number, x2: number, y2: number, buffer: number = 3): boolean {
+        const dx = x2 - x1, dy = y2 - y1;
+        const dist = Math.hypot(dx, dy);
+        const n = Math.min(16, Math.max(1, Math.ceil(dist / 10)));
+        for (let i = 1; i < n; i++) {
+            const t = i / n;
+            if (!this.isInside(x1 + dx * t, y1 + dy * t, buffer)) return false;
+        }
+        return true;
+    }
 
-        if (currentNodes.length === 0) return this.getNearestNode(x, y);
+    // The chamber containing (x,y), or null if the point sits in a tunnel / outside
+    // every chamber. When several overlap, the one whose centre is nearest wins.
+    chamberAt(x: number, y: number): Chamber | null {
+        let best: Chamber | null = null, bestD = Infinity;
+        for (const c of this.chambers) {
+            const d2 = (x - c.x) ** 2 + (y - c.y) ** 2;
+            if (d2 < c.radius * c.radius && d2 < bestD) { bestD = d2; best = c; }
+        }
+        return best;
+    }
 
-        let bestNode = null;
-        let bestScore = Infinity;
+    nearestChamberAny(x: number, y: number): Chamber | null {
+        let best: Chamber | null = null, bestD = Infinity;
+        for (const c of this.chambers) {
+            const d2 = (x - c.x) ** 2 + (y - c.y) ** 2;
+            if (d2 < bestD) { bestD = d2; best = c; }
+        }
+        return best;
+    }
 
-        for (const node of this.nodes) {
-            let reachable = false;
-            for (const curr of currentNodes) {
-                const dx = node.x - curr.x;
-                const dy = node.y - curr.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < node.radius + curr.radius) {
-                    reachable = true;
-                    break;
-                }
-            }
+    // Number of tree hops between two chambers (walk both up to their LCA).
+    private chamberHops(a: Chamber, b: Chamber): number {
+        if (a === b) return 0;
+        const anc = new Map<Chamber, number>();
+        let n: Chamber | undefined = a, d = 0;
+        for (; n; n = n.parent, d++) anc.set(n, d);
+        let m: Chamber | undefined = b, e = 0;
+        for (; m; m = m.parent, e++) {
+            const da = anc.get(m);
+            if (da !== undefined) return da + e; // m is the LCA
+        }
+        return d + e; // disconnected (shouldn't happen in a tree) → upper bound
+    }
 
-            if (reachable) {
-                const dx = targetX - node.x;
-                const dy = targetY - node.y;
-                const distToTarget = dx * dx + dy * dy;
+    // The next chamber to step into when walking the tree from `from` toward `to`.
+    // Either `from`'s parent (ascend) or the child of `from` on the path down to `to`.
+    private nextChamberToward(from: Chamber, to: Chamber): Chamber | null {
+        if (from === to) return null;
+        // `to`'s ancestor chain (itself → … → hub).
+        const toChain = new Set<Chamber>();
+        for (let c: Chamber | undefined = to; c; c = c.parent) toChain.add(c);
+        if (toChain.has(from)) {
+            // `from` is an ancestor of `to` → DESCEND: step into the child of `from`
+            // that lies on `to`'s chain.
+            let c = to;
+            while (c.parent && c.parent !== from) c = c.parent;
+            return c;
+        }
+        return from.parent ?? null; // ASCEND toward the LCA / hub
+    }
 
-                const dx2 = x - node.x;
-                const dy2 = y - node.y;
-                const distFromCurr = dx2 * dx2 + dy2 * dy2;
+    /**
+     * Robust nest waypoint: a point to steer toward that is guaranteed reachable in a
+     * straight line (no wall between), making monotone progress toward (targetX,targetY).
+     *
+     * The chambers form a TREE and every tunnel is a STRAIGHT corridor between two
+     * chamber centres, so the segment between tree-adjacent chamber centres is always
+     * inside the union. Routing therefore reduces to a tiny tree walk over ≤ a handful of
+     * chambers (not the ~800 dense tunnel nodes): pick the chamber the ant can see that is
+     * closest (in tree hops) to the target's chamber, then return the next chamber centre
+     * along the tree path. No oscillation (hop-distance is a true metric), no rand().
+     */
+    nestWaypoint(x: number, y: number, targetX: number, targetY: number): { x: number, y: number } | null {
+        // Clear straight shot to the actual target (incl. entrance / tunnel points that
+        // live in no chamber) → just go there. Covers the final leg + most short trips.
+        // The buffer is the ant's body-clearance: a line that merely grazes a concave
+        // wall samples as "blocked" here so we route around it via a chamber instead of
+        // letting the ant wall-slide/wedge along the boundary.
+        const CLEAR = CONFIG.nestRouteClearance;
+        if (this.lineClear(x, y, targetX, targetY, CLEAR)) return { x: targetX, y: targetY };
 
-                const score = distToTarget + distFromCurr * 0.5;
+        const targetCh = this.chamberAt(targetX, targetY) ?? this.nearestChamberAny(targetX, targetY);
+        if (!targetCh) return null;
 
-                if (score < bestScore) {
-                    bestScore = score;
-                    bestNode = node;
-                }
+        // Candidate "current" chambers: those the ant has a clear straight line to. An ant
+        // in a tunnel sees both its endpoints; the one fewer hops from the target wins, so
+        // it heads the right way down the corridor instead of toward the nearer endpoint.
+        let bestFrom: Chamber | null = null, bestHops = Infinity, bestDist = Infinity;
+        for (const c of this.chambers) {
+            if (!this.lineClear(x, y, c.x, c.y, CLEAR)) continue;
+            const hops = this.chamberHops(c, targetCh);
+            const dist = (x - c.x) ** 2 + (y - c.y) ** 2;
+            if (hops < bestHops || (hops === bestHops && dist < bestDist)) {
+                bestHops = hops; bestDist = dist; bestFrom = c;
             }
         }
+        // Degenerate (no chamber in sight — e.g. wedged in a tunnel kink): fall back to the
+        // nearest chamber centre to walk back into open space.
+        if (!bestFrom) return this.nearestChamberAny(x, y);
 
-        return bestNode;
+        if (bestFrom === targetCh) {
+            // We can see the target's chamber; the caller only routes when the final target
+            // itself is blocked, so steer at the chamber centre to round the last wall.
+            return { x: bestFrom.x, y: bestFrom.y };
+        }
+        const next = this.nextChamberToward(bestFrom, targetCh);
+        return next ? { x: next.x, y: next.y } : { x: targetCh.x, y: targetCh.y };
+    }
+
+    // Back-compat shim: the FSM handlers call getNextNodeTowards to round a wall. It now
+    // delegates to the robust chamber-tree router (returns a steer-toward point).
+    getNextNodeTowards(x: number, y: number, targetX: number, targetY: number) {
+        return this.nestWaypoint(x, y, targetX, targetY) ?? this.getNearestNode(x, y);
     }
 }

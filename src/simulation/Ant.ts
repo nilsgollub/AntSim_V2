@@ -85,6 +85,11 @@ export class Ant {
     progressX: number = 0;
     progressY: number = 0;
     progressTimer: number = 0;
+    // Did the ant actually hit a nest wall during the current progress window? The
+    // windowed escape only fires when low net progress coincides with a real wall
+    // collision — so a slow ant merely jostling in a crowded chamber (separation, no
+    // wall) isn't yanked to a node centre; only a genuinely wedged one is.
+    wallSlidInWindow: boolean = false;
 
     constructor(x: number, y: number, type: 'WORKER' | 'SOLDIER' | 'QUEEN') {
         this.x = x;
@@ -335,28 +340,14 @@ export class Ant {
     // fall back to the node graph, so the heading rounds the tunnel corner instead of
     // sticking/jittering against the wall. No rand() → deterministic.
     steerThroughNest(targetX: number, targetY: number) {
-        if (this.nestLineClear(targetX, targetY)) {
-            this.angle = Math.atan2(targetY - this.y, targetX - this.x);
-            return;
-        }
-        const node = this.colony.nest.getNextNodeTowards(this.x, this.y, targetX, targetY);
-        const tx = node ? node.x : targetX;
-        const ty = node ? node.y : targetY;
+        // The robust chamber-tree router: returns the actual target when the straight
+        // line is comfortably clear (body-clearance buffer), else the centre of the next
+        // chamber on the tree path — a point guaranteed reachable in a straight line, so
+        // the ant rounds the wall instead of grazing/wedging along it.
+        const wp = this.colony.nest.nestWaypoint(this.x, this.y, targetX, targetY);
+        const tx = wp ? wp.x : targetX;
+        const ty = wp ? wp.y : targetY;
         this.angle = Math.atan2(ty - this.y, tx - this.x);
-    }
-
-    // True if every sampled point on the segment to (tx,ty) lies inside the nest —
-    // i.e. no wall between the ant and the target. Coarse sampling (~12px), early-out.
-    private nestLineClear(tx: number, ty: number): boolean {
-        const dx = tx - this.x;
-        const dy = ty - this.y;
-        const dist = Math.hypot(dx, dy);
-        const n = Math.min(10, Math.ceil(dist / 12));
-        for (let i = 1; i < n; i++) {
-            const t = i / n;
-            if (!this.colony.nest.isInside(this.x + dx * t, this.y + dy * t, 3)) return false;
-        }
-        return true;
     }
 
     steerToMemory(): boolean {
@@ -484,6 +475,7 @@ export class Ant {
                 this.x = nextX;
                 this.y = nextY;
             } else {
+                this.wallSlidInWindow = true; // a real wall collision this window
                 // Blocked by a wall. Wall-slide: rotate the heading just enough to
                 // find a walkable direction and step there, so ants flow around
                 // curved chamber/tunnel boundaries instead of oscillating.
@@ -525,8 +517,11 @@ export class Ant {
             }
         }
         // Stuck Detection (per-frame): catches an ant wedged near-solid against a wall.
+        // Only while it INTENDS to move — a sleeping/resting ant (speedMultiplier 0) sits
+        // still on purpose; counting that as "stuck" used to fire an escape burst every
+        // ~25 frames and yank dozing ants to a node centre (they could never actually rest).
         const movedDist = (this.x - this.lastX) ** 2 + (this.y - this.lastY) ** 2;
-        if (movedDist < 0.25) {
+        if (this.speedMultiplier > 0 && movedDist < 0.25) {
             this.stuckTimer++;
         } else {
             this.stuckTimer = 0;
@@ -542,12 +537,14 @@ export class Ant {
             if (++this.progressTimer >= 20) {
                 const pdx = this.x - this.progressX;
                 const pdy = this.y - this.progressY;
-                if (pdx * pdx + pdy * pdy < 36) { // < 6px net over 20 frames → jittering
+                // Jittering = low net progress AND a real wall collision this window.
+                if (pdx * pdx + pdy * pdy < 36 && this.wallSlidInWindow) {
                     this.startNestEscape();
                 }
                 this.progressX = this.x;
                 this.progressY = this.y;
                 this.progressTimer = 0;
+                this.wallSlidInWindow = false;
             }
         } else {
             // Stationary, mid-escape, or outdoors: keep the anchor fresh so resuming
@@ -555,6 +552,7 @@ export class Ant {
             this.progressX = this.x;
             this.progressY = this.y;
             this.progressTimer = 0;
+            this.wallSlidInWindow = false;
         }
     }
 
