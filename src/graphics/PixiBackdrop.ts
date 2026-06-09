@@ -3,6 +3,14 @@ import { AdvancedBloomFilter } from 'pixi-filters';
 import type { World } from '../simulation/World';
 import type { Camera } from './Camera';
 import type { Renderer } from './Renderer';
+import { PerformanceManager, QualityLevel } from '../PerformanceManager';
+
+// On the low presets we drop the GPU-heavy bloom and rebuild the pheromone overlay
+// half as often — the biggest two render costs on a Raspberry Pi.
+function isLowQuality(): boolean {
+    return PerformanceManager.level === QualityLevel.LOW
+        || PerformanceManager.level === QualityLevel.ULTRA_LOW;
+}
 
 // ── Baked textures (drawn once to small canvases, then batched as sprites) ──
 // Realistic ant matching the canvas-2D look: 3 body segments, 6 legs, antennae.
@@ -355,9 +363,12 @@ export class PixiBackdrop {
         for (let i = count; i < arr.length; i++) arr[i].visible = false;
     }
 
+    private bloomLevel: QualityLevel | null = null;
     private applyBloom() {
         this.bloom.bloomScale = this.bloomIntensity;
-        this.world.filters = this.bloomOn ? [this.bloom] : [];
+        // Bloom is the single heaviest GPU pass; skip it entirely on the low presets.
+        this.world.filters = (this.bloomOn && !isLowQuality()) ? [this.bloom] : [];
+        this.bloomLevel = PerformanceManager.level;
     }
 
     setBloom(enabled: boolean, intensity: number) {
@@ -380,6 +391,7 @@ export class PixiBackdrop {
 
     render(world: World, camera: Camera | null, showPheromones: boolean, pheromoneIntensity = 1) {
         if (!this.ready || !this.app) return;
+        if (this.bloomLevel !== PerformanceManager.level) this.applyBloom(); // re-gate bloom on quality change
         this.pheroSprite.alpha = Math.min(1, 0.85 * pheromoneIntensity);
 
         // Match the 2D layer's transform exactly: screen = (W/2 + (wx-camX)*zoom)*rs
@@ -397,7 +409,7 @@ export class PixiBackdrop {
         this.pheroSprite.visible = showPheromones;
         if (showPheromones) {
             this.ensurePheroSize(world.grid.width, world.grid.height);
-            if (this.frame % 3 === 0) {
+            if (this.frame % (isLowQuality() ? 6 : 3) === 0) {
                 const toHome = world.grid.toHome, toSugar = world.grid.toSugar;
                 const toProtein = world.grid.toProtein, toDanger = world.grid.toDanger;
                 const buf = this.pheroBuf;
