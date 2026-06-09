@@ -528,8 +528,27 @@ export class PixiBackdrop {
                     cs.alpha = 1;
                 }
 
-                // (Combat feedback is the red blood particles spawned on a landing hit —
-                // the old additive white "spark" read as a blinking white dot, removed.)
+                // Combat feedback: a pulsing red "heat of battle" aura under an attacking
+                // ant, flickering occasionally into a bright yellow mandible clash-spark at
+                // the head. Additive (flashLayer) → battle zones glow. Render-only (no rand
+                // in sim), so it never perturbs the deterministic stream.
+                if ((a as { state?: string }).state === 'ATTACKING') {
+                    const fl = this.flashPool[fn++];
+                    fl.visible = true;
+                    fl.texture = this.discTex;
+                    const pulse = 0.5 + 0.5 * Math.sin(this.frame * 0.5 + a.x * 0.3);
+                    if (Math.random() < 0.16) {                 // clash spark at the mandibles
+                        fl.position.set(a.x + Math.cos(a.angle) * 5 * dz, a.y + Math.sin(a.angle) * 5 * dz);
+                        fl.scale.set(dz * 0.34);
+                        fl.tint = 0xfff1a0;
+                        fl.alpha = 0.55;
+                    } else {                                    // red combat aura
+                        fl.position.set(a.x, a.y);
+                        fl.scale.set(dz * (0.55 + pulse * 0.3));
+                        fl.tint = 0xff3018;
+                        fl.alpha = 0.14 + 0.2 * pulse;
+                    }
+                }
             }
         }
         for (let i = n; i < this.antPool.length; i++) { this.antPool[i].visible = false; this.shadowPool[i].visible = false; }
