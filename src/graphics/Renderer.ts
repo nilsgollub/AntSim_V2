@@ -1614,7 +1614,15 @@ export class Renderer {
     }
 
     bakeInsectCanvas(type: string, phase: number = 0): HTMLCanvasElement {
-        return this.bakeCentered(64, () => this.drawInsect({ x: 0, y: 0, type, angle: 0 }, phase));
+        // Always bake the DETAILED insect, regardless of the quality active at bake time.
+        // The WebGL textures are baked once at init; if the kiosk starts at LOW (where
+        // simpleInsects=true) the baked sprite would be a plain oval forever — and changing
+        // quality later doesn't re-bake. The per-frame cost is just a sprite, so detail is free.
+        const prev = PerformanceManager.settings.simpleInsects;
+        PerformanceManager.settings.simpleInsects = false;
+        const canvas = this.bakeCentered(64, () => this.drawInsect({ x: 0, y: 0, type, angle: 0 }, phase));
+        PerformanceManager.settings.simpleInsects = prev;
+        return canvas;
     }
 
     bakeFoodCanvas(type: string): HTMLCanvasElement {
