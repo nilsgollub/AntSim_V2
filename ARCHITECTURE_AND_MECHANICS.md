@@ -8,8 +8,19 @@ AntSim V2 is a complex, agent-based simulation of an ant colony, built with Type
 ### 2.1. Technology Stack
 -   **Language:** TypeScript
 -   **Build Tool:** Vite
--   **Rendering:** HTML5 Canvas API (2D Context)
+-   **Rendering:** **Pixi.js v8 (WebGL)** primary — the world is drawn from textures baked
+    once from the canvas-2D art (`PixiBackdrop` re-uses `Renderer`'s draw routines), with a
+    full **Canvas-2D fallback** and auto-recovery on WebGL context loss. The nest interior
+    is always a separate 2D view.
 -   **State Management:** Object-Oriented Programming (OOP) with a central `World` controller.
+
+> **Render vs. simulation.** All visual layers added in the atmosphere overhaul —
+> pheromone-highway curve, day/night sun/moon + fireflies, rain/combat effects, carried-
+> cargo icons, the cinematic camera — are **render-only** and draw no `rand()`, so the
+> seeded simulation stays byte-deterministic. The two *behavioural* additions touch the sim
+> and are golden-pinned deliberately: **rain** makes foragers seek shelter + wash trails
+> (`World.update` weather block + `handleForaging`), and **aphids** settle into a near-
+> sessile herd that ants milk (`World` aphid spawn + `Insect.updateAphid`).
 
 ### 2.2. File Structure
 -   `src/main.ts`: Entry point. Initializes the `Game` loop.

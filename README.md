@@ -12,6 +12,11 @@
   <br><em>Ants stream from the nest entrance across the meadow floor, laying and following pheromone trails.</em>
 </p>
 
+<table align="center"><tr>
+<td align="center"><img src="docs/screen-world.png" alt="Foragers on the warm meadow floor" width="360"><br><em>Foragers on the warm meadow floor</em></td>
+<td align="center"><img src="docs/screen-nest.png" alt="Nest interior — queen, brood, stores" width="150"><br><em>Nest interior: queen, brood, stores</em></td>
+</tr></table>
+
 <table align="center">
   <tr>
     <td><img src="docs/screen-world.png" alt="Workers foraging on the warm meadow floor" width="360"></td>
@@ -43,14 +48,29 @@ the colony's *emergent* behaviour is regression-tested headlessly.
   decides the caste (well-fed → soldier). The queen is mortal: an abandoned/starved
   colony actually dies out.
 - **Castes & polymorphism** — workers vs. soldiers with size-correlated HP / bite / speed.
-- **Predators & coordinated defence** — spiders, predators, beetles, plus harmless prey,
-  ladybugs and (milkable) aphids. Against a major threat the colony *rallies*: ants mill
-  at a standoff ring, raise the alarm to recruit, then rush in together.
+- **Predators & coordinated defence** — spiders, predators, beetles, plus harmless prey
+  and ladybugs. Against a major threat the colony *rallies*: ants mill at a standoff ring,
+  raise the alarm to recruit, then rush in together.
+- **Aphid farming** — aphids settle into a near-sessile **herd**; ants tend and milk it for
+  honeydew, laying a sugar trail back home so the farm becomes a visible foraging hub.
+- **Weather that matters** — passing showers wash the outdoor pheromone trails away **and**
+  send foragers running for shelter (the colony empties out, then streams back when it
+  clears); outdoor ants slog more slowly in the rain.
 - **Rival colony & war** (optional, on by default) — a second colony on the opposite
   edge. Combat reuses the alarm/mob mechanics; a dominant colony musters raid parties that
   march on the enemy nest and steal **brood** (raised as their own) or **resources**.
+- **Glowing pheromone highways** — the SUGAR/HOME/DANGER fields render as luminous trails
+  fanning from the nest (a tunable **Pheromon-Stärke** slider scales the intensity), so the
+  colony's invisible coordination becomes the visual centrepiece.
+- **Living screensaver** — an idle **cinematic camera** slowly drifts and cuts to the
+  action (raids, combat, milking, the busy entrance); a **day/night cycle** arcs a sun /
+  moon across the sky, with dawn/dusk grading and drifting fireflies at night.
+- **Readable at a glance** — ants carry distinct cargo icons (sugar crystal, protein chunk,
+  brood egg, corpse); battles flare with a red "heat of combat" aura + mandible clash
+  sparks; rain falls in layered, slanted streaks with droplet-impact ripples.
 - **Two renderers** — GPU **Pixi.js v8** backdrop (baked textures, bloom) with automatic
-  fallback to **Canvas-2D**; a separate 2D view of the nest interior.
+  fallback to **Canvas-2D** and **auto-recovery** from a lost WebGL context (re-bakes
+  textures on restore); a separate 2D view of the nest interior.
 - **Deterministic & headless-testable** — seeded RNG + a no-DOM harness that asserts on
   emergent outcomes (colony survives, resources keep flowing, population stays in band).
 - **Live tooling** — inspect any ant *or* insect, place food, spawn enemies, pan/zoom
@@ -107,7 +127,7 @@ finger pans, two fingers pinch-zoom, a tap acts as a click.
 | 🔍 | Inspect tool — click an **ant or insect** for live stats |
 | 🍬 / 🥩 | Place sugar / protein |
 | ☠ | Spawn a predator |
-| 🎨 Grafik | Graphics panel (renderer, quality, bloom, pheromone overlay, day/night) |
+| 🎨 Grafik | Graphics panel (renderer, quality, bloom, pheromone overlay + **intensity slider**, day/night, **cinematic camera**) |
 | Restart | Rebuild the world from a fresh seed |
 | Rivalenkolonie | Toggle the second (rival) colony on/off |
 | 📈 Stats / 🎛 Params / ⚙ Analyse | History graphs / live parameter sliders / tuner advisor |
@@ -132,7 +152,9 @@ UI choices (quality, speed, pheromone overlay, rival toggle, …) persist in
 ## Quality & performance
 
 The **🎨 Grafik** panel exposes the renderer (WebGL/Canvas), a quality preset
-(`Ultra Low` → `Ultra`), bloom, the pheromone overlay and day/night tint.
+(`Ultra Low` → `Ultra`), bloom, the pheromone overlay + an intensity slider, the day/night
+tint, and the cinematic-camera toggle. The auto-downgrade floors at **LOW** (never the
+barren `Ultra Low`) so a struggling Pi keeps its grass and trades only frames.
 
 On a Raspberry Pi 4, pick **Low** (the kiosk pins `?quality=LOW`, ~30 fps). At low presets
 pheromone diffusion is off (decay-only), the canvas renders at 0.4× resolution, the ant

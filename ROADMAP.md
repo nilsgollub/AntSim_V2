@@ -3,6 +3,33 @@
 Lebendes Statusdokument für den „v2.0"-Overhaul. Abgehakt = im Branch
 `claude/ant-simulation-review-*` umgesetzt, gebaut und getestet.
 
+## ✅ Visual- & Atmosphäre-Overhaul (Juni 2026)
+
+Render- und Erlebnis-Politur (Golden weiterhin grün; sim-relevante Änderungen
+bewusst neu gepinnt, wo nötig):
+
+- [x] **Sprites neu**: Messor-Ameisen (Wespentaille, geniculate Fühler, roter
+  Soldatenkopf), alle Insekten (Spinne/Käfer/Marienkäfer/Tigerkäfer/Silberfisch/
+  Blattlaus) + animierte Beine (vorgebackene Frames), Königin im selben Stil.
+- [x] **Welt-Politur**: warmer Erdboden, überarbeitetes Gras (aufrechte Büschel,
+  Samenähren), maßstabsgerechte Bodendetails (Kiesel/Blätter/Zweige/Blumen).
+- [x] **Pheromon-Highways**: Overlay per Default an, sqrt-Helligkeitskurve +
+  Intensitäts-Regler → leuchtende „Straßen".
+- [x] **Wetter mit Wirkung**: Regen wäscht Spuren *und* Forager suchen Schutz
+  (heimkehren/drin bleiben), langsamer bei Regen. Regen-Politur (Tiefen-Streifen,
+  Tropfen-Ringe).
+- [x] **Aphiden-Farming**: sesshafte Herde am Schwerpunkt, von Ameisen gemolken.
+- [x] **Kino-Kamera** (Screensaver): Auto-Drift + Schnitte auf Action, pausiert
+  bei Interaktion.
+- [x] **Tag/Nacht-Atmosphäre**: Sonnen-/Mondbogen, Dämmerung, Glühwürmchen.
+- [x] **Trag-Objekte als Icons** (Zucker/Protein/Brut/Leiche); **Kampf-Politur**
+  (rote Kampf-Aura + Mandibeln-Clash-Funken).
+- [x] **Fixes**: Letterbox-Balken weg (Welt-Aspect = Canvas-Box), Mindest-Zoom 1.0,
+  Leichen verrotten größenproportional (kein permanenter Haufen), Auto-Downgrade-
+  Boden auf LOW (nie kahles ULTRA_LOW), Gras auch auf LOW.
+- [x] **Robustheit**: WebGL-Auto-Recover bei Kontextverlust; Kiosk-Chromium mit
+  `--disk-cache-size=1` (keine veralteten Chunks nach Deploy).
+
 ## ✅ Erledigt
 
 ### Fundament & Code-Qualität
