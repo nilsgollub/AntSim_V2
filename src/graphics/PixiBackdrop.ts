@@ -140,6 +140,43 @@ function bakeDisc(): Texture {
     return Texture.from(c);
 }
 
+// A distinct little icon for whatever an ant is carrying, so cargo reads at a glance:
+// sugar crystal, protein chunk, brood egg, corpse bundle (instead of a tinted dot).
+function bakeCargo(type: string): Texture {
+    const SS = 2;
+    const c = document.createElement('canvas');
+    c.width = 16 * SS; c.height = 16 * SS;
+    const x = c.getContext('2d')!;
+    x.scale(SS, SS); x.translate(8, 8);
+    x.lineJoin = 'round'; x.lineCap = 'round';
+    if (type === 'SUGAR') {                       // pale crystal with a facet glint
+        x.fillStyle = '#fff7d8';
+        x.beginPath(); x.moveTo(0, -5); x.lineTo(3.4, 0); x.lineTo(0, 5); x.lineTo(-3.4, 0); x.closePath(); x.fill();
+        x.strokeStyle = 'rgba(150,120,40,0.5)'; x.lineWidth = 0.5; x.stroke();
+        x.fillStyle = 'rgba(255,255,255,0.85)';
+        x.beginPath(); x.moveTo(0, -5); x.lineTo(1.5, -1); x.lineTo(0, 0.6); x.lineTo(-1.5, -1); x.closePath(); x.fill();
+    } else if (type === 'PROTEIN') {              // red meat chunk with a fat fleck
+        x.fillStyle = '#c0432f';
+        x.beginPath(); x.ellipse(0, 0, 4, 3.3, 0.3, 0, Math.PI * 2); x.fill();
+        x.fillStyle = '#e8c79a'; x.beginPath(); x.arc(1.2, 1, 1, 0, Math.PI * 2); x.fill();
+        x.fillStyle = 'rgba(255,255,255,0.3)'; x.beginPath(); x.ellipse(-1.2, -1.2, 1.3, 0.8, 0, 0, Math.PI * 2); x.fill();
+    } else if (type === 'BROOD') {                // cream egg/larva with a sheen
+        x.fillStyle = '#f3ead2';
+        x.beginPath(); x.ellipse(0, 0, 3, 4.2, 0, 0, Math.PI * 2); x.fill();
+        x.strokeStyle = 'rgba(190,170,120,0.4)'; x.lineWidth = 0.4; x.stroke();
+        x.fillStyle = 'rgba(255,255,255,0.55)'; x.beginPath(); x.ellipse(-0.8, -1.2, 1, 1.6, 0, 0, Math.PI * 2); x.fill();
+    } else {                                       // CORPSE: grey bundle with curled legs
+        x.fillStyle = '#5a5048';
+        x.beginPath(); x.ellipse(0, 0, 3.4, 2.4, 0, 0, Math.PI * 2); x.fill();
+        x.strokeStyle = '#3a332c'; x.lineWidth = 0.6;
+        for (const s of [-1, 1]) {
+            x.beginPath(); x.moveTo(2 * s, -1.4); x.lineTo(3.6 * s, -2.4);
+            x.moveTo(2 * s, 1.4); x.lineTo(3.6 * s, 2.4); x.stroke();
+        }
+    }
+    return Texture.from(c);
+}
+
 const INSECT_TYPES = ['PREY', 'PREDATOR', 'SPIDER', 'BEETLE', 'LADYBUG', 'APHID'];
 const FOOD_TYPES = ['SUGAR', 'PROTEIN', 'CORPSE'];
 const FOOD_REF_RADIUS = Math.sqrt(200) * 0.85 * 2; // baked content radius in texture px (SS=2)
@@ -185,6 +222,7 @@ export class PixiBackdrop {
     private insectTex: Record<string, Texture[]> = {}; // walk-cycle frames per type
     private foodTex: Record<string, Texture> = {};
     private discTex!: Texture;
+    private cargoTex: Record<string, Texture> = {}; // distinct carried-cargo icons
 
     private pheroCanvas!: HTMLCanvasElement;     // blurred result → texture source
     private pheroCtx!: CanvasRenderingContext2D;
@@ -227,6 +265,7 @@ export class PixiBackdrop {
             this.antEnemySoldierTex.push(bakeAnt('SOLDIER', f / ANT_FRAMES, true));
         }
         this.discTex = bakeDisc();
+        for (const t of ['SUGAR', 'PROTEIN', 'BROOD', 'CORPSE']) this.cargoTex[t] = bakeCargo(t);
         // Reuse the exact canvas-2D art for insects, food and decoration.
         const INSECT_FRAMES = 4;
         for (const t of INSECT_TYPES) {
@@ -468,14 +507,24 @@ export class PixiBackdrop {
                     s.tint = caste === 0xffffff ? shade : mulTint(shade, caste);
                 }
 
-                // Carried cargo: a small coloured dot at the head.
+                // Carried cargo: a distinct little icon at the head (crystal/chunk/egg/corpse).
                 if (a.carrying && a.carrying !== 'NONE') {
                     const cs = this.carryPool[cn++];
                     cs.visible = true;
                     const off = 5.5 * dz;
                     cs.position.set(a.x + Math.cos(a.angle) * off, a.y + Math.sin(a.angle) * off);
-                    cs.scale.set(0.13);
-                    cs.tint = CARGO_TINT[a.carrying] || 0xffffff;
+                    const ctex = this.cargoTex[a.carrying];
+                    if (ctex) {
+                        cs.texture = ctex;
+                        cs.rotation = a.angle;
+                        cs.scale.set(0.42 * dz);
+                        cs.tint = 0xffffff;
+                    } else { // fallback to the tinted dot for any unknown cargo
+                        cs.texture = this.discTex;
+                        cs.rotation = 0;
+                        cs.scale.set(0.13);
+                        cs.tint = CARGO_TINT[a.carrying] || 0xffffff;
+                    }
                     cs.alpha = 1;
                 }
 
