@@ -64,6 +64,7 @@ const glCanvas = document.getElementById('glCanvas') as HTMLCanvasElement;
 let backdrop: PixiBackdrop | null = null;
 let bloomEnabled = true;
 let bloomIntensity = 0.7;
+let cinematicEnabled = true; // screensaver auto-camera (declared early — restoreUiState reads it)
 
 function webglAvailable(): boolean {
     try {
@@ -296,6 +297,7 @@ function saveUiState() {
             dayNightIntensity: renderer.dayNightIntensity,
             bloom: bloomEnabled,
             bloomIntensity,
+            cinematic: cinematicEnabled,
             webgl: !!backdrop,
             colonies: CONFIG.colonyCount,
         }));
@@ -322,6 +324,12 @@ pheromoneToggle.addEventListener('change', () => {
 const pheromoneRange = document.getElementById('pheromoneRange') as HTMLInputElement;
 pheromoneRange.addEventListener('input', () => {
     renderer.pheromoneIntensity = parseFloat(pheromoneRange.value);
+    saveUiState();
+});
+
+const cinematicToggle = document.getElementById('cinematicToggle') as HTMLInputElement;
+cinematicToggle.addEventListener('change', () => {
+    cinematicEnabled = cinematicToggle.checked;
     saveUiState();
 });
 
@@ -752,7 +760,7 @@ function drawStats() {
 
 // ── Restore persisted UI state ───────────────────────────────────────────────
 (function restoreUiState() {
-    let saved: { quality?: string; pheromones?: boolean; pheromoneIntensity?: number; speed?: number; dayNight?: boolean; dayNightIntensity?: number; bloom?: boolean; bloomIntensity?: number } | null = null;
+    let saved: { quality?: string; pheromones?: boolean; pheromoneIntensity?: number; speed?: number; dayNight?: boolean; dayNightIntensity?: number; bloom?: boolean; bloomIntensity?: number; cinematic?: boolean } | null = null;
     try {
         const raw = localStorage.getItem(UI_KEY);
         if (raw) saved = JSON.parse(raw);
@@ -769,6 +777,10 @@ function drawStats() {
     if (typeof saved.pheromoneIntensity === 'number' && Number.isFinite(saved.pheromoneIntensity)) {
         renderer.pheromoneIntensity = saved.pheromoneIntensity;
         (document.getElementById('pheromoneRange') as HTMLInputElement).value = String(saved.pheromoneIntensity);
+    }
+    if (typeof saved.cinematic === 'boolean') {
+        cinematicEnabled = saved.cinematic;
+        (document.getElementById('cinematicToggle') as HTMLInputElement).checked = saved.cinematic;
     }
     if (typeof saved.speed === 'number' && Number.isFinite(saved.speed)) {
         applySpeed(saved.speed, false);
@@ -828,6 +840,56 @@ let frames     = 0;
 let lastFpsTime= lastTime;
 let lastQuality= PerformanceManager.level;
 
+// ── Cinematic camera (screensaver) ───────────────────────────────────────────
+// When idle, the camera slowly drifts and cuts between "action" spots (raids,
+// combat, milking, the busy nest entrance) so the screensaver is never static.
+// Any user interaction pauses it; it resumes after a short idle.
+const cinematic = {
+    pausedUntil: 0,
+    target: null as { x: number; y: number; zoom: number } | null,
+    nextPick: 0,
+    phase: 0,
+    notifyInteraction() { this.pausedUntil = performance.now() + 25000; },
+    pickTarget() {
+        const cands: { x: number; y: number; zoom: number; w: number }[] = [];
+        for (const c of world.colonies) {
+            for (const a of c.ants) {
+                if (a.location !== 'WORLD') continue;
+                const s = (a as { state: string }).state;
+                if (s === 'RAIDING') cands.push({ x: a.x, y: a.y, zoom: 2.6, w: 6 });
+                else if (s === 'ATTACKING' || s === 'FLEEING') cands.push({ x: a.x, y: a.y, zoom: 3.0, w: 3 });
+                else if (s === 'MILKING') cands.push({ x: a.x, y: a.y, zoom: 3.2, w: 1.5 });
+            }
+            cands.push({ x: c.entranceWorld.x, y: c.entranceWorld.y, zoom: 2.2, w: 1.2 });
+        }
+        let pick: { x: number; y: number; zoom: number } | undefined;
+        if (cands.length) {
+            const tot = cands.reduce((s, c) => s + c.w, 0);
+            let r = Math.random() * tot;
+            for (const c of cands) { r -= c.w; if (r <= 0) { pick = c; break; } }
+        }
+        if (!pick) pick = { x: CONFIG.width * (0.3 + Math.random() * 0.4), y: CONFIG.height * (0.3 + Math.random() * 0.4), zoom: 1.9 };
+        this.target = { x: pick.x, y: pick.y, zoom: pick.zoom * (0.9 + Math.random() * 0.3) };
+        this.nextPick = performance.now() + 8000 + Math.random() * 5000;
+    },
+    update() {
+        if (!cinematicEnabled) return;
+        const now = performance.now();
+        if (now < this.pausedUntil) return;            // user is steering — hands off
+        if (!this.target || now >= this.nextPick) this.pickTarget();
+        const t = this.target!;
+        this.phase += 0.004;
+        const dx = Math.cos(this.phase) * 7, dy = Math.sin(this.phase * 0.7) * 5; // gentle live drift
+        const k = 0.014;                               // slow ease toward the target
+        camera.zoom += (t.zoom - camera.zoom) * k;
+        camera.x += (t.x + dx - camera.x) * k;
+        camera.y += (t.y + dy - camera.y) * k;
+        camera.pan(0, 0, renderer.resolutionScale);    // clamp inside the world bounds
+    },
+};
+['wheel', 'mousedown', 'touchstart', 'keydown'].forEach(ev =>
+    document.addEventListener(ev, () => cinematic.notifyInteraction(), { passive: true }));
+
 function loop(now: number) {
     requestAnimationFrame(loop);
 
@@ -885,6 +947,9 @@ function loop(now: number) {
             deadTicks = 0;
         }
     }
+
+    // Cinematic camera drift (no-op while the user is steering or it's disabled)
+    cinematic.update();
 
     // Inspector live update
     updateInspector();
