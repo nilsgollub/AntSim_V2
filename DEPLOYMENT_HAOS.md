@@ -1,4 +1,14 @@
-# Deployment auf Home Assistant (HAOS)
+# Deployment auf Home Assistant (HAOS) & Raspberry Pi Kiosk
+
+> **WICHTIG: Neue Kiosk-Architektur (Entkoppelt von HA)**
+> Der Raspberry-Pi-Kiosk (Formica-OS) ist mittlerweile **komplett von Home Assistant entkoppelt**. Ein Absturz oder Neustart von HA fuehrt nicht mehr dazu, dass der Kiosk-Bildschirm schwarz wird.
+> 
+> **Wie der Kiosk jetzt funktioniert:**
+> 1. **Lokales Serving:** Auf dem Raspberry Pi ist das AntSim_V2 Repo unter /home/nilsgollub/AntSim_V2 geklont. Ein lokaler Nginx liefert den Ordner dist/ direkt aus. Home Assistant fungiert *nicht* mehr als Proxy.
+> 2. **Auto-Pull (Kein Build auf Pi):** Das gebaute dist/ Verzeichnis ist ins Git-Repo eingecheckt. Beim Booten fuehrt ein Autostart-Skript (~/.config/autostart/formica-kiosk.desktop) automatisch einen git pull aus. Der Pi aktualisiert sich somit bei jedem Neustart selbst, ohne Node.js oder Build-Tools zu benoetigen.
+> 3. **Neuer Deployment Workflow:** npm run build -> Committen (inkl. dist/) -> Pushen. Der Pi zieht das Update beim naechsten Neustart automatisch.
+
+---
 
 AntSim V2 ist eine reine Client-Side-Anwendung (Single Page Application). Das bedeutet, dass die gesamte Rechenlast (Simulation, Rendering) im Browser des Nutzers stattfindet. Der Server (dein Home Assistant) dient lediglich als Dateispeicher und muss keine Berechnungen durchführen. Die Ressourcenbelastung für deinen Home Assistant ist daher **minimal**.
 
