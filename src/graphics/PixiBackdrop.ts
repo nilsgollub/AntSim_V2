@@ -408,21 +408,32 @@ export class PixiBackdrop {
         // Pheromone field
         this.pheroSprite.visible = showPheromones;
         if (showPheromones) {
-            this.ensurePheroSize(world.grid.width, world.grid.height);
+            // On the low presets bake the overlay at half grid resolution: ¼ the pixels
+            // to loop over AND to blur (the per-frame pheromone cost), then the sprite
+            // stretches it to logical size as before. The 1.5px blur hides the coarser grid.
+            const ds = isLowQuality() ? 2 : 1;
+            const gw = world.grid.width, gh = world.grid.height;
+            const bw = Math.max(1, Math.ceil(gw / ds)), bh = Math.max(1, Math.ceil(gh / ds));
+            this.ensurePheroSize(bw, bh);
             if (this.frame % (isLowQuality() ? 6 : 3) === 0) {
                 const toHome = world.grid.toHome, toSugar = world.grid.toSugar;
                 const toProtein = world.grid.toProtein, toDanger = world.grid.toDanger;
                 const buf = this.pheroBuf;
-                for (let i = 0; i < buf.length; i++) {
-                    const home = toHome[i], sugar = toSugar[i], protein = toProtein[i], danger = toDanger[i];
-                    if (home > 0.01 || sugar > 0.01 || protein > 0.01 || danger > 0.01) {
-                        // sqrt response curve: lifts faint concentrations so trails read
-                        // as continuous glowing highways instead of dim wisps.
-                        const r = Math.min(255, (Math.sqrt(protein + sugar + danger) * 255) | 0);
-                        const g = Math.min(255, (Math.sqrt(sugar) * 255) | 0);
-                        const b = Math.min(255, (Math.sqrt(home + danger) * 255) | 0);
-                        buf[i] = (255 << 24) | (b << 16) | (g << 8) | r;
-                    } else buf[i] = 0;
+                for (let by = 0; by < bh; by++) {
+                    const gy = Math.min(gh - 1, by * ds);
+                    for (let bx = 0; bx < bw; bx++) {
+                        const gi = gy * gw + Math.min(gw - 1, bx * ds);
+                        const home = toHome[gi], sugar = toSugar[gi], protein = toProtein[gi], danger = toDanger[gi];
+                        const bi = by * bw + bx;
+                        if (home > 0.01 || sugar > 0.01 || protein > 0.01 || danger > 0.01) {
+                            // sqrt response curve: lifts faint concentrations so trails read
+                            // as continuous glowing highways instead of dim wisps.
+                            const r = Math.min(255, (Math.sqrt(protein + sugar + danger) * 255) | 0);
+                            const g = Math.min(255, (Math.sqrt(sugar) * 255) | 0);
+                            const b = Math.min(255, (Math.sqrt(home + danger) * 255) | 0);
+                            buf[bi] = (255 << 24) | (b << 16) | (g << 8) | r;
+                        } else buf[bi] = 0;
+                    }
                 }
                 this.pheroRawCtx.putImageData(this.pheroImage, 0, 0);
                 // Soft glow via a 2D blur (premultiplied → fades to transparent).

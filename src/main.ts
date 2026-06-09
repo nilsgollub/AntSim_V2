@@ -882,6 +882,34 @@ let frames     = 0;
 let lastFpsTime= lastTime;
 let lastQuality= PerformanceManager.level;
 
+// ── Optional FPS log (?fpslog=1) ─────────────────────────────────────────────
+// On the Pi we can't trivially read the live FPS counter, so opt-in persist a
+// rolling ~30 min of per-second samples to localStorage and print a one-line
+// summary each minute. Lets us check afterwards whether LOW actually held up on
+// the real hardware (suggestion: measure the auto-downgrade in the wild).
+const fpsLogOn = new URLSearchParams(location.search).get('fpslog') === '1';
+const FPSLOG_KEY = 'antsim.fpslog.v1';
+const fpsSamples: number[] = [];          // this-minute per-second FPS
+let fpsMinuteStart = lastTime;
+function recordFps(fps: number, now: number) {
+    if (!fpsLogOn) return;
+    fpsSamples.push(fps);
+    if (now - fpsMinuteStart < 60000) return;
+    const n = fpsSamples.length || 1;
+    const min = Math.min(...fpsSamples), max = Math.max(...fpsSamples);
+    const avg = Math.round(fpsSamples.reduce((a, b) => a + b, 0) / n);
+    const ants = world.totalAntCount();
+    const entry = { t: Date.now(), min, avg, max, q: PerformanceManager.level, ants };
+    let log: any[] = [];
+    try { log = JSON.parse(localStorage.getItem(FPSLOG_KEY) || '[]'); } catch { /* corrupt → reset */ }
+    log.push(entry);
+    if (log.length > 30) log = log.slice(-30); // keep ~30 min
+    try { localStorage.setItem(FPSLOG_KEY, JSON.stringify(log)); } catch { /* quota → ignore */ }
+    console.log(`[fpslog] avg=${avg} min=${min} max=${max} q=${entry.q} ants=${ants}`);
+    fpsSamples.length = 0;
+    fpsMinuteStart = now;
+}
+
 // ── Cinematic camera (screensaver) ───────────────────────────────────────────
 // When idle, the camera slowly drifts and cuts between "action" spots (raids,
 // combat, milking, the busy nest entrance) so the screensaver is never static.
@@ -954,6 +982,7 @@ function loop(now: number) {
     frames++;
     if (now - lastFpsTime >= 1000) {
         fpsDisplay.innerText = `FPS: ${frames}`;
+        recordFps(frames, now);
         frames = 0;
         lastFpsTime = now;
     }
