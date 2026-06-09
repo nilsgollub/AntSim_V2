@@ -343,6 +343,22 @@ webglToggle.addEventListener('change', () => {
     saveUiState();
 });
 
+// Auto-recover from a lost WebGL context (Android tab-switch / GPU reset / power save):
+// tear down the dead backdrop and fall back to 2D, then re-create it once the context is
+// restored — which re-bakes ALL textures. Fixes ants/rivals rendering wrong after a
+// context glitch without needing a manual WebGL off/on toggle.
+glCanvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault(); // required so the browser will fire 'restored'
+    console.warn('WebGL context lost — falling back to Canvas-2D until restored');
+    if (backdrop) { try { backdrop.destroy(); } catch { /* context already gone */ } backdrop = null; }
+    renderer.drawBackdrop = true;
+    renderer.drawEntities = true;
+}, false);
+glCanvas.addEventListener('webglcontextrestored', () => {
+    console.warn('WebGL context restored — re-baking textures');
+    if (webglToggle.checked && webglAvailable() && !backdrop) void enableWebGL();
+});
+
 // ── Graphics settings panel ──────────────────────────────────────────────────
 const graphicsBtn   = document.getElementById('graphicsBtn')    as HTMLButtonElement;
 const graphicsPanel = document.getElementById('graphics-panel') as HTMLDivElement;
