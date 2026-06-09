@@ -8,7 +8,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-dist
+# dist is committed so the Raspberry-Pi kiosk can `git pull` the prebuilt screensaver
+# (it serves dist/ locally and self-updates on reboot — no Node/build on the Pi).
 dist-ssr
 *.local
 

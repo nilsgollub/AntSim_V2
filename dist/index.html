@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AntSim V3</title>
+  <script type="module" crossorigin src="./assets/index-CMwqeMvZ.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-C_Gc20cG.css">
+  <script type="module">import.meta.url;import("_").catch(()=>1);(async function*(){})().next();window.__vite_is_modern_browser=true</script>
+  <script type="module">!function(){if(window.__vite_is_modern_browser)return;console.warn("vite: loading legacy chunks, syntax error above and the same error below should be ignored");var e=document.getElementById("vite-legacy-polyfill"),n=document.createElement("script");n.src=e.src,n.onload=function(){System.import(document.getElementById('vite-legacy-entry').getAttribute('data-src'))},document.body.appendChild(n)}();</script>
+</head>
+
+
+<body>
+  <canvas id="glCanvas"></canvas>
+  <canvas id="gameCanvas"></canvas>
+
+  <div id="nest-container">
+    <canvas id="nestCanvas"></canvas>
+
+    <div id="nest-overlay">
+      <div id="stats-panel">
+        <div class="stat" id="fps">FPS: 0</div>
+        <div class="stat" id="popStat">Pop: 0</div>
+        <div class="stat" id="foodStat">P: 0 | S: 0</div>
+        <div class="stat" id="queenStat">Queen Age: 0m 0s</div>
+        <div class="stat" id="version" style="font-size: 9px; opacity: 0.7;">v0.1.0</div>
+      </div>
+
+      <div id="controls-top">
+        <div class="control-group">
+          <label>Speed:
+            <button id="speedDown" type="button">−</button>
+            <span id="speedVal">1x</span>
+            <button id="speedUp" type="button">+</button>
+          </label>
+        </div>
+        <div class="control-group">
+          <button id="graphicsBtn" title="Grafik-Einstellungen">🎨 Grafik</button>
+        </div>
+        <div class="control-group" id="playback-controls">
+          <button id="pauseBtn" title="Pause/Resume (Space)">⏸</button>
+          <button id="stepBtn"  title="Single Step">⏭</button>
+          <button id="zoomInBtn" title="Zoom in (+)">➕</button>
+          <button id="zoomOutBtn" title="Zoom out (−)">➖</button>
+          <button id="cameraResetBtn" title="Reset Camera">⌖</button>
+          <button id="screenshotBtn" title="Screenshot (PNG)">📷</button>
+        </div>
+        <div class="control-group" id="tool-controls">
+          <span style="font-size:10px;opacity:0.7">Tool:</span>
+          <button id="toolSelect"  class="tool-btn active" title="Inspect (click entity)">🔍</button>
+          <button id="toolFood"    class="tool-btn" title="Place Sugar">🍬</button>
+          <button id="toolProtein" class="tool-btn" title="Place Protein">🥩</button>
+          <button id="toolEnemy"   class="tool-btn" title="Spawn Enemy">☠</button>
+        </div>
+      </div>
+
+      <!-- Inspector panel — updated each frame when an entity is selected -->
+      <div id="inspector" style="display:none">
+        <div id="inspector-content"></div>
+        <button id="inspectorClose" style="float:right;margin-top:4px;font-size:10px">✕</button>
+      </div>
+
+      <div id="controls-bottom">
+        <div class="control-group">
+          <button id="restartBtn">Restart</button>
+          <label style="margin-left:8px;font-size:12px;cursor:pointer">
+            <input type="checkbox" id="rivalToggle" checked> Rivalenkolonie
+          </label>
+        </div>
+        <!-- Parameter Tuner -->
+        <div class="control-group">
+          <button id="statsBtn" title="Verlaufs-Graphen">📈 Stats</button>
+          <button id="slidersBtn" title="Live-Parameter-Regler">🎛 Params</button>
+          <button id="analyzeBtn" title="Observe simulation and suggest parameter tuning">⚙ Analyse</button>
+        </div>
+      </div>
+
+      <!-- Tuner output panel -->
+      <div id="tuner-panel" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px">
+          <strong style="font-size:11px">Parameter-Tuner</strong>
+          <span style="flex:1"></span>
+          <button id="tunerReset" style="font-size:10px;padding:2px 6px" title="Alle Anpassungen verwerfen und neu laden">↺ Reset</button>
+          <button id="tunerClose" style="font-size:10px;padding:2px 6px">✕</button>
+        </div>
+        <div id="tuner-content"></div>
+      </div>
+
+      <!-- Graphics settings panel -->
+      <div id="graphics-panel" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <strong style="font-size:11px">Grafik</strong>
+          <button id="graphicsClose" style="font-size:10px;padding:2px 6px">✕</button>
+        </div>
+        <div class="gfx-row">
+          <label style="flex:1">Performance-Modus</label>
+          <select id="qualitySelect">
+            <option value="ULTRA_LOW">Ultra Low</option>
+            <option value="LOW">Low</option>
+            <option value="MEDIUM" selected>Medium</option>
+            <option value="HIGH">High</option>
+            <option value="ULTRA">Ultra</option>
+          </select>
+        </div>
+        <div class="gfx-row">
+          <input type="checkbox" id="pheromoneToggle" checked>
+          <label for="pheromoneToggle">Pheromon-Spuren</label>
+        </div>
+        <div class="gfx-row">
+          <label style="flex:1">Pheromon-Stärke</label>
+          <input type="range" id="pheromoneRange" min="0" max="1.5" value="1" step="0.05">
+        </div>
+        <div class="gfx-row">
+          <label style="flex:1" for="antColorPicker">Ameisen-Farbe (eigene Kolonie)</label>
+          <input type="color" id="antColorPicker" value="#c4703a">
+        </div>
+        <div class="gfx-row">
+          <input type="checkbox" id="dayNightToggle" checked>
+          <label for="dayNightToggle">Tag/Nacht-Tönung</label>
+        </div>
+        <div class="gfx-row">
+          <label style="flex:1">Tag/Nacht-Stärke</label>
+          <input type="range" id="dayNightRange" min="0" max="1" value="0.5" step="0.05">
+        </div>
+        <div class="gfx-row">
+          <input type="checkbox" id="cinematicToggle" checked>
+          <label for="cinematicToggle">Kino-Kamera (Screensaver)</label>
+        </div>
+        <div class="gfx-row">
+          <input type="checkbox" id="webglToggle" checked>
+          <label for="webglToggle">WebGL-Renderer (Standard)</label>
+        </div>
+        <div class="gfx-row">
+          <input type="checkbox" id="bloomToggle" checked>
+          <label for="bloomToggle">Bloom / Glühen (nur WebGL)</label>
+        </div>
+        <div class="gfx-row">
+          <label style="flex:1">Bloom-Stärke</label>
+          <input type="range" id="bloomRange" min="0" max="1.5" value="0.7" step="0.05">
+        </div>
+        <div class="tuner-hint">WebGL rendert die ganze Welt auf der GPU (Fallback: Canvas).</div>
+      </div>
+
+      <!-- Live parameter sliders panel -->
+      <div id="sliders-panel" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px">
+          <strong style="font-size:11px">Live-Parameter</strong>
+          <span style="flex:1"></span>
+          <button id="slidersReset" style="font-size:10px;padding:2px 6px" title="Auf Defaults zurücksetzen und neu laden">↺ Reset</button>
+          <button id="slidersClose" style="font-size:10px;padding:2px 6px">✕</button>
+        </div>
+        <div id="sliders-content"></div>
+      </div>
+
+      <!-- Live stats graph panel -->
+      <div id="stats-graph-panel" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px">
+          <strong style="font-size:11px">Verlauf</strong>
+          <span style="flex:1"></span>
+          <button id="statsClose" style="font-size:10px;padding:2px 6px">✕</button>
+        </div>
+        <canvas id="statsCanvas" width="280" height="130"></canvas>
+        <div id="stats-legend"></div>
+      </div>
+    </div>
+  </div>
+
+  <script nomodule>!function(){var e=document,t=e.createElement("script");if(!("noModule"in t)&&"onbeforeload"in t){var n=!1;e.addEventListener("beforeload",(function(e){if(e.target===t)n=!0;else if(!e.target.hasAttribute("nomodule")||!n)return;e.preventDefault()}),!0),t.type="module",t.src=".",e.head.appendChild(t),t.remove()}}();</script>
+  <script nomodule crossorigin id="vite-legacy-polyfill" src="./assets/polyfills-legacy-C0zLXJlc.js"></script>
+  <script nomodule crossorigin id="vite-legacy-entry" data-src="./assets/index-legacy-D3a6cEZ1.js">System.import(document.getElementById('vite-legacy-entry').getAttribute('data-src'))</script>
+</body>
+
+</html>
