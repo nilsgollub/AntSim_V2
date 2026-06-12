@@ -83,8 +83,9 @@ export class World {
     // Particles
     particles: { x: number, y: number, vx: number, vy: number, life: number, color: string, type: 'DEFAULT' | 'BLOOD' | 'DUST' }[] = [];
 
-    // Excavation dust, drawn on the nest canvas (nest-local coordinates).
-    nestParticles: { x: number, y: number, vx: number, vy: number, life: number }[] = [];
+    // Excavation dust + feeding droplets, drawn on the nest canvas (nest-local
+    // coordinates). `color` overrides the default dust tint.
+    nestParticles: { x: number, y: number, vx: number, vy: number, life: number, color?: string }[] = [];
 
     // Vegetation
     grass: { x: number, y: number, size: number, angle: number }[] = [];
@@ -483,15 +484,27 @@ export class World {
                 c.proteinStockpile = Math.max(0, c.proteinStockpile - CONFIG.broodProteinUpkeep * c.larvae);
             }
 
-            // As the colony grows, dig extra satellite chambers. Renderer + navigation
-            // pick up the new nodes automatically.
+            // As the colony grows, dig extra satellite chambers — but no longer
+            // instantly: workers in the DIGGING state must put in digWorkPerChamber
+            // ticks at the dig site (the newest chamber) before the room opens.
+            // Renderer + navigation pick up the new nodes automatically.
             const targetExtra = Math.min(
                 CONFIG.nest.maxExtraChambers,
                 Math.floor(c.ants.length / CONFIG.nest.excavateEvery),
             );
-            while (c.nest.extraChambers < targetExtra) {
-                if (!c.nest.growStage()) break;
-                this.spawnNestDust(c.nest);
+            if (c.nest.extraChambers < targetExtra) {
+                if (!c.digSite) {
+                    const face = c.nest.chambers[c.nest.chambers.length - 1];
+                    c.digSite = { x: face.x, y: face.y };
+                }
+                if (c.digProgress >= CONFIG.nest.digWorkPerChamber) {
+                    c.digProgress = 0;
+                    c.digSite = null;
+                    if (c.nest.growStage()) this.spawnNestDust(c.nest);
+                }
+            } else {
+                c.digSite = null;
+                c.digProgress = 0;
             }
         }
     }

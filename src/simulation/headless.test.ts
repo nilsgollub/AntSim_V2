@@ -19,19 +19,22 @@ describe('headless harness — golden (behaviour pinned)', () => {
     // Exact metrics for a fixed seed. Any unintended behaviour change — from a
     // refactor or an accidental bug — shifts these numbers and fails the test.
     // Update deliberately (and in the commit message) when a change is intended.
+    // Re-pinned for per-ant excavation (DIGGING) + larval trophallaxis: chambers now
+    // open only after diggers put in the work (extraChambers lags at t1000, caught up
+    // by t2500); the queenEnergy delta is one feed cycle shifted by dig recruitment.
     it('matches the pinned snapshot at 1000 ticks', () => {
         expect(runHeadless(12345, 1000)).toEqual({
             ticks: 1000, population: 21, workers: 20, soldiers: 1,
-            brood: 23, larvae: 16, sugar: 655, protein: 238,
-            queenEnergy: 2201, extraChambers: 2, peakPopulation: 21, minPopulation: 16,
+            brood: 23, larvae: 16, sugar: 683, protein: 238,
+            queenEnergy: 2201, extraChambers: 1, peakPopulation: 21, minPopulation: 16,
         });
     });
 
     it('matches the pinned snapshot at 2500 ticks', () => {
         expect(runHeadless(12345, 2500)).toEqual({
             ticks: 2500, population: 23, workers: 22, soldiers: 1,
-            brood: 29, larvae: 15, sugar: 693, protein: 214,
-            queenEnergy: 2243, extraChambers: 2, peakPopulation: 23, minPopulation: 16,
+            brood: 29, larvae: 15, sugar: 721, protein: 204,
+            queenEnergy: 1742, extraChambers: 2, peakPopulation: 23, minPopulation: 16,
         });
     });
 });

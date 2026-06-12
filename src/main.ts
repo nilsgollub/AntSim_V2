@@ -186,6 +186,20 @@ toolFoodBtn.addEventListener('click',    () => setTool('PLACE_SUGAR'));
 toolProteinBtn.addEventListener('click', () => setTool('PLACE_PROTEIN'));
 toolEnemyBtn.addEventListener('click',   () => setTool('SPAWN_ENEMY'));
 
+// Manual weather: toggle a shower on demand (same washout mechanics as the
+// seeded random rain — outdoor trails fade, the colony has to re-scout).
+const rainBtn = document.getElementById('rainBtn') as HTMLButtonElement;
+rainBtn.addEventListener('click', () => {
+    if (world.raining) {
+        world.raining = false;
+        world.rainTimer = 0;
+    } else {
+        world.raining = true;
+        world.rainTimer = CONFIG.environment.rainMinDuration * 2;
+    }
+    rainBtn.classList.toggle('active', world.raining);
+});
+
 // ── Selected entity for inspect ─────────────────────────────────────────────
 let selectedAnt: Ant | null = null;
 let selectedInsect: Insect | null = null;

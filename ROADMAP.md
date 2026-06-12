@@ -142,7 +142,9 @@ bewusst neu gepinnt, wo nötig):
   (`spatialGrid.getNearby` + Energie-Transfer, eine Übergabe pro Versuch). Topt Ammen *im Vorbeigehen*
   auf, bevor sie zum Lager pilgern → weniger Storage-Andrang. Konservativ (verschiebt Energie, kein
   `rand()` → Golden stabil). `World.trophallaxisCount` als Live-Stat + Test-Guard (seed7 @8000 ≈ 70
-  Fütterungen, Kolonie gesund). *Offen:* Larven-Trophallaxis, sichtbares Fütter-Partikel.
+  Fütterungen, Kolonie gesund). **Larven-Trophallaxis (Juni 2026):** findet der Donor keine
+  hungrige Adulte, füttert er stattdessen eine hungrige Larve in Reichweite (`Brood.feed`,
+  `troph.larva*`-Config) — plus sichtbares goldenes Fütter-Partikel auf dem Nest-Panel.
 
 - [x] **Larven-Ernährung bestimmt Kaste**: `Brood.cumulativeFood` verfolgt Gesamtfütterung;
   gut gefütterte Larven (`≥ CONFIG.brood.soldierFoodThreshold`) verpuppen sich zu Soldaten,
@@ -176,7 +178,10 @@ bewusst neu gepinnt, wo nötig):
   capte physisch bei ~8 Kammern; der Baum passt 25+ rein (Harness: 26/26 in Grenzen +
   erreichbar), während die Greedy-Navigation robust bleibt (Heimweg ist immer „nach innen",
   monoton). `excavateEvery` 18→10 + höheres `maxExtraChambers` → sichtbar mehr Kammern.
-  Rollen-Modell `getChamber(role)` statt fixem Typ. *Offen:* per-Ameise `DIGGING`-Zustand.
+  Rollen-Modell `getChamber(role)` statt fixem Typ. **Per-Ameise `DIGGING` (Juni 2026):**
+  Kammern öffnen nicht mehr instant — bis zu `nest.maxDiggers` Idle-Worker werden rekrutiert,
+  laufen zur Grabungsstelle (neueste Kammer) und leisten kumulative Arbeit
+  (`nest.digWorkPerChamber` Ticks), erst dann gräbt `growStage()`. Golden bewusst neu gepinnt.
 
 - [x] **Funktionale Kammern** (Kammern haben echte Aufgaben, nicht nur Deko): Rollen-Modell auf
   *mehrere Kammern pro Rolle* erweitert (`getChambers`/`nearestChamber`). Grabungs-Rotation:
@@ -211,7 +216,8 @@ bewusst neu gepinnt, wo nötig):
   waschen die **Außen**-Pheromon-Grids pro Frame weg (`grid.scaleAll(rainWashout)`) → Straßen
   verblassen, die Kolonie muss neu auskundschaften/rekrutieren. Der unterirdische `nestGrid` bleibt
   geschützt. Visuell: Regen-Streifen + abgedunkelter Himmel (`Renderer.drawRain`, render-only-Zufall).
-  *Offen:* Sandbox-Button zum manuellen Auslösen, Pfützen/Bodennässe.
+  **Sandbox-Button (Juni 2026):** 🌧-Toggle in der Tool-Leiste löst Regen manuell aus/ab.
+  *Offen:* Pfützen/Bodennässe.
 
 ### Technik & Struktur
 - [~] **Rivalisierende Kolonie + Krieg** (`colonyId`, 2. Nest/Königin) — großer struktureller Eingriff, phasiert.

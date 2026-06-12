@@ -31,6 +31,12 @@ export class Colony {
     trophallaxisCount: number = 0;     // mouth-to-mouth feedings (live stat / test guard)
     raidCooldown: number = 0;          // ticks until this colony may launch its next raid
 
+    // Per-ant excavation: while the nest wants another chamber, workers are recruited
+    // to DIGGING and accumulate digProgress at the dig site (the newest chamber);
+    // the chamber opens once digWorkPerChamber is reached (see World upkeep).
+    digSite: { x: number; y: number } | null = null;
+    digProgress: number = 0;
+
     // Navigation anchors — where this colony's nest meets the world. Decouples
     // "go home / leave the nest" from hardcoded world edges, so a second colony can
     // sit anywhere. For colony 0 these equal the former CONFIG.width/height formulas

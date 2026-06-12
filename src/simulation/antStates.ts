@@ -149,6 +149,17 @@ export function handleNurseIdle(ant: Ant, world: World) {
         return;
     }
 
+    // 0. Excavation duty: while the nest wants another chamber, idle workers are
+    // recruited to the dig (capped, so nursing/foraging never collapses).
+    if (ant.colony.digSite && ant.type === 'WORKER' && ant.energy > CONFIG.ant.hungryThreshold) {
+        let diggers = 0;
+        for (const a of ant.colony.ants) if (a.state === 'DIGGING') diggers++;
+        if (diggers < CONFIG.nest.maxDiggers) {
+            ant.state = 'DIGGING';
+            return;
+        }
+    }
+
     // 1. Rest Chance (Top Priority)
     // Tune: 0.1% chance per frame
     if (rand() < 0.001) {
@@ -1220,3 +1231,30 @@ export function handleMilking(ant: Ant, world: World) {
 }
 
 
+
+// Per-ant excavation: walk to the colony's dig site (the newest chamber) and put
+// in work at the face; World opens the next chamber once the colony's digProgress
+// reaches CONFIG.nest.digWorkPerChamber (see the upkeep section of World.update).
+export function handleDigging(ant: Ant, world: World) {
+    const col = ant.colony;
+    if (!col.digSite || ant.location !== 'NEST') { ant.state = 'IDLE'; return; }
+    if (ant.energy < CONFIG.ant.hungryThreshold) { ant.state = 'HUNGRY'; return; }
+
+    const dx = col.digSite.x - ant.x;
+    const dy = col.digSite.y - ant.y;
+    if (dx * dx + dy * dy > CONFIG.ant.arriveRangeSq * 4) {
+        ant.steerThroughNest(col.digSite.x, col.digSite.y);
+        return;
+    }
+
+    // At the face: chip away. A slow milling shuffle keeps the work visible
+    // (and deterministic — no rand()).
+    ant.speedMultiplier = 0.15;
+    ant.angle += 0.35;
+    col.digProgress++;
+    // A pinch of dust now and then; the nest panel only shows colony 0, so a
+    // rival's diggers must not emit phantom particles onto it.
+    if (col.id === 0 && col.digProgress % 40 === 0) {
+        world.nestParticles.push({ x: ant.x, y: ant.y, vx: 0, vy: -0.2, life: 0.8 });
+    }
+}

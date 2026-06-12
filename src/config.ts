@@ -205,6 +205,11 @@ export const CONFIG = {
             donateRadius: 16,       // mouth-to-mouth range (px)
             donateChunk: 200,       // energy passed per exchange
             interval: 6,            // frames between trophallaxis attempts (throttle)
+            // Larval trophallaxis: with no hungry adult in range, the donor tops up
+            // a hungry larva instead (crop → hunger relief via Brood.feed).
+            larvaHungry: 25,        // larva hunger above this counts as "hungry"
+            larvaRelief: 30,        // hunger removed per feeding
+            larvaCropCost: 60,      // crop spent per feeding
         },
     },
 
@@ -279,6 +284,11 @@ export const CONFIG = {
         // it rewards digging granaries (headroom) without ever starving the colony.
         storageBaseCapacity: 1200,              // cap per resource with no dedicated granary yet
         storagePerGranary: 600,                 // …each granary chamber raises it by this
+        // Per-ant excavation: a pending chamber needs this much cumulative digging
+        // work (ticks of ants in the DIGGING state at the face) before it opens,
+        // and at most maxDiggers idle workers are recruited to the job at once.
+        digWorkPerChamber: 600,
+        maxDiggers: 4,
     },
 
     // World Generation
