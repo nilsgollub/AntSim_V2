@@ -364,9 +364,16 @@ gezielte Nachrüstung. Nach Hebelwirkung sortiert.
   unverändert) — der Harness hat den Refactor lückenlos abgesichert. *Offen:* `Renderer.ts`
   analog in Layer aufteilen.
 
-- [ ] **Daten-orientiert für Skalierung (ECS / Structure-of-Arrays)**: Objekt-pro-Ameise ist
-  GC-/Cache-unfreundlich; für >500 Ameisen oder Kolonienkrieg deutlich schneller in SoA/ECS.
-  Erst angehen, wenn die Performance-Grenze real erreicht wird.
+- [ ] **Daten-orientiert für Skalierung (ECS / Structure-of-Arrays)** — *vorerst verworfen,
+  daten-belegt (Juni 2026)*: Headless-Bench (`bench.soak.test.ts`, Desktop): 1.46 ms/Tick
+  @ pop 54, 2.09 ms/Tick @ pop 100 (2 Kolonien). Daraus: **~0.9 ms/Tick Fixkosten**
+  (Pheromon-Felder — skalieren mit Welt-FLÄCHE, nicht mit Ameisen) + nur **~14 µs pro
+  Ameise**. ECS/SoA würde allein den per-Ameise-Anteil drücken (vielleicht 2–3×), die
+  flächengetriebenen Feld-Updates bleiben — auf dem Pi der falsche Hebel. Sinnvollere
+  Pi-Hebel zuerst: (a) Pheromon-Update-Phase profilen/optimieren (decay/diffusion über
+  große Float-Arrays), (b) optionales explizites „Sim-Lite"-Profil (bewusst, per URL-Param —
+  NICHT quality-gekoppelt, die Entkopplung bleibt). ECS erst, wenn (a) ausgereizt ist
+  und >300 Ameisen real anstehen.
 
 - [x] **Einheitlicher Spatial-Index für alle Entitäten**: `SpatialGrid<T>` ist generisch;
   `World.foodGrid`/`insectGrid` ersetzen die Brute-Force-Scans in den heißen per-Ameise-Loops
