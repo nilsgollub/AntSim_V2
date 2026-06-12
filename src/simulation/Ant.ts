@@ -644,7 +644,7 @@ export class Ant {
         if (this.location === 'NEST') return 0;
         const r2 = radius * radius;
         let count = 0;
-        for (const ins of world.insects) {
+        for (const ins of world.insectGrid.getNearby(this.x, this.y, radius)) {
             if (ins.type === 'PREDATOR' || ins.type === 'SPIDER' || ins.type === 'BEETLE') {
                 const dx = ins.x - this.x;
                 const dy = ins.y - this.y;

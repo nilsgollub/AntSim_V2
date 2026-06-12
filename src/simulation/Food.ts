@@ -1,5 +1,11 @@
 export type FoodType = 'SUGAR' | 'PROTEIN' | 'CORPSE';
 
+// Monotonic creation counter. seq reproduces world.foods array order (push order,
+// splices keep relative order), so spatial-grid queries sorted by seq iterate
+// candidates exactly like the old brute-force array scans — keeping the golden
+// snapshots byte-identical.
+let nextFoodSeq = 0;
+
 export class Food {
     x: number;
     y: number;
@@ -9,6 +15,7 @@ export class Food {
     corpseType?: string;
     corpseAngle?: number;
     colonyId?: number;   // set when interred → which colony's graveyard it belongs to
+    readonly seq: number = nextFoodSeq++;
 
     constructor(x: number, y: number, type: FoodType, amount: number) {
         this.x = x;

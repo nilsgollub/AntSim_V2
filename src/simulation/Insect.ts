@@ -6,10 +6,15 @@ import { Ant } from './Ant';
 
 export type InsectType = 'PREY' | 'PREDATOR' | 'APHID' | 'SPIDER' | 'BEETLE' | 'LADYBUG';
 
+// Creation counter mirroring world.insects array order — see Food.seq for why
+// (spatial-grid queries sort by it to match the old array-scan iteration order).
+let nextInsectSeq = 0;
+
 export class Insect {
     x: number;
     y: number;
     type: InsectType;
+    readonly seq: number = nextInsectSeq++;
     health: number;
     angle: number;
     speed: number;
@@ -161,7 +166,10 @@ export class Insect {
         let nearestAnt: Ant | null = null;
         let minDst = 10000;
 
-        for (const ant of world.ants) {
+        // Grid query bounded by the 100px tracking range (+ one-tick stale margin,
+        // see huntAnts); colony-0 filter preserves the old world.ants scan.
+        for (const ant of world.spatialGrid.getNearby(this.x, this.y, 116)) {
+            if (ant.colony !== world.colonies[0]) continue;
             const dx = this.x - ant.x;
             const dy = this.y - ant.y;
             const d2 = dx * dx + dy * dy;
@@ -251,7 +259,13 @@ export class Insect {
         let nearestAnt: Ant | null = null;
         let minDst = Infinity;
 
-        for (const ant of world.ants) {
+        // Insects run after the ant phase, so the ant grid is one move stale —
+        // the +16px margin covers any single-tick displacement; the exact d2
+        // check below uses live positions. Only colony 0 is hunted (as before:
+        // the old scan iterated world.ants, i.e. colony 0's array).
+        const r = Math.sqrt(rangeSq) + 16;
+        for (const ant of world.spatialGrid.getNearby(this.x, this.y, r)) {
+            if (ant.colony !== world.colonies[0]) continue;
             const dx = this.x - ant.x;
             const dy = this.y - ant.y;
             const d2 = dx * dx + dy * dy;

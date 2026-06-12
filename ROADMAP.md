@@ -338,9 +338,9 @@ gezielte Nachrüstung. Nach Hebelwirkung sortiert.
   (gleicher Seed → identischer Run) + Kolonie-Stabilität (Soak: stirbt nicht aus, bleibt
   unter Cap, kein Vorrat dauerhaft 0, Brut lebt). Macht Balance verifizierbar statt „im Browser".
 
-- [ ] **Explizites Balance-Modell statt reaktivem Tunen**: Vitalraten (Geburt/Tod/Ertrag/
-  Verbrauch) dokumentieren; Parameter aus Zielwerten ableiten (z.B. Pop ≈ lifespan/layInterval)
-  statt Magic Numbers zu raten. Teilweise vorhanden (config-Gruppen + Tuner), aber nicht als Modell.
+- [x] **Explizites Balance-Modell statt reaktivem Tunen**: [BALANCE.md](BALANCE.md) — Vitalraten
+  (Geburt/Tod/Ertrag/Verbrauch) als Formeln (Pop ≈ lifespan/layInterval ≈ 211; Zucker-/Protein-
+  Bilanzen pro Frame), Kasten-Hebel, RNG-Dominanz-Lektion + Workflow für Balance-Änderungen.
 
 - [x] **Sim-Fidelity von Render-Quality entkoppelt**: Pheromon-Grid-Auflösung, Diffusion und
   Update-Takt hingen an den Quality-Presets → Verhalten änderte sich je Grafikstufe. Jetzt fest in
@@ -362,8 +362,12 @@ gezielte Nachrüstung. Nach Hebelwirkung sortiert.
   GC-/Cache-unfreundlich; für >500 Ameisen oder Kolonienkrieg deutlich schneller in SoA/ECS.
   Erst angehen, wenn die Performance-Grenze real erreicht wird.
 
-- [ ] **Einheitlicher Spatial-Index für alle Entitäten**: `SpatialGrid` indiziert nur Ameisen;
-  Food/Insekten werden brute-force durchsucht. Vereinheitlichen.
+- [x] **Einheitlicher Spatial-Index für alle Entitäten**: `SpatialGrid<T>` ist generisch;
+  `World.foodGrid`/`insectGrid` ersetzen die Brute-Force-Scans in den heißen per-Ameise-Loops
+  (Foraging/Combat/Hunt/Aphiden/Flucht) + `Insect.huntAnts`. Golden byte-identisch dank
+  `seq`-Sortierung (reproduziert Array-Reihenfolge bei First-Match-Semantik) und Mid-Tick-
+  Spiegelung (Corpse-Push/Food-Splice). Insekten bewegen sich erst nach der Ameisen-Phase →
+  Grid pro Tick exakt konsistent; Insekten-Phase nutzt eine Stale-Marge (+16 px).
 
 ## Hinweise für Mitarbeitende
 - Build: `npm run build` (strenges `tsc`) · Dev: `npm run dev` · Tests: `npm run test`
