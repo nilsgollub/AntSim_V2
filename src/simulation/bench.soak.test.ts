@@ -14,13 +14,16 @@ it('bench: sim ticks/sec at mature population', () => {
     console.log(`1 Kolonie, pop=${pop}: ${(2000 / (dt / 1000)).toFixed(0)} ticks/s (${(dt / 2000).toFixed(3)} ms/tick)`);
 
     CONFIG.colonyCount = 2;
-    seedRng(42);
-    const w2 = new World();
-    for (let i = 0; i < 8000; i++) w2.update();
-    const pop2 = w2.colonies[0].ants.length + w2.colonies[1].ants.length;
-    const t1 = performance.now();
-    for (let i = 0; i < 2000; i++) w2.update();
-    const dt2 = performance.now() - t1;
-    console.log(`2 Kolonien, pop=${pop2}: ${(2000 / (dt2 / 1000)).toFixed(0)} ticks/s (${(dt2 / 2000).toFixed(3)} ms/tick)`);
-    CONFIG.colonyCount = 1;
+    try {
+        seedRng(42);
+        const w2 = new World();
+        for (let i = 0; i < 8000; i++) w2.update();
+        const pop2 = w2.colonies[0].ants.length + w2.colonies[1].ants.length;
+        const t1 = performance.now();
+        for (let i = 0; i < 2000; i++) w2.update();
+        const dt2 = performance.now() - t1;
+        console.log(`2 Kolonien, pop=${pop2}: ${(2000 / (dt2 / 1000)).toFixed(0)} ticks/s (${(dt2 / 2000).toFixed(3)} ms/tick)`);
+    } finally {
+        CONFIG.colonyCount = 1; // never leak two-colony mode into other suites
+    }
 }, 120000);

@@ -24,8 +24,11 @@ export class SpatialGrid<T extends SpatialItem> {
     }
 
     add(item: T) {
-        const col = Math.floor(item.x / this.cellSize);
-        const row = Math.floor(item.y / this.cellSize);
+        // Clamp to the grid so an item exactly on / past the world edge can't
+        // alias into a neighbouring row's bucket (it would become invisible to
+        // queries — the old brute-force scans never missed such items).
+        const col = Math.max(0, Math.min(this.cols - 1, Math.floor(item.x / this.cellSize)));
+        const row = Math.max(0, Math.min(this.rows - 1, Math.floor(item.y / this.cellSize)));
         const index = row * this.cols + col;
 
         if (!this.buckets.has(index)) {
@@ -38,8 +41,8 @@ export class SpatialGrid<T extends SpatialItem> {
     // moved cells since add — true for static items like food). Used to mirror
     // mid-tick array splices so queries never return already-consumed items.
     remove(item: T) {
-        const col = Math.floor(item.x / this.cellSize);
-        const row = Math.floor(item.y / this.cellSize);
+        const col = Math.max(0, Math.min(this.cols - 1, Math.floor(item.x / this.cellSize)));
+        const row = Math.max(0, Math.min(this.rows - 1, Math.floor(item.y / this.cellSize)));
         const bucket = this.buckets.get(row * this.cols + col);
         if (!bucket) return;
         const i = bucket.indexOf(item);

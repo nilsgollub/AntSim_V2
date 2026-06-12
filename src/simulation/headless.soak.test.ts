@@ -1,6 +1,8 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import { runHeadless } from './headless';
 import { PerformanceManager, QualityLevel } from '../PerformanceManager';
+
+type Metrics = ReturnType<typeof runHeadless>;
 
 // Slow long-horizon suites, excluded from the default `npm test` loop.
 // Run with `npm run test:soak` (CI runs `npm run test:all`).
@@ -8,8 +10,10 @@ import { PerformanceManager, QualityLevel } from '../PerformanceManager';
 describe('headless harness — colony viability (soak)', () => {
     // A longer run that would catch gross balance regressions: a colony that
     // collapses to zero, explodes past the cap, or starves a resource to a
-    // permanent zero. Deterministic, so it can't flake.
-    const m = runHeadless(7, 6000);
+    // permanent zero. Deterministic, so it can't flake. Run in beforeAll (not at
+    // module level) so collection stays instant; the timeout covers the run.
+    let m: Metrics;
+    beforeAll(() => { m = runHeadless(7, 6000); }, 60000);
 
     it('the colony does not die out', () => {
         expect(m.population).toBeGreaterThan(0);
@@ -41,27 +45,37 @@ describe('headless harness — economy invariants (multi-seed)', () => {
     // be brittle by design. At 4000 ticks every seed is robustly healthy (pop ~32-38,
     // queenEnergy ~1764), so these catch balance regressions that bite only some
     // seeds — e.g. a navigation change that quietly starves the queen — with margin.
-    const runs = [1, 3, 42].map(seed => ({ seed, m: runHeadless(seed, 4000) }));
+    // Runs execute lazily inside the tests (cached per seed) instead of at module
+    // level, so collecting the file costs nothing. 30s timeout per first access.
+    const seeds = [1, 3, 42];
+    const cache = new Map<number, Metrics>();
+    const getRun = (seed: number): Metrics => {
+        let m = cache.get(seed);
+        if (!m) { m = runHeadless(seed, 4000); cache.set(seed, m); }
+        return m;
+    };
 
-    it.each(runs)('seed $seed: queen alive and colony grew beyond its start', ({ m }) => {
+    it.each(seeds)('seed %i: queen alive and colony grew beyond its start', (seed) => {
+        const m = getRun(seed);
         expect(m.queenEnergy).toBeGreaterThan(0);
         expect(m.population).toBeGreaterThan(0);
         expect(m.peakPopulation).toBeGreaterThanOrEqual(20);
-    });
+    }, 30000);
 
-    it.each(runs)('seed $seed: stockpiles non-negative and at least one resource flowing', ({ m }) => {
+    it.each(seeds)('seed %i: stockpiles non-negative and at least one resource flowing', (seed) => {
+        const m = getRun(seed);
         expect(m.sugar).toBeGreaterThanOrEqual(0);
         expect(m.protein).toBeGreaterThanOrEqual(0);
         expect(m.sugar + m.protein).toBeGreaterThan(0);
-    });
+    }, 30000);
 
-    it.each(runs)('seed $seed: brood pipeline alive (queen laying)', ({ m }) => {
-        expect(m.brood).toBeGreaterThan(0);
-    });
+    it.each(seeds)('seed %i: brood pipeline alive (queen laying)', (seed) => {
+        expect(getRun(seed).brood).toBeGreaterThan(0);
+    }, 30000);
 
-    it.each(runs)('seed $seed: stays within the population cap', ({ m }) => {
-        expect(m.population).toBeLessThanOrEqual(PerformanceManager.settings.maxAnts);
-    });
+    it.each(seeds)('seed %i: stays within the population cap', (seed) => {
+        expect(getRun(seed).population).toBeLessThanOrEqual(PerformanceManager.settings.maxAnts);
+    }, 30000);
 });
 
 describe('headless harness — sim is independent of render quality', () => {
