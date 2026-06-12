@@ -142,7 +142,9 @@ bewusst neu gepinnt, wo nötig):
   (`spatialGrid.getNearby` + Energie-Transfer, eine Übergabe pro Versuch). Topt Ammen *im Vorbeigehen*
   auf, bevor sie zum Lager pilgern → weniger Storage-Andrang. Konservativ (verschiebt Energie, kein
   `rand()` → Golden stabil). `World.trophallaxisCount` als Live-Stat + Test-Guard (seed7 @8000 ≈ 70
-  Fütterungen, Kolonie gesund). *Offen:* Larven-Trophallaxis, sichtbares Fütter-Partikel.
+  Fütterungen, Kolonie gesund). **Larven-Trophallaxis (Juni 2026):** findet der Donor keine
+  hungrige Adulte, füttert er stattdessen eine hungrige Larve in Reichweite (`Brood.feed`,
+  `troph.larva*`-Config) — plus sichtbares goldenes Fütter-Partikel auf dem Nest-Panel.
 
 - [x] **Larven-Ernährung bestimmt Kaste**: `Brood.cumulativeFood` verfolgt Gesamtfütterung;
   gut gefütterte Larven (`≥ CONFIG.brood.soldierFoodThreshold`) verpuppen sich zu Soldaten,
@@ -176,7 +178,10 @@ bewusst neu gepinnt, wo nötig):
   capte physisch bei ~8 Kammern; der Baum passt 25+ rein (Harness: 26/26 in Grenzen +
   erreichbar), während die Greedy-Navigation robust bleibt (Heimweg ist immer „nach innen",
   monoton). `excavateEvery` 18→10 + höheres `maxExtraChambers` → sichtbar mehr Kammern.
-  Rollen-Modell `getChamber(role)` statt fixem Typ. *Offen:* per-Ameise `DIGGING`-Zustand.
+  Rollen-Modell `getChamber(role)` statt fixem Typ. **Per-Ameise `DIGGING` (Juni 2026):**
+  Kammern öffnen nicht mehr instant — bis zu `nest.maxDiggers` Idle-Worker werden rekrutiert,
+  laufen zur Grabungsstelle (neueste Kammer) und leisten kumulative Arbeit
+  (`nest.digWorkPerChamber` Ticks), erst dann gräbt `growStage()`. Golden bewusst neu gepinnt.
 
 - [x] **Funktionale Kammern** (Kammern haben echte Aufgaben, nicht nur Deko): Rollen-Modell auf
   *mehrere Kammern pro Rolle* erweitert (`getChambers`/`nearestChamber`). Grabungs-Rotation:
@@ -211,7 +216,8 @@ bewusst neu gepinnt, wo nötig):
   waschen die **Außen**-Pheromon-Grids pro Frame weg (`grid.scaleAll(rainWashout)`) → Straßen
   verblassen, die Kolonie muss neu auskundschaften/rekrutieren. Der unterirdische `nestGrid` bleibt
   geschützt. Visuell: Regen-Streifen + abgedunkelter Himmel (`Renderer.drawRain`, render-only-Zufall).
-  *Offen:* Sandbox-Button zum manuellen Auslösen, Pfützen/Bodennässe.
+  **Sandbox-Button (Juni 2026):** 🌧-Toggle in der Tool-Leiste löst Regen manuell aus/ab.
+  *Offen:* Pfützen/Bodennässe.
 
 ### Technik & Struktur
 - [~] **Rivalisierende Kolonie + Krieg** (`colonyId`, 2. Nest/Königin) — großer struktureller Eingriff, phasiert.
@@ -338,9 +344,9 @@ gezielte Nachrüstung. Nach Hebelwirkung sortiert.
   (gleicher Seed → identischer Run) + Kolonie-Stabilität (Soak: stirbt nicht aus, bleibt
   unter Cap, kein Vorrat dauerhaft 0, Brut lebt). Macht Balance verifizierbar statt „im Browser".
 
-- [ ] **Explizites Balance-Modell statt reaktivem Tunen**: Vitalraten (Geburt/Tod/Ertrag/
-  Verbrauch) dokumentieren; Parameter aus Zielwerten ableiten (z.B. Pop ≈ lifespan/layInterval)
-  statt Magic Numbers zu raten. Teilweise vorhanden (config-Gruppen + Tuner), aber nicht als Modell.
+- [x] **Explizites Balance-Modell statt reaktivem Tunen**: [BALANCE.md](BALANCE.md) — Vitalraten
+  (Geburt/Tod/Ertrag/Verbrauch) als Formeln (Pop ≈ lifespan/layInterval ≈ 211; Zucker-/Protein-
+  Bilanzen pro Frame), Kasten-Hebel, RNG-Dominanz-Lektion + Workflow für Balance-Änderungen.
 
 - [x] **Sim-Fidelity von Render-Quality entkoppelt**: Pheromon-Grid-Auflösung, Diffusion und
   Update-Takt hingen an den Quality-Presets → Verhalten änderte sich je Grafikstufe. Jetzt fest in
@@ -358,12 +364,23 @@ gezielte Nachrüstung. Nach Hebelwirkung sortiert.
   unverändert) — der Harness hat den Refactor lückenlos abgesichert. *Offen:* `Renderer.ts`
   analog in Layer aufteilen.
 
-- [ ] **Daten-orientiert für Skalierung (ECS / Structure-of-Arrays)**: Objekt-pro-Ameise ist
-  GC-/Cache-unfreundlich; für >500 Ameisen oder Kolonienkrieg deutlich schneller in SoA/ECS.
-  Erst angehen, wenn die Performance-Grenze real erreicht wird.
+- [ ] **Daten-orientiert für Skalierung (ECS / Structure-of-Arrays)** — *vorerst verworfen,
+  daten-belegt (Juni 2026)*: Headless-Bench (`bench.soak.test.ts`, Desktop): 1.46 ms/Tick
+  @ pop 54, 2.09 ms/Tick @ pop 100 (2 Kolonien). Daraus: **~0.9 ms/Tick Fixkosten**
+  (Pheromon-Felder — skalieren mit Welt-FLÄCHE, nicht mit Ameisen) + nur **~14 µs pro
+  Ameise**. ECS/SoA würde allein den per-Ameise-Anteil drücken (vielleicht 2–3×), die
+  flächengetriebenen Feld-Updates bleiben — auf dem Pi der falsche Hebel. Sinnvollere
+  Pi-Hebel zuerst: (a) Pheromon-Update-Phase profilen/optimieren (decay/diffusion über
+  große Float-Arrays), (b) optionales explizites „Sim-Lite"-Profil (bewusst, per URL-Param —
+  NICHT quality-gekoppelt, die Entkopplung bleibt). ECS erst, wenn (a) ausgereizt ist
+  und >300 Ameisen real anstehen.
 
-- [ ] **Einheitlicher Spatial-Index für alle Entitäten**: `SpatialGrid` indiziert nur Ameisen;
-  Food/Insekten werden brute-force durchsucht. Vereinheitlichen.
+- [x] **Einheitlicher Spatial-Index für alle Entitäten**: `SpatialGrid<T>` ist generisch;
+  `World.foodGrid`/`insectGrid` ersetzen die Brute-Force-Scans in den heißen per-Ameise-Loops
+  (Foraging/Combat/Hunt/Aphiden/Flucht) + `Insect.huntAnts`. Golden byte-identisch dank
+  `seq`-Sortierung (reproduziert Array-Reihenfolge bei First-Match-Semantik) und Mid-Tick-
+  Spiegelung (Corpse-Push/Food-Splice). Insekten bewegen sich erst nach der Ameisen-Phase →
+  Grid pro Tick exakt konsistent; Insekten-Phase nutzt eine Stale-Marge (+16 px).
 
 ## Hinweise für Mitarbeitende
 - Build: `npm run build` (strenges `tsc`) · Dev: `npm run dev` · Tests: `npm run test`
@@ -375,7 +392,9 @@ gezielte Nachrüstung. Nach Hebelwirkung sortiert.
   spiegeln, erreichbar unter `/local/antsim/`. Braucht `vite.config base: './'` (relative Pfade
   für Subpath-Hosting). Details: [DEPLOYMENT_HAOS.md](DEPLOYMENT_HAOS.md).
 - **Raspberry-Pi-Kiosk** ([nilsgollub/Ameisennest](https://github.com/nilsgollub/Ameisennest), Ordner
-  `kiosk/`): läuft als **Bildschirmschoner** in einem iframe. Der Kiosk-nginx proxied `/antsim/` auf
-  die HA-Instanz und schneidet `X-Frame-Options` raus (sonst blockt HA das Einbetten → Weißbild) —
-  so wird AntSim **nur einmal** (auf HA) deployed, der Kiosk zeigt es nur an. Screensaver-URL:
+  `kiosk/`): läuft als **Bildschirmschoner** in einem iframe. Der Kiosk ist von HA **entkoppelt**:
+  das Repo ist auf dem Pi geklont, ein lokaler nginx serviert das eingecheckte `dist/` direkt, und
+  ein Autostart-Skript zieht beim Booten per `git pull` das neueste Build (kein Node auf dem Pi).
+  Deshalb **muss `dist/` im Repo bleiben** — Workflow: `npm run build` → committen (inkl. `dist/`)
+  → pushen. Details: [DEPLOYMENT_HAOS.md](DEPLOYMENT_HAOS.md). Screensaver-URL:
   `./antsim/index.html?colonies=2&quality=LOW`.

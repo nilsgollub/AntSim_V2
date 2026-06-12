@@ -2,14 +2,14 @@ import { rand } from '../rng';
 import { CONFIG } from '../config';
 import { World } from './World';
 import type { Colony } from './Colony';
-import { handleNursing, handleResting, handleNurseIdle, handleTransporting, handlePatrolling, handleFleeing, handleCombat, handleForaging, handleHarvesting, handleReturning, handleHungry, handleMilking, handleRaiding } from './antStates';
+import { handleNursing, handleResting, handleNurseIdle, handleTransporting, handlePatrolling, handleFleeing, handleCombat, handleForaging, handleHarvesting, handleReturning, handleHungry, handleMilking, handleRaiding, handleDigging } from './antStates';
 
 export class Ant {
     x: number;
     y: number;
     angle: number;
     type: 'WORKER' | 'SOLDIER' | 'QUEEN';
-    state: 'FORAGING' | 'RETURNING' | 'IDLE' | 'NURSING' | 'PATROLLING' | 'FLEEING' | 'ATTACKING' | 'TRANSPORTING' | 'HARVESTING' | 'HUNGRY' | 'MILKING' | 'RESTING' | 'RAIDING';
+    state: 'FORAGING' | 'RETURNING' | 'IDLE' | 'NURSING' | 'PATROLLING' | 'FLEEING' | 'ATTACKING' | 'TRANSPORTING' | 'HARVESTING' | 'HUNGRY' | 'MILKING' | 'RESTING' | 'RAIDING' | 'DIGGING';
     carrying: 'NONE' | 'SUGAR' | 'PROTEIN' | 'BROOD' | 'CORPSE';
     carryingAmount: number = 0;
     carryingInstance: any = null;
@@ -212,6 +212,9 @@ export class Ant {
                 break;
             case 'RESTING':
                 handleResting(this, world);
+                break;
+            case 'DIGGING':
+                handleDigging(this, world);
                 break;
             case 'IDLE':
                 if (this.type === 'QUEEN') {
@@ -586,8 +589,31 @@ export class Ant {
             other.energy += give;
             this.cropSugar -= give;
             this.colony.trophallaxisCount++;
+            this.feedParticle(world, other.x, other.y);
             return; // one exchange per attempt
         }
+
+        // Larval trophallaxis: no hungry adult in range → top up a hungry larva
+        // instead (crop → hunger relief). One feeding per attempt, like above.
+        if (this.cropSugar < t.larvaCropCost) return;
+        for (const b of this.colony.brood) {
+            if (b.stage !== 'LARVA' || b.carrier || b.hunger <= t.larvaHungry) continue;
+            const dx = b.x - this.x;
+            const dy = b.y - this.y;
+            if (dx * dx + dy * dy > t.donateRadius * t.donateRadius) continue;
+            b.feed(t.larvaRelief);
+            this.cropSugar -= t.larvaCropCost;
+            this.colony.trophallaxisCount++;
+            this.feedParticle(world, b.x, b.y);
+            return;
+        }
+    }
+
+    // A small golden droplet at a mouth-to-mouth feeding, drawn on the nest panel
+    // (which shows colony 0 only — rivals must not emit phantom particles onto it).
+    private feedParticle(world: World, x: number, y: number) {
+        if (this.colony.id !== 0) return;
+        world.nestParticles.push({ x, y, vx: 0, vy: -0.15, life: 0.6, color: '#ffd24a' });
     }
 
     applySeparation(world: World) {
@@ -644,7 +670,7 @@ export class Ant {
         if (this.location === 'NEST') return 0;
         const r2 = radius * radius;
         let count = 0;
-        for (const ins of world.insects) {
+        for (const ins of world.insectGrid.getNearby(this.x, this.y, radius)) {
             if (ins.type === 'PREDATOR' || ins.type === 'SPIDER' || ins.type === 'BEETLE') {
                 const dx = ins.x - this.x;
                 const dy = ins.y - this.y;

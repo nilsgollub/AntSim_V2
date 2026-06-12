@@ -23,7 +23,13 @@ export class World {
     // as the dead pile up) — they're only decayed + drawn from here.
     graveyard: Food[] = [];
     terrain: Terrain;
-    spatialGrid: SpatialGrid;
+    spatialGrid: SpatialGrid<Ant>;
+    // Spatial indices over the shared environment. Rebuilt every tick before the
+    // ant phase; insects only move AFTER all ants update, and food mutations during
+    // the ant phase are mirrored (add/remove), so queries during the ant phase see
+    // exactly what the old whole-array scans saw.
+    foodGrid: SpatialGrid<Food>;
+    insectGrid: SpatialGrid<Insect>;
 
     // Per-colony state lives on `Colony`. `World` holds the colonies and proxies
     // colony 0 through the back-compat getters below, so every existing call site
@@ -77,8 +83,9 @@ export class World {
     // Particles
     particles: { x: number, y: number, vx: number, vy: number, life: number, color: string, type: 'DEFAULT' | 'BLOOD' | 'DUST' }[] = [];
 
-    // Excavation dust, drawn on the nest canvas (nest-local coordinates).
-    nestParticles: { x: number, y: number, vx: number, vy: number, life: number }[] = [];
+    // Excavation dust + feeding droplets, drawn on the nest canvas (nest-local
+    // coordinates). `color` overrides the default dust tint.
+    nestParticles: { x: number, y: number, vx: number, vy: number, life: number, color?: string }[] = [];
 
     // Vegetation
     grass: { x: number, y: number, size: number, angle: number }[] = [];
@@ -91,6 +98,8 @@ export class World {
         const nest = new Nest();
         const nestGrid = new PheromoneGrid(CONFIG.nestWidth, CONFIG.nestHeight);
         this.spatialGrid = new SpatialGrid(CONFIG.width, CONFIG.height, 50);
+        this.foodGrid = new SpatialGrid(CONFIG.width, CONFIG.height, 100);
+        this.insectGrid = new SpatialGrid(CONFIG.width, CONFIG.height, 100);
         this.insects = [];
         this.foods = [];
 
@@ -284,6 +293,12 @@ export class World {
         for (const c of this.colonies) {
             for (const ant of c.ants) this.spatialGrid.add(ant);
         }
+        // Environment indices: valid for the whole ant phase (insects move later;
+        // food add/remove during the ant phase is mirrored into foodGrid).
+        this.foodGrid.clear();
+        for (const f of this.foods) this.foodGrid.add(f);
+        this.insectGrid.clear();
+        for (const ins of this.insects) this.insectGrid.add(ins);
 
         // Update Brood (per colony).
         for (const c of this.colonies) this.updateBrood(c);
@@ -469,15 +484,27 @@ export class World {
                 c.proteinStockpile = Math.max(0, c.proteinStockpile - CONFIG.broodProteinUpkeep * c.larvae);
             }
 
-            // As the colony grows, dig extra satellite chambers. Renderer + navigation
-            // pick up the new nodes automatically.
+            // As the colony grows, dig extra satellite chambers — but no longer
+            // instantly: workers in the DIGGING state must put in digWorkPerChamber
+            // ticks at the dig site (the newest chamber) before the room opens.
+            // Renderer + navigation pick up the new nodes automatically.
             const targetExtra = Math.min(
                 CONFIG.nest.maxExtraChambers,
                 Math.floor(c.ants.length / CONFIG.nest.excavateEvery),
             );
-            while (c.nest.extraChambers < targetExtra) {
-                if (!c.nest.growStage()) break;
-                this.spawnNestDust(c.nest);
+            if (c.nest.extraChambers < targetExtra) {
+                if (!c.digSite) {
+                    const face = c.nest.chambers[c.nest.chambers.length - 1];
+                    c.digSite = { x: face.x, y: face.y };
+                }
+                if (c.digProgress >= CONFIG.nest.digWorkPerChamber) {
+                    c.digProgress = 0;
+                    c.digSite = null;
+                    if (c.nest.growStage()) this.spawnNestDust(c.nest);
+                }
+            } else {
+                c.digSite = null;
+                c.digProgress = 0;
             }
         }
     }
@@ -562,6 +589,7 @@ export class World {
                     corpse.corpseType = 'ANT';
                     corpse.corpseAngle = ant.angle;
                     this.foods.push(corpse);
+                    this.foodGrid.add(corpse); // mid-ant-phase: later ants must see it
                 }
                 c.ants.splice(i, 1);
             }

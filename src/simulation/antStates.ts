@@ -149,6 +149,17 @@ export function handleNurseIdle(ant: Ant, world: World) {
         return;
     }
 
+    // 0. Excavation duty: while the nest wants another chamber, idle workers are
+    // recruited to the dig (capped, so nursing/foraging never collapses).
+    if (ant.colony.digSite && ant.type === 'WORKER' && ant.energy > CONFIG.ant.hungryThreshold) {
+        let diggers = 0;
+        for (const a of ant.colony.ants) if (a.state === 'DIGGING') diggers++;
+        if (diggers < CONFIG.nest.maxDiggers) {
+            ant.state = 'DIGGING';
+            return;
+        }
+    }
+
     // 1. Rest Chance (Top Priority)
     // Tune: 0.1% chance per frame
     if (rand() < 0.001) {
@@ -320,7 +331,8 @@ export function handleTransporting(ant: Ant, _world: World) {
 export function handlePatrolling(ant: Ant, world: World) {
     // Active Enemy Scan (Soldiers should not ignore threats while patrolling)
     if (ant.type === 'SOLDIER') {
-        for (const insect of world.insects) {
+        const sightRange = Math.sqrt(CONFIG.combat.soldierSightRangeSq);
+        for (const insect of world.insectGrid.getNearby(ant.x, ant.y, sightRange)) {
             if (insect.type === 'SPIDER' || insect.type === 'PREDATOR' || insect.type === 'BEETLE') {
                 const distSq = (ant.x - insect.x) ** 2 + (ant.y - insect.y) ** 2;
                 if (distSq < CONFIG.combat.soldierSightRangeSq) { // soldiers spot threats from further (170px)
@@ -565,13 +577,13 @@ export function handleCombat(ant: Ant, world: World) {
         }
     }
 
-    // Find nearest enemy
+    // Find nearest enemy. Only an enemy inside the chase range matters below, so a
+    // grid query bounded by that radius finds the same target as the old full scan.
     let nearestEnemy = null;
     let minDist = Infinity;
+    const chaseRangeSq = ant.type === 'SOLDIER' ? CONFIG.combat.soldierSightRangeSq : CONFIG.ant.detectEnemyRangeSq;
 
-
-
-    for (const insect of world.insects) {
+    for (const insect of world.insectGrid.getNearby(ant.x, ant.y, Math.sqrt(chaseRangeSq))) {
         if (insect.type !== 'APHID') {
             const dx = ant.x - insect.x;
             const dy = ant.y - insect.y;
@@ -600,7 +612,6 @@ export function handleCombat(ant: Ant, world: World) {
     }
 
     // Soldiers chase from further than workers (proactive vanguard); workers keep the 100px range.
-    const chaseRangeSq = ant.type === 'SOLDIER' ? CONFIG.combat.soldierSightRangeSq : CONFIG.ant.detectEnemyRangeSq;
     if (nearestEnemy && minDist < chaseRangeSq) {
         // Mob rally vs a MAJOR threat: don't suicide-charge one by one. Mill at a
         // standoff ring (the "Gewusel"), pulse alarm to recruit, and only rush in
@@ -787,8 +798,14 @@ export function handleForaging(ant: Ant, world: World) {
     const wantType: 'SUGAR' | 'PROTEIN' = prioritizeProtein ? 'PROTEIN' : 'SUGAR';
 
     // 2. Food - Check EVERY FRAME to prevent overshooting
-    for (let i = 0; i < world.foods.length; i++) {
-        const food = world.foods[i];
+    // Grid query instead of scanning world.foods. The loop reacts only within
+    // detect range (100px; harvestRange is ≤ ~15px for any realistic amount), and
+    // it takes the FIRST match in array order — sorting by seq restores exactly
+    // that order, so behaviour (and the golden snapshots) is unchanged.
+    const candidates = world.foodGrid.getNearby(ant.x, ant.y, Math.sqrt(CONFIG.ant.detectEnemyRangeSq));
+    candidates.sort((a, b) => a.seq - b.seq);
+    for (let i = 0; i < candidates.length; i++) {
+        const food = candidates[i];
         if (food.amount <= 0) continue;
         if (ant.type === 'SOLDIER' && food.type === 'SUGAR') continue;
 
@@ -879,8 +896,10 @@ export function handleForaging(ant: Ant, world: World) {
             }
         }
 
-        // 1. Hunt
-        for (const insect of world.insects) {
+        // 1. Hunt — first match in array order within 70px (sorted query, see food scan).
+        const huntCandidates = world.insectGrid.getNearby(ant.x, ant.y, 70);
+        huntCandidates.sort((a, b) => a.seq - b.seq);
+        for (const insect of huntCandidates) {
             const isPrey = insect.type === 'PREY' || insect.type === 'BEETLE' || insect.type === 'LADYBUG' || insect.type === 'SPIDER' || insect.type === 'PREDATOR';
 
             if (isPrey) {
@@ -908,9 +927,11 @@ export function handleForaging(ant: Ant, world: World) {
             }
         }
 
-        // 1.5 Aphids
+        // 1.5 Aphids — first match in array order within detect range (sorted query).
         if (ant.type === 'WORKER') {
-            for (const insect of world.insects) {
+            const aphidCandidates = world.insectGrid.getNearby(ant.x, ant.y, Math.sqrt(CONFIG.ant.detectEnemyRangeSq));
+            aphidCandidates.sort((a, b) => a.seq - b.seq);
+            for (const insect of aphidCandidates) {
                 if (insect.type === 'APHID') {
                     const dx = ant.x - insect.x;
                     const dy = ant.y - insect.y;
@@ -967,6 +988,7 @@ export function handleHarvesting(ant: Ant, world: World) {
                 ant.carryingInstance = food;          // keep it to drop at the cemetery
                 const idx = world.foods.indexOf(food); // remove so it isn't re-grabbed mid-haul
                 if (idx >= 0) world.foods.splice(idx, 1);
+                world.foodGrid.remove(food);           // mirror: queries this tick must not see it
                 ant.state = 'RETURNING';
                 ant.energy = CONFIG.antMaxEnergy;
                 ant.angle += Math.PI;
@@ -1068,7 +1090,7 @@ export function handleReturning(ant: Ant, world: World) {
         // biasing toward home — a laden forager keeps its cargo but bolts.
         let threat: { x: number; y: number } | null = null;
         let threatD2 = CONFIG.ant.detectEnemyRangeSq;
-        for (const ins of world.insects) {
+        for (const ins of world.insectGrid.getNearby(ant.x, ant.y, Math.sqrt(CONFIG.ant.detectEnemyRangeSq))) {
             if (ins.type === 'PREDATOR' || ins.type === 'SPIDER' || ins.type === 'BEETLE') {
                 const d2 = (ins.x - ant.x) ** 2 + (ins.y - ant.y) ** 2;
                 if (d2 < threatD2) { threatD2 = d2; threat = ins; }
@@ -1209,3 +1231,30 @@ export function handleMilking(ant: Ant, world: World) {
 }
 
 
+
+// Per-ant excavation: walk to the colony's dig site (the newest chamber) and put
+// in work at the face; World opens the next chamber once the colony's digProgress
+// reaches CONFIG.nest.digWorkPerChamber (see the upkeep section of World.update).
+export function handleDigging(ant: Ant, world: World) {
+    const col = ant.colony;
+    if (!col.digSite || ant.location !== 'NEST') { ant.state = 'IDLE'; return; }
+    if (ant.energy < CONFIG.ant.hungryThreshold) { ant.state = 'HUNGRY'; return; }
+
+    const dx = col.digSite.x - ant.x;
+    const dy = col.digSite.y - ant.y;
+    if (dx * dx + dy * dy > CONFIG.ant.arriveRangeSq * 4) {
+        ant.steerThroughNest(col.digSite.x, col.digSite.y);
+        return;
+    }
+
+    // At the face: chip away. A slow milling shuffle keeps the work visible
+    // (and deterministic — no rand()).
+    ant.speedMultiplier = 0.15;
+    ant.angle += 0.35;
+    col.digProgress++;
+    // A pinch of dust now and then; the nest panel only shows colony 0, so a
+    // rival's diggers must not emit phantom particles onto it.
+    if (col.id === 0 && col.digProgress % 40 === 0) {
+        world.nestParticles.push({ x: ant.x, y: ant.y, vx: 0, vy: -0.2, life: 0.8 });
+    }
+}

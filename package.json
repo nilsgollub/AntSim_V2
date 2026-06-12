@@ -8,6 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:soak": "vitest run --config vitest.soak.config.ts",
+    "test:all": "npm run test && npm run test:soak",
     "test:watch": "vitest"
   },
   "devDependencies": {

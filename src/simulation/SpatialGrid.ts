@@ -1,10 +1,16 @@
-import { Ant } from './Ant';
+// Generic uniform-grid spatial index. World keeps one per entity kind
+// (ants / foods / insects) so per-ant perception loops query a small
+// neighbourhood instead of scanning whole arrays.
+export interface SpatialItem {
+    x: number;
+    y: number;
+}
 
-export class SpatialGrid {
+export class SpatialGrid<T extends SpatialItem> {
     cellSize: number;
     cols: number;
     rows: number;
-    buckets: Map<number, Ant[]>;
+    buckets: Map<number, T[]>;
 
     constructor(width: number, height: number, cellSize: number) {
         this.cellSize = cellSize;
@@ -17,19 +23,34 @@ export class SpatialGrid {
         this.buckets.clear();
     }
 
-    add(ant: Ant) {
-        const col = Math.floor(ant.x / this.cellSize);
-        const row = Math.floor(ant.y / this.cellSize);
+    add(item: T) {
+        // Clamp to the grid so an item exactly on / past the world edge can't
+        // alias into a neighbouring row's bucket (it would become invisible to
+        // queries — the old brute-force scans never missed such items).
+        const col = Math.max(0, Math.min(this.cols - 1, Math.floor(item.x / this.cellSize)));
+        const row = Math.max(0, Math.min(this.rows - 1, Math.floor(item.y / this.cellSize)));
         const index = row * this.cols + col;
 
         if (!this.buckets.has(index)) {
             this.buckets.set(index, []);
         }
-        this.buckets.get(index)!.push(ant);
+        this.buckets.get(index)!.push(item);
     }
 
-    getNearby(x: number, y: number, radius: number): Ant[] {
-        const nearby: Ant[] = [];
+    // Remove an item by its CURRENT position (only valid while the item hasn't
+    // moved cells since add — true for static items like food). Used to mirror
+    // mid-tick array splices so queries never return already-consumed items.
+    remove(item: T) {
+        const col = Math.max(0, Math.min(this.cols - 1, Math.floor(item.x / this.cellSize)));
+        const row = Math.max(0, Math.min(this.rows - 1, Math.floor(item.y / this.cellSize)));
+        const bucket = this.buckets.get(row * this.cols + col);
+        if (!bucket) return;
+        const i = bucket.indexOf(item);
+        if (i >= 0) bucket.splice(i, 1);
+    }
+
+    getNearby(x: number, y: number, radius: number): T[] {
+        const nearby: T[] = [];
         const cellRadius = Math.ceil(radius / this.cellSize);
 
         const centerCol = Math.floor(x / this.cellSize);
@@ -41,8 +62,8 @@ export class SpatialGrid {
                     const index = r * this.cols + c;
                     const bucket = this.buckets.get(index);
                     if (bucket) {
-                        for (const ant of bucket) {
-                            nearby.push(ant);
+                        for (const item of bucket) {
+                            nearby.push(item);
                         }
                     }
                 }
