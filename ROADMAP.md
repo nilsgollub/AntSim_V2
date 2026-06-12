@@ -375,7 +375,9 @@ gezielte Nachrüstung. Nach Hebelwirkung sortiert.
   spiegeln, erreichbar unter `/local/antsim/`. Braucht `vite.config base: './'` (relative Pfade
   für Subpath-Hosting). Details: [DEPLOYMENT_HAOS.md](DEPLOYMENT_HAOS.md).
 - **Raspberry-Pi-Kiosk** ([nilsgollub/Ameisennest](https://github.com/nilsgollub/Ameisennest), Ordner
-  `kiosk/`): läuft als **Bildschirmschoner** in einem iframe. Der Kiosk-nginx proxied `/antsim/` auf
-  die HA-Instanz und schneidet `X-Frame-Options` raus (sonst blockt HA das Einbetten → Weißbild) —
-  so wird AntSim **nur einmal** (auf HA) deployed, der Kiosk zeigt es nur an. Screensaver-URL:
+  `kiosk/`): läuft als **Bildschirmschoner** in einem iframe. Der Kiosk ist von HA **entkoppelt**:
+  das Repo ist auf dem Pi geklont, ein lokaler nginx serviert das eingecheckte `dist/` direkt, und
+  ein Autostart-Skript zieht beim Booten per `git pull` das neueste Build (kein Node auf dem Pi).
+  Deshalb **muss `dist/` im Repo bleiben** — Workflow: `npm run build` → committen (inkl. `dist/`)
+  → pushen. Details: [DEPLOYMENT_HAOS.md](DEPLOYMENT_HAOS.md). Screensaver-URL:
   `./antsim/index.html?colonies=2&quality=LOW`.
