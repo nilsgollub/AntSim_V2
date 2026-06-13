@@ -1,6 +1,6 @@
 import { rand } from '../rng';
 import { CONFIG } from '../config';
-import { World } from './World';
+import type { World } from './World';
 import { Brood } from './Brood';
 import type { Colony } from './Colony';
 
