@@ -306,7 +306,7 @@ export function renderNestStructure(r: Renderer, world: World) {
     }
 
     // 5. Entrance light
-    const ent = world.nest.entrances[0];
+    const ent = world.nest.entrances?.[0];
     if (ent) {
         const eg = ctx.createRadialGradient(ent.x, ent.y, 0, ent.x, ent.y, 65);
         eg.addColorStop(0,    'rgba(210,185,120,0.28)');
@@ -321,7 +321,7 @@ export function renderNestStructure(r: Renderer, world: World) {
 
 // ── Queen (unchanged) ─────────────────────────────────────────────────────────
 export function drawQueen(r: Renderer, queen: any, ctx: CanvasRenderingContext2D) {
-    if (queen.dead) return;
+    if (!queen || queen.dead) return;
     ctx.save();
     ctx.translate(queen.x, queen.y);
     ctx.rotate(Math.sin(Date.now() * 0.001) * 0.05);
@@ -448,9 +448,9 @@ export function drawBrood(r: Renderer, b: any, ctx: CanvasRenderingContext2D = r
     ctx.save();
     ctx.translate(b.x, b.y);
 
-    // Deterministic tilt from position
+    // Stable tilt from resting position; zero while carried to avoid per-frame flicker.
     const seed = b.x * 17.3 + b.y * 31.7;
-    const tilt = (sr(seed) - 0.5) * 0.7;
+    const tilt = b.carrier ? 0 : (sr(seed) - 0.5) * 0.7;
 
     if (b.stage === 'EGG') {
         ctx.rotate(tilt);
@@ -487,9 +487,9 @@ export function drawBrood(r: Renderer, b: any, ctx: CanvasRenderingContext2D = r
             ctx.ellipse(px, py, sw, sh, 0, 0, Math.PI * 2);
             ctx.fill();
         }
-        // Head nub
-        const hx = -(segs / 2 - 0.6) * stride;
-        const hy = -1.8;
+        // Head nub — anchored to segment i=0 position (py=0 at t=0)
+        const hx = -(segs / 2) * stride;
+        const hy = -segR * 0.5;
         ctx.fillStyle = 'rgba(175,145,95,0.95)';
         ctx.beginPath();
         ctx.ellipse(hx, hy, segR * 0.8, segR * 0.75, 0, 0, Math.PI * 2);
