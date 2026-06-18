@@ -294,8 +294,8 @@ export const CONFIG = {
     // Clock Stone — digital 24h real-time display at the world centre.
     // Change these three values to restyle without touching any draw code.
     clock: {
-        radius: 78,                                        // collision + visual radius (px)
-        fontSize: 22,                                      // HH:MM display size (px)
+        radius: 120,                                       // collision + visual radius (px)
+        fontSize: 58,                                      // HH:MM display size (px)
         font: '"Courier New", Courier, monospace',         // changeable typeface
     },
 

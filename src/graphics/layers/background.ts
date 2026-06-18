@@ -369,13 +369,15 @@ function buildClockStoneCache(r: Renderer, x: number, y: number): HTMLCanvasElem
     c.lineWidth = 1;
     c.stroke();
 
-    // Carved display recess — slightly oval to look hand-chiselled
-    const faceR = radius * 0.58;
+    // Carved display recess — rounded rectangle, centred exactly on the stone
+    const faceW = radius * 0.80;  // half-width  (fits wide digital font)
+    const faceH = radius * 0.36;  // half-height (slim horizontal bar look)
+    const faceCorner = 14;
     c.beginPath();
-    c.ellipse(0, 0, faceR, faceR * 0.92, 0, 0, Math.PI * 2);
-    const faceGrad = c.createRadialGradient(0, 0, 1, 0, 0, faceR);
-    faceGrad.addColorStop(0,   '#151714');
-    faceGrad.addColorStop(0.7, '#0c0e0b');
+    (c as any).roundRect(-faceW, -faceH, faceW * 2, faceH * 2, faceCorner);
+    const faceGrad = c.createLinearGradient(0, -faceH, 0, faceH);
+    faceGrad.addColorStop(0,   '#1a1c19');
+    faceGrad.addColorStop(0.5, '#0c0e0b');
     faceGrad.addColorStop(1,   '#060706');
     c.fillStyle = faceGrad;
     c.fill();
