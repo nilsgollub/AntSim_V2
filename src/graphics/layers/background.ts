@@ -430,17 +430,24 @@ function buildClockStoneCache(_r: Renderer, x: number, y: number): HTMLCanvasEle
     const faceH = radius * 0.34;
     // Small deterministic wobble (3-5 px) so edges read as carved, not machined.
     const fw = (i: number, maxPerp: number) => Math.sin(seed * (i * 5.3 + 2.7)) * maxPerp;
+    // 3 points per side (top / center / bottom on short sides) so no oval spike forms
     const fp: [number, number][] = [
-        [-faceW * 0.54 + fw(0, 3), -faceH + fw(0, 4)],
-        [ faceW * 0.00 + fw(1, 2), -faceH + fw(1, 5)],
-        [ faceW * 0.54 + fw(2, 3), -faceH + fw(2, 4)],
-        [ faceW + fw(3, 4),        -faceH * 0.32 + fw(3, 2)],
-        [ faceW + fw(4, 4),         faceH * 0.32 + fw(4, 2)],
-        [ faceW * 0.54 + fw(5, 3),  faceH + fw(5, 4)],
-        [ faceW * 0.00 + fw(6, 2),  faceH + fw(6, 5)],
-        [-faceW * 0.54 + fw(7, 3),  faceH + fw(7, 4)],
-        [-faceW + fw(8, 4),          faceH * 0.32 + fw(8, 2)],
-        [-faceW + fw(9, 4),         -faceH * 0.32 + fw(9, 2)],
+        // top edge (left → right)
+        [-faceW * 0.54 + fw(0, 3),  -faceH + fw(0, 4)],
+        [ faceW * 0.00 + fw(1, 2),  -faceH + fw(1, 5)],
+        [ faceW * 0.54 + fw(2, 3),  -faceH + fw(2, 4)],
+        // right edge (top → centre → bottom)
+        [ faceW + fw(3, 4),  -faceH * 0.44 + fw(3, 2)],
+        [ faceW + fw(4, 3),           fw(4, 2)],
+        [ faceW + fw(5, 4),   faceH * 0.44 + fw(5, 2)],
+        // bottom edge (right → left)
+        [ faceW * 0.54 + fw(6, 3),   faceH + fw(6, 4)],
+        [ faceW * 0.00 + fw(7, 2),   faceH + fw(7, 5)],
+        [-faceW * 0.54 + fw(8, 3),   faceH + fw(8, 4)],
+        // left edge (bottom → centre → top)
+        [-faceW + fw(9,  4),   faceH * 0.44 + fw(9,  2)],
+        [-faceW + fw(10, 3),           fw(10, 2)],
+        [-faceW + fw(11, 4), -faceH * 0.44 + fw(11, 2)],
     ];
     const nf = fp.length;
     const facePathFn = () => {
