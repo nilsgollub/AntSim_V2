@@ -276,151 +276,180 @@ export function drawEntrance(r: Renderer) {
     r.ctx.fill();
 }
 
-// Offscreen cache for the static parts (stone body + face border).
-// Built once on first draw; only the time text is redrawn every frame.
+// ── Clock stone (horizontal stone tablet with live LED clock) ────────────────
+// Static parts baked once into an offscreen canvas; only the time text redraws.
 let _clockStoneCache: HTMLCanvasElement | null = null;
-const _CLOCK_PAD = 12; // extra pixels so the shadow isn't clipped
+// Stone is a wide horizontal slab whose shape follows the display recess.
+// All measurements relative to CONFIG.clock.radius so a single config change
+// rescales everything consistently.
+const _SW = 1.08;   // stone half-width  = radius × SW
+const _SH = 0.60;   // stone half-height = radius × SH
+const _CLOCK_PAD = 22;
 
-function buildClockStoneCache(r: Renderer, x: number, y: number): HTMLCanvasElement {
-    const radius = CONFIG.clock.radius;
-    const size = (radius + _CLOCK_PAD) * 2;
+function buildClockStoneCache(_r: Renderer, x: number, y: number): HTMLCanvasElement {
+    const radius  = CONFIG.clock.radius;
+    const sw      = (radius * _SW) | 0;    // stone half-width  px
+    const sh      = (radius * _SH) | 0;    // stone half-height px
+    const cornerR = 18;
+
     const offscreen = document.createElement('canvas');
-    offscreen.width = size;
-    offscreen.height = size;
+    offscreen.width  = (sw + _CLOCK_PAD) * 2;
+    offscreen.height = (sh + _CLOCK_PAD) * 2;
     const c = offscreen.getContext('2d')!;
-    c.translate(radius + _CLOCK_PAD, radius + _CLOCK_PAD);
+    c.translate(sw + _CLOCK_PAD, sh + _CLOCK_PAD); // origin at stone centre
 
-    drawShadow(r, 0, 0, radius, c);
-
-    // Stone body — chunky organic silhouette, deterministic per position
-    const seed = (x * 7 + y * 13) | 0;
-    // Fewer, more jagged vertices → boulder feel instead of smooth pebble
-    const verts = 11;
-    // Build vertices with strong low-frequency wobble + a second harmonic for
-    // smaller surface irregularities (two sin waves = natural-looking rock edge)
-    const pts: [number, number][] = [];
-    for (let i = 0; i < verts; i++) {
-        const a = (i / verts) * Math.PI * 2;
-        const w1 = 0.72 + 0.30 * Math.abs(Math.sin(seed + i * 2.31));   // large bumps
-        const w2 = 0.96 + 0.06 * Math.sin(seed * 0.3 + i * 7.14);       // fine texture
-        const wobble = radius * w1 * w2;
-        pts.push([Math.cos(a) * wobble, Math.sin(a) * wobble]);
-    }
-    // Smooth with quadratic curves so edges look carved, not polygonal
+    // ── Drop shadow ──
+    c.save();
+    c.shadowColor   = 'rgba(0,0,0,0.70)';
+    c.shadowBlur    = 20;
+    c.shadowOffsetX = 5;
+    c.shadowOffsetY = 9;
     c.beginPath();
-    c.moveTo((pts[0][0] + pts[verts - 1][0]) / 2, (pts[0][1] + pts[verts - 1][1]) / 2);
-    for (let i = 0; i < verts; i++) {
-        const [cx, cy] = pts[i];
-        const [nx, ny] = pts[(i + 1) % verts];
-        c.quadraticCurveTo(cx, cy, (cx + nx) / 2, (cy + ny) / 2);
-    }
-    c.closePath();
+    (c as any).roundRect(-sw, -sh, sw * 2, sh * 2, cornerR);
+    c.fillStyle = '#000';
+    c.fill();
+    c.restore();
 
-    const stoneGrad = c.createRadialGradient(-radius * 0.28, -radius * 0.32, radius * 0.04, 0, 0, radius * 1.1);
-    stoneGrad.addColorStop(0,    '#a8a49e');
-    stoneGrad.addColorStop(0.4,  '#7a7672');
-    stoneGrad.addColorStop(0.75, '#504e4b');
-    stoneGrad.addColorStop(1,    '#252422');
+    // ── Stone body (rounded-rect slab, granite gradient) ──
+    c.beginPath();
+    (c as any).roundRect(-sw, -sh, sw * 2, sh * 2, cornerR);
+    const stoneGrad = c.createLinearGradient(-sw * 0.55, -sh, sw * 0.45, sh);
+    stoneGrad.addColorStop(0,    '#c4bfb8');
+    stoneGrad.addColorStop(0.22, '#9c9890');
+    stoneGrad.addColorStop(0.55, '#686460');
+    stoneGrad.addColorStop(1,    '#2e2c2a');
     c.fillStyle = stoneGrad;
     c.fill();
 
-    // Surface detail clipped to the stone shape
+    // ── Surface texture clipped to stone shape ──
     c.save();
     c.clip();
 
-    // Coarse surface speckles (weathering)
-    for (let i = 0; i < 22; i++) {
-        const sx = Math.sin(seed * (i + 1) * 12.7) * radius * 0.88;
-        const sy = Math.cos(seed * (i + 1) * 31.4) * radius * 0.88;
+    const seed = (x * 7 + y * 13) | 0;
+
+    // Weathering speckles
+    for (let i = 0; i < 32; i++) {
+        const sx = Math.sin(seed * (i + 1) * 12.7) * sw * 0.88;
+        const sy = Math.cos(seed * (i + 1) * 31.4) * sh * 0.82;
         c.fillStyle = i % 4 === 0 ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.13)';
         c.beginPath();
-        c.arc(sx, sy, radius * 0.06 + (i % 5) * 1.8, 0, Math.PI * 2);
+        c.arc(sx, sy, 1.8 + (i % 5) * 1.1, 0, Math.PI * 2);
         c.fill();
     }
 
-    // Moss patch (top-left quadrant — north-facing side stays damp)
-    const mx = -radius * 0.28, my = -radius * 0.32;
-    const mossGrad = c.createRadialGradient(mx, my, 0, mx, my, radius * 0.7);
-    mossGrad.addColorStop(0,   'rgba(72,130,60,0.55)');
-    mossGrad.addColorStop(0.5, 'rgba(48,95,38,0.28)');
+    // Horizontal slate grain lines
+    c.strokeStyle = 'rgba(0,0,0,0.09)';
+    c.lineWidth   = 0.8;
+    for (let i = -4; i <= 4; i++) {
+        const gy = i * sh * 0.22;
+        const jitter = ((seed + i * 7) % 5) - 2;
+        c.beginPath();
+        c.moveTo(-sw * 0.92, gy);
+        c.lineTo( sw * 0.92, gy + jitter);
+        c.stroke();
+    }
+
+    // Moss patch — top-left corner (north-facing, stays damp)
+    const mx = -sw * 0.32, my = -sh * 0.45;
+    const mossGrad = c.createRadialGradient(mx, my, 0, mx, my, sw * 0.40);
+    mossGrad.addColorStop(0,   'rgba(64,118,52,0.55)');
+    mossGrad.addColorStop(0.5, 'rgba(40,82,32,0.25)');
     mossGrad.addColorStop(1,   'rgba(0,0,0,0)');
     c.fillStyle = mossGrad;
     c.beginPath();
-    c.arc(mx, my, radius * 0.7, 0, Math.PI * 2);
+    c.arc(mx, my, sw * 0.40, 0, Math.PI * 2);
     c.fill();
 
-    // Lichen spots
-    for (let i = 0; i < 5; i++) {
-        const lx = Math.sin(seed * (i + 3) * 8.1) * radius * 0.55;
-        const ly = Math.cos(seed * (i + 3) * 19.7) * radius * 0.55;
-        c.fillStyle = `rgba(${100 + i * 8},${160 + i * 6},${80 + i * 4},0.25)`;
+    // A couple of lichen spots
+    for (let i = 0; i < 4; i++) {
+        const lx = Math.sin(seed * (i + 3) * 8.1) * sw * 0.60;
+        const ly = Math.cos(seed * (i + 3) * 19.7) * sh * 0.60;
+        c.fillStyle = `rgba(${96 + i * 10},${152 + i * 8},${72 + i * 5},0.22)`;
         c.beginPath();
-        c.arc(lx, ly, radius * 0.08 + i * 1.2, 0, Math.PI * 2);
+        c.arc(lx, ly, 3 + i * 1.4, 0, Math.PI * 2);
         c.fill();
     }
 
     c.restore();
 
-    // Outline — slightly rough, double-stroke for depth
-    c.strokeStyle = 'rgba(10,10,8,0.9)';
-    c.lineWidth = 3;
+    // ── Stone edge — bevel highlight then dark outer stroke ──
+    c.beginPath();
+    (c as any).roundRect(-sw, -sh, sw * 2, sh * 2, cornerR);
+    c.strokeStyle = 'rgba(215,205,188,0.42)';
+    c.lineWidth   = 3;
     c.stroke();
-    c.strokeStyle = 'rgba(160,150,130,0.18)';
-    c.lineWidth = 1;
+    c.strokeStyle = 'rgba(8,6,4,0.90)';
+    c.lineWidth   = 1.5;
     c.stroke();
 
-    // Carved display recess — rounded rectangle, centred exactly on the stone
-    const faceW = radius * 0.80;  // half-width  (fits wide digital font)
-    const faceH = radius * 0.36;  // half-height (slim horizontal bar look)
-    const faceCorner = 14;
+    // ── Carved display recess ──
+    const faceW      = radius * 0.82;
+    const faceH      = radius * 0.34;
+    const faceCorner = 11;
     c.beginPath();
     (c as any).roundRect(-faceW, -faceH, faceW * 2, faceH * 2, faceCorner);
+
+    // Engraved background: dark top, slightly lighter bottom (depth illusion)
     const faceGrad = c.createLinearGradient(0, -faceH, 0, faceH);
-    faceGrad.addColorStop(0,   '#1a1c19');
-    faceGrad.addColorStop(0.5, '#0c0e0b');
-    faceGrad.addColorStop(1,   '#060706');
+    faceGrad.addColorStop(0,   '#080a08');
+    faceGrad.addColorStop(0.5, '#0d100c');
+    faceGrad.addColorStop(1,   '#060806');
     c.fillStyle = faceGrad;
     c.fill();
-    // Chiselled rim: dark inner shadow + faint light outer edge
-    c.strokeStyle = 'rgba(0,0,0,0.7)';
-    c.lineWidth = 3;
+
+    // Subtle dot-matrix grid (LED panel look)
+    c.save();
+    c.clip();
+    const dotStep = 6;
+    for (let dy = -faceH + 4; dy < faceH; dy += dotStep) {
+        for (let dx = -faceW + 4; dx < faceW; dx += dotStep) {
+            c.fillStyle = 'rgba(0,45,0,0.32)';
+            c.fillRect(dx, dy, 1.8, 1.8);
+        }
+    }
+    c.restore();
+
+    // Inset bevel: dark top-left edge (chiselled into stone)
+    c.strokeStyle = 'rgba(0,0,0,0.78)';
+    c.lineWidth   = 3.5;
     c.stroke();
-    c.strokeStyle = 'rgba(200,190,160,0.22)';
-    c.lineWidth = 1;
+    // Faint green ambient from the LED screen bleeding onto the bezel
+    c.strokeStyle = 'rgba(50,170,50,0.20)';
+    c.lineWidth   = 1;
     c.stroke();
 
     return offscreen;
 }
 
 export function drawClockStone(r: Renderer, x: number, y: number) {
-    const ctx = r.ctx;
+    const ctx    = r.ctx;
     const radius = CONFIG.clock.radius;
+    const sw     = (radius * _SW) | 0;
+    const sh     = (radius * _SH) | 0;
 
-    if (!_clockStoneCache) {
-        _clockStoneCache = buildClockStoneCache(r, x, y);
-    }
+    if (!_clockStoneCache) _clockStoneCache = buildClockStoneCache(r, x, y);
 
     ctx.save();
     ctx.translate(x, y);
 
-    // Blit cached stone + face
-    ctx.drawImage(_clockStoneCache, -(radius + _CLOCK_PAD), -(radius + _CLOCK_PAD));
+    ctx.drawImage(_clockStoneCache, -(sw + _CLOCK_PAD), -(sh + _CLOCK_PAD));
 
-    // Digital 24h time — only this changes each frame
+    // ── Live 24 h digital time — only dynamic part ──
     const now = new Date();
-    const hh = String(now.getHours()).padStart(2, '0');
-    const mm = String(now.getMinutes()).padStart(2, '0');
-    const timeStr = `${hh}:${mm}`;
-
-    ctx.font = `bold ${CONFIG.clock.fontSize}px ${CONFIG.clock.font}`;
-    ctx.textAlign = 'center';
+    const hh  = String(now.getHours()).padStart(2, '0');
+    const mm  = String(now.getMinutes()).padStart(2, '0');
+    ctx.font         = `bold ${CONFIG.clock.fontSize}px ${CONFIG.clock.font}`;
+    ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
-    // Subtle green glow (terminal / LED look)
-    ctx.shadowColor = 'rgba(120,220,120,0.7)';
-    ctx.shadowBlur = 6;
-    ctx.fillStyle = 'rgba(160,230,160,0.95)';
-    ctx.fillText(timeStr, 0, 0);
-    ctx.shadowBlur = 0;
+    // Phosphor-green glow — outer halo then crisp text on top
+    ctx.shadowColor  = 'rgba(60,200,60,0.90)';
+    ctx.shadowBlur   = 14;
+    ctx.fillStyle    = 'rgba(80,220,80,0.55)';
+    ctx.fillText(`${hh}:${mm}`, 0, 0);
+    ctx.shadowBlur   = 6;
+    ctx.fillStyle    = 'rgba(152,238,152,0.98)';
+    ctx.fillText(`${hh}:${mm}`, 0, 0);
+    ctx.shadowBlur   = 0;
 
     ctx.restore();
 }
