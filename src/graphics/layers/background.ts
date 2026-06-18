@@ -425,35 +425,39 @@ function buildClockStoneCache(_r: Renderer, x: number, y: number): HTMLCanvasEle
     c.lineWidth   = 1.5;
     c.stroke();
 
-    // ── Carved display recess ──
+    // ── Carved display recess — dark natural stone, not a black screen ──
     const faceW      = radius * 0.82;
     const faceH      = radius * 0.34;
     const faceCorner = 11;
     c.beginPath();
     (c as any).roundRect(-faceW, -faceH, faceW * 2, faceH * 2, faceCorner);
+    // Dark slate with a very faint green tint from the LED glow
     const faceGrad = c.createLinearGradient(0, -faceH, 0, faceH);
-    faceGrad.addColorStop(0,   '#080a08');
-    faceGrad.addColorStop(0.5, '#0d100c');
-    faceGrad.addColorStop(1,   '#060806');
+    faceGrad.addColorStop(0,   '#1c211c');
+    faceGrad.addColorStop(0.4, '#161a15');
+    faceGrad.addColorStop(1,   '#111410');
     c.fillStyle = faceGrad;
     c.fill();
 
-    // Dot-matrix grid (LED panel feel)
+    // Subtle stone grain inside the recess (carved, not digital)
     c.save();
     c.clip();
-    for (let dy = -faceH + 4; dy < faceH; dy += 6) {
-        for (let dx = -faceW + 4; dx < faceW; dx += 6) {
-            c.fillStyle = 'rgba(0,45,0,0.32)';
-            c.fillRect(dx, dy, 1.8, 1.8);
-        }
+    c.strokeStyle = 'rgba(0,0,0,0.18)';
+    c.lineWidth   = 0.7;
+    for (let i = -4; i <= 4; i++) {
+        const gy = i * faceH * 0.22;
+        c.beginPath();
+        c.moveTo(-faceW * 0.88, gy);
+        c.lineTo( faceW * 0.88, gy + ((seed * (i + 5)) % 3) - 1);
+        c.stroke();
     }
     c.restore();
 
-    // Chiselled bezel + faint green ambient
-    c.strokeStyle = 'rgba(0,0,0,0.78)';
+    // Chiselled bezel: dark inner shadow, faint warm stone highlight outside
+    c.strokeStyle = 'rgba(0,0,0,0.60)';
     c.lineWidth   = 3.5;
     c.stroke();
-    c.strokeStyle = 'rgba(50,170,50,0.20)';
+    c.strokeStyle = 'rgba(160,145,120,0.22)';
     c.lineWidth   = 1;
     c.stroke();
 
