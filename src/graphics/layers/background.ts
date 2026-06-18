@@ -278,95 +278,120 @@ export function drawEntrance(r: Renderer) {
 
 const CLOCK_ROMAN = ['XII', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'] as const;
 
-export function drawClockStone(r: Renderer, x: number, y: number, timeOfDay: number) {
-    const ctx = r.ctx;
+// Offscreen cache for the static parts (stone body + face + ticks + numerals).
+// Built once on first draw; only the moving hands are redrawn every frame.
+let _clockStoneCache: HTMLCanvasElement | null = null;
+let _clockFaceR = 0;
+const _CLOCK_PAD = 12; // extra pixels around the stone so the shadow isn't clipped
+
+function buildClockStoneCache(r: Renderer, x: number, y: number): HTMLCanvasElement {
     const radius = CONFIG.clock.radius;
-    ctx.save();
-    ctx.translate(x, y);
+    const size = (radius + _CLOCK_PAD) * 2;
+    const offscreen = document.createElement('canvas');
+    offscreen.width = size;
+    offscreen.height = size;
+    const c = offscreen.getContext('2d')!;
+    c.translate(radius + _CLOCK_PAD, radius + _CLOCK_PAD); // origin at stone centre
 
     // Contact shadow
-    drawShadow(r, 0, 0, radius, ctx);
+    drawShadow(r, 0, 0, radius, c);
 
     // Stone body — deterministic wobble seeded by position
     const seed = (x * 7 + y * 13) | 0;
     const verts = 18;
-    ctx.beginPath();
+    c.beginPath();
     for (let i = 0; i < verts; i++) {
         const a = (i / verts) * Math.PI * 2;
         const wobble = radius * (0.88 + 0.13 * Math.abs(Math.sin(seed + i * 97.3)));
         const vx = Math.cos(a) * wobble;
         const vy = Math.sin(a) * wobble;
-        if (i === 0) ctx.moveTo(vx, vy);
-        else ctx.lineTo(vx, vy);
+        if (i === 0) c.moveTo(vx, vy);
+        else c.lineTo(vx, vy);
     }
-    ctx.closePath();
+    c.closePath();
 
-    const stoneGrad = ctx.createRadialGradient(-radius * 0.3, -radius * 0.35, radius * 0.05, 0, 0, radius);
+    const stoneGrad = c.createRadialGradient(-radius * 0.3, -radius * 0.35, radius * 0.05, 0, 0, radius);
     stoneGrad.addColorStop(0, '#9c9a96');
     stoneGrad.addColorStop(0.55, '#6a6865');
     stoneGrad.addColorStop(1, '#2c2c2a');
-    ctx.fillStyle = stoneGrad;
-    ctx.fill();
+    c.fillStyle = stoneGrad;
+    c.fill();
 
-    // Stone surface specks
-    ctx.save();
-    ctx.clip();
+    c.save();
+    c.clip();
     for (let i = 0; i < 14; i++) {
         const sx = Math.sin(seed * (i + 1) * 12.7) * radius * 0.82;
         const sy = Math.cos(seed * (i + 1) * 31.4) * radius * 0.82;
-        ctx.fillStyle = i % 3 === 0 ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.14)';
-        ctx.beginPath();
-        ctx.arc(sx, sy, radius * 0.09 + (i % 4) * 1.5, 0, Math.PI * 2);
-        ctx.fill();
+        c.fillStyle = i % 3 === 0 ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.14)';
+        c.beginPath();
+        c.arc(sx, sy, radius * 0.09 + (i % 4) * 1.5, 0, Math.PI * 2);
+        c.fill();
     }
-    ctx.restore();
+    c.restore();
 
-    ctx.strokeStyle = '#1a1a18';
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    c.strokeStyle = '#1a1a18';
+    c.lineWidth = 2;
+    c.stroke();
 
-    // Clock face (inset circle)
+    // Clock face
     const faceR = radius * 0.73;
-    ctx.beginPath();
-    ctx.arc(0, 0, faceR, 0, Math.PI * 2);
-    const faceGrad = ctx.createRadialGradient(-faceR * 0.18, -faceR * 0.22, 1, 0, 0, faceR);
+    _clockFaceR = faceR;
+    c.beginPath();
+    c.arc(0, 0, faceR, 0, Math.PI * 2);
+    const faceGrad = c.createRadialGradient(-faceR * 0.18, -faceR * 0.22, 1, 0, 0, faceR);
     faceGrad.addColorStop(0, '#1e1c18');
     faceGrad.addColorStop(1, '#0b0a08');
-    ctx.fillStyle = faceGrad;
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(185,162,95,0.65)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    c.fillStyle = faceGrad;
+    c.fill();
+    c.strokeStyle = 'rgba(185,162,95,0.65)';
+    c.lineWidth = 1.5;
+    c.stroke();
 
-    // Hour tick marks
+    // Tick marks
     for (let i = 0; i < 12; i++) {
         const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
         const isHour = i % 3 === 0;
-        ctx.strokeStyle = isHour ? 'rgba(215,192,118,0.9)' : 'rgba(180,158,90,0.6)';
-        ctx.lineWidth = isHour ? 1.8 : 0.9;
-        ctx.beginPath();
-        ctx.moveTo(Math.cos(a) * faceR * (isHour ? 0.77 : 0.85), Math.sin(a) * faceR * (isHour ? 0.77 : 0.85));
-        ctx.lineTo(Math.cos(a) * faceR * 0.93, Math.sin(a) * faceR * 0.93);
-        ctx.stroke();
+        c.strokeStyle = isHour ? 'rgba(215,192,118,0.9)' : 'rgba(180,158,90,0.6)';
+        c.lineWidth = isHour ? 1.8 : 0.9;
+        c.beginPath();
+        c.moveTo(Math.cos(a) * faceR * (isHour ? 0.77 : 0.85), Math.sin(a) * faceR * (isHour ? 0.77 : 0.85));
+        c.lineTo(Math.cos(a) * faceR * 0.93, Math.sin(a) * faceR * 0.93);
+        c.stroke();
     }
 
     // Roman numerals
-    const fontSize = CONFIG.clock.fontSize;
-    ctx.font = `bold ${fontSize}px ${CONFIG.clock.font}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = 'rgba(218,196,126,0.92)';
+    c.font = `bold ${CONFIG.clock.fontSize}px ${CONFIG.clock.font}`;
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillStyle = 'rgba(218,196,126,0.92)';
     const numR = faceR * 0.63;
     for (let i = 0; i < 12; i++) {
         const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
-        ctx.fillText(CLOCK_ROMAN[i], Math.cos(a) * numR, Math.sin(a) * numR);
+        c.fillText(CLOCK_ROMAN[i], Math.cos(a) * numR, Math.sin(a) * numR);
     }
 
-    // Hands — timeOfDay 0..1 = one full 24-hour day
-    // Hour hand makes 2 full revolutions per day on a 12-hour face
-    const hourAngle  = timeOfDay * 4 * Math.PI - Math.PI / 2;
-    // Minute hand makes 24 full revolutions per day
-    const minuteAngle = timeOfDay * 48 * Math.PI - Math.PI / 2;
+    return offscreen;
+}
+
+export function drawClockStone(r: Renderer, x: number, y: number, timeOfDay: number) {
+    const ctx = r.ctx;
+    const radius = CONFIG.clock.radius;
+
+    if (!_clockStoneCache) {
+        _clockStoneCache = buildClockStoneCache(r, x, y);
+    }
+
+    ctx.save();
+    ctx.translate(x, y);
+
+    // Blit the cached static layer (stone + face + ticks + numerals)
+    ctx.drawImage(_clockStoneCache, -(radius + _CLOCK_PAD), -(radius + _CLOCK_PAD));
+
+    // Moving hands — only this part redraws every frame
+    const faceR = _clockFaceR;
+    // timeOfDay 0..1 = one full 24-hour day
+    const hourAngle   = timeOfDay * 4 * Math.PI - Math.PI / 2;  // 2 revolutions/day
+    const minuteAngle = timeOfDay * 48 * Math.PI - Math.PI / 2; // 24 revolutions/day
 
     ctx.lineCap = 'round';
     ctx.strokeStyle = 'rgba(212,190,115,0.95)';
@@ -383,7 +408,6 @@ export function drawClockStone(r: Renderer, x: number, y: number, timeOfDay: num
     ctx.lineTo(Math.cos(minuteAngle) * faceR * 0.68, Math.sin(minuteAngle) * faceR * 0.68);
     ctx.stroke();
 
-    // Centre pivot
     ctx.fillStyle = 'rgba(225,205,130,1)';
     ctx.beginPath();
     ctx.arc(0, 0, 2.5, 0, Math.PI * 2);

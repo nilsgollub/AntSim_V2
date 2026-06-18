@@ -42,7 +42,15 @@ export class Terrain {
                 const dy = y - entranceY;
 
                 // Keep large area clear around entrance (200px radius)
-                if (dx * dx + dy * dy > 40000) {
+                const clearEntrance = dx * dx + dy * dy > 40000;
+
+                // Keep clear of clock stone (radius + obstacle radius + 15px buffer)
+                const minDist = CONFIG.clock.radius + r + 15;
+                const cx = x - CONFIG.width / 2;
+                const cy = y - CONFIG.height / 2;
+                const clearClock = cx * cx + cy * cy > minDist * minDist;
+
+                if (clearEntrance && clearClock) {
                     valid = true;
                 }
                 attempts++;

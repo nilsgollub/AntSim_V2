@@ -222,6 +222,11 @@ export class Renderer {
 
 
 
+        // Clock stone always draws on the 2D canvas — its hands are dynamic so it
+        // cannot be baked into the WebGL/Pixi backdrop. Drawn before entities so rocks
+        // and ants render on top at their correct depth.
+        drawClockStone(this, world.terrain.clockStone.x, world.terrain.clockStone.y, world.timeOfDay);
+
         // World entities (rocks, food, grass, insects, ants, particles). In WebGL
         // mode the Pixi layer draws these, so the 2D layer skips them and only
         // keeps the camera-space selection ring + screen-space lighting/effects.
@@ -230,8 +235,6 @@ export class Renderer {
         for (const obs of world.terrain.obstacles) {
             drawRock(this, obs.x, obs.y, obs.radius);
         }
-        // Clock stone (fixed world-centre landmark; collision handled by Terrain.clockStone)
-        drawClockStone(this, world.terrain.clockStone.x, world.terrain.clockStone.y, world.timeOfDay);
 
         // 2.5 Dynamic Shadows (Ants & Insects) - ULTRA
         if (PerformanceManager.settings.shadows) {
