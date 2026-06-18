@@ -425,13 +425,37 @@ function buildClockStoneCache(_r: Renderer, x: number, y: number): HTMLCanvasEle
     c.lineWidth   = 1.5;
     c.stroke();
 
-    // ── Carved display recess — dark natural stone, not a black screen ──
-    const faceW      = radius * 0.82;
-    const faceH      = radius * 0.34;
-    const faceCorner = 22;
-    c.beginPath();
-    (c as any).roundRect(-faceW, -faceH, faceW * 2, faceH * 2, faceCorner);
-    // Warm dark stone — brown-grey, clearly not black, not a screen
+    // ── Carved display recess — organic hand-chiselled outline ──
+    const faceW = radius * 0.82;
+    const faceH = radius * 0.34;
+    // Small deterministic wobble (3-5 px) so edges read as carved, not machined.
+    const fw = (i: number, maxPerp: number) => Math.sin(seed * (i * 5.3 + 2.7)) * maxPerp;
+    const fp: [number, number][] = [
+        [-faceW * 0.54 + fw(0, 3), -faceH + fw(0, 4)],
+        [ faceW * 0.00 + fw(1, 2), -faceH + fw(1, 5)],
+        [ faceW * 0.54 + fw(2, 3), -faceH + fw(2, 4)],
+        [ faceW + fw(3, 4),        -faceH * 0.32 + fw(3, 2)],
+        [ faceW + fw(4, 4),         faceH * 0.32 + fw(4, 2)],
+        [ faceW * 0.54 + fw(5, 3),  faceH + fw(5, 4)],
+        [ faceW * 0.00 + fw(6, 2),  faceH + fw(6, 5)],
+        [-faceW * 0.54 + fw(7, 3),  faceH + fw(7, 4)],
+        [-faceW + fw(8, 4),          faceH * 0.32 + fw(8, 2)],
+        [-faceW + fw(9, 4),         -faceH * 0.32 + fw(9, 2)],
+    ];
+    const nf = fp.length;
+    const facePathFn = () => {
+        c.beginPath();
+        c.moveTo((fp[0][0] + fp[nf-1][0]) / 2, (fp[0][1] + fp[nf-1][1]) / 2);
+        for (let i = 0; i < nf; i++) {
+            const [cx, cy] = fp[i];
+            const [nx, ny] = fp[(i + 1) % nf];
+            c.quadraticCurveTo(cx, cy, (cx + nx) / 2, (cy + ny) / 2);
+        }
+        c.closePath();
+    };
+
+    facePathFn();
+    // Warm dark stone — brown-grey, clearly not black
     const faceGrad = c.createLinearGradient(0, -faceH, 0, faceH);
     faceGrad.addColorStop(0,   '#302a20');
     faceGrad.addColorStop(0.5, '#26211a');
@@ -441,6 +465,7 @@ function buildClockStoneCache(_r: Renderer, x: number, y: number): HTMLCanvasEle
 
     // Subtle carved grain inside the recess
     c.save();
+    facePathFn();
     c.clip();
     c.strokeStyle = 'rgba(0,0,0,0.14)';
     c.lineWidth   = 0.7;
@@ -454,9 +479,11 @@ function buildClockStoneCache(_r: Renderer, x: number, y: number): HTMLCanvasEle
     c.restore();
 
     // Chiselled bezel: dark inner shadow, warm stone highlight outside
+    facePathFn();
     c.strokeStyle = 'rgba(0,0,0,0.55)';
     c.lineWidth   = 3.5;
     c.stroke();
+    facePathFn();
     c.strokeStyle = 'rgba(180,160,130,0.25)';
     c.lineWidth   = 1;
     c.stroke();
