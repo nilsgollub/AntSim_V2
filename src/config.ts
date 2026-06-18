@@ -291,6 +291,14 @@ export const CONFIG = {
         maxDiggers: 4,
     },
 
+    // Clock Stone — the sundial-like landmark at the world centre.
+    // Change these three values to restyle the clock without touching any draw code.
+    clock: {
+        radius: 55,                                        // collision + visual radius (px)
+        fontSize: 10,                                      // Roman numeral size (px)
+        font: '"Palatino Linotype", Palatino, "Book Antiqua", serif', // changeable typeface
+    },
+
     // World Generation
     obstacleCount: 12,
 

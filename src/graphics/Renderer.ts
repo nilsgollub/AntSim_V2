@@ -2,7 +2,7 @@ import { CONFIG } from '../config';
 import { World } from '../simulation/World';
 import { PerformanceManager, QualityLevel } from '../PerformanceManager';
 import { Camera } from './Camera';
-import { drawEntrance, drawGrass, drawRock, generateBackground, initGrassSprites } from './layers/background';
+import { drawClockStone, drawEntrance, drawGrass, drawRock, generateBackground, initGrassSprites } from './layers/background';
 import { drawAnt, drawFood, drawInsect, drawParticles } from './layers/entities';
 import { renderNest } from './layers/nest';
 import { drawFireflies, drawGodRays, drawLighting, drawRain, drawShadows, drawVignette } from './layers/atmosphere';
@@ -221,6 +221,11 @@ export class Renderer {
         }
 
 
+
+        // Clock stone always draws on the 2D canvas — its hands are dynamic so it
+        // cannot be baked into the WebGL/Pixi backdrop. Drawn before entities so rocks
+        // and ants render on top at their correct depth.
+        drawClockStone(this, world.terrain.clockStone.x, world.terrain.clockStone.y, world.timeOfDay);
 
         // World entities (rocks, food, grass, insects, ants, particles). In WebGL
         // mode the Pixi layer draws these, so the 2D layer skips them and only

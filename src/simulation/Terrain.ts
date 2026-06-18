@@ -3,9 +3,16 @@ import { CONFIG } from '../config';
 
 export class Terrain {
     obstacles: { x: number, y: number, radius: number }[];
+    // Fixed landmark at world centre — rendered as a clock stone, not a plain rock.
+    readonly clockStone: { x: number, y: number, radius: number };
 
     constructor() {
         this.obstacles = [];
+        this.clockStone = {
+            x: CONFIG.width / 2,
+            y: CONFIG.height / 2,
+            radius: CONFIG.clock.radius,
+        };
         this.generate();
     }
 
@@ -35,7 +42,15 @@ export class Terrain {
                 const dy = y - entranceY;
 
                 // Keep large area clear around entrance (200px radius)
-                if (dx * dx + dy * dy > 40000) {
+                const clearEntrance = dx * dx + dy * dy > 40000;
+
+                // Keep clear of clock stone (radius + obstacle radius + 15px buffer)
+                const minDist = CONFIG.clock.radius + r + 15;
+                const cx = x - CONFIG.width / 2;
+                const cy = y - CONFIG.height / 2;
+                const clearClock = cx * cx + cy * cy > minDist * minDist;
+
+                if (clearEntrance && clearClock) {
                     valid = true;
                 }
                 attempts++;
@@ -51,6 +66,14 @@ export class Terrain {
         // Check boundaries
         if (x < buffer || x >= CONFIG.width - buffer || y < buffer || y >= CONFIG.height - buffer) return true;
 
+        // Check clock stone
+        {
+            const dx = x - this.clockStone.x;
+            const dy = y - this.clockStone.y;
+            const r = this.clockStone.radius + buffer;
+            if (dx * dx + dy * dy < r * r) return true;
+        }
+
         // Check obstacles
         for (const obs of this.obstacles) {
             const dx = x - obs.x;
@@ -64,6 +87,22 @@ export class Terrain {
 
     // Helper to slide along obstacles
     getCollisionAngle(x: number, y: number, currentAngle: number): number {
+        // Check clock stone first (it is not in the obstacles array)
+        {
+            const obs = this.clockStone;
+            const dx = x - obs.x;
+            const dy = y - obs.y;
+            const distSq = dx * dx + dy * dy;
+            const checkRad = obs.radius + 2;
+            if (distSq < checkRad * checkRad) {
+                const normalAngle = Math.atan2(dy, dx);
+                const t1 = normalAngle + Math.PI / 2;
+                const t2 = normalAngle - Math.PI / 2;
+                const diff1 = Math.abs(this.normalizeAngle(t1 - currentAngle));
+                const diff2 = Math.abs(this.normalizeAngle(t2 - currentAngle));
+                return diff1 < diff2 ? t1 : t2;
+            }
+        }
         for (const obs of this.obstacles) {
             const dx = x - obs.x;
             const dy = y - obs.y;
