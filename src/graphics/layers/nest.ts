@@ -1,41 +1,157 @@
-// Nest panel: chamber structure, queen, brood, food piles, colony-0 interior.
+// Nest panel: realistic underground cross-section.
 import { CONFIG } from '../../config';
 import { PerformanceManager } from '../../PerformanceManager';
 import type { World } from '../../simulation/World';
 import type { Renderer } from '../Renderer';
 import { darken, drawAnt, drawFood, drawShadow } from './entities';
 
+// ── Seeded random [0,1) ───────────────────────────────────────────────────────
+function sr(s: number): number {
+    const x = Math.sin(s * 127.1 + 311.7) * 43758.5453123;
+    return x - Math.floor(x);
+}
+
+// ── Smooth closed bezier through [x,y] control points ────────────────────────
+function smoothPath(ctx: CanvasRenderingContext2D, pts: [number, number][]) {
+    const n = pts.length;
+    if (n < 2) return;
+    ctx.beginPath();
+    ctx.moveTo((pts[n - 1][0] + pts[0][0]) / 2, (pts[n - 1][1] + pts[0][1]) / 2);
+    for (let i = 0; i < n; i++) {
+        const p = pts[i], q = pts[(i + 1) % n];
+        ctx.quadraticCurveTo(p[0], p[1], (p[0] + q[0]) / 2, (p[1] + q[1]) / 2);
+    }
+    ctx.closePath();
+}
+
+// ── Organic (wobbled) circle path ─────────────────────────────────────────────
+function organicArc(
+    ctx: CanvasRenderingContext2D,
+    cx: number, cy: number, radius: number,
+    seed: number, wobble = 0.11, nPts = 10
+) {
+    const amp = radius * wobble;
+    const pts: [number, number][] = [];
+    for (let i = 0; i < nPts; i++) {
+        const ang = (i / nPts) * Math.PI * 2 - Math.PI / 2;
+        const r = radius
+            + Math.sin(seed * (i * 7.31 + 1.97)) * amp
+            + Math.cos(seed * (i * 3.17 + 4.63)) * amp * 0.4;
+        pts.push([cx + Math.cos(ang) * r, cy + Math.sin(ang) * r]);
+    }
+    smoothPath(ctx, pts);
+}
+
+// ── Soil grain stipple ────────────────────────────────────────────────────────
+function drawSoilTexture(ctx: CanvasRenderingContext2D, w: number, h: number) {
+    ctx.save();
+    const N = 900;
+    for (let i = 0; i < N; i++) {
+        const x = sr(i * 3) * w;
+        const y = sr(i * 3 + 1) * h;
+        const sz = 1 + sr(i * 3 + 2) * 2.2;
+        ctx.globalAlpha = 0.15 + sr(i + 500) * 0.12;
+        ctx.fillStyle = sr(i + 400) > 0.55 ? '#5c3e24' : '#0b0706';
+        ctx.fillRect(x, y, sz, sz * (0.4 + sr(i + 600) * 0.6));
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+}
+
+// ── Cubic bezier single-axis point ────────────────────────────────────────────
+function bezP(p0: number, p1: number, p2: number, p3: number, t: number): number {
+    const m = 1 - t;
+    return m * m * m * p0 + 3 * m * m * t * p1 + 3 * m * t * t * p2 + t * t * t * p3;
+}
+
+// ── Root network ──────────────────────────────────────────────────────────────
+function drawRootNetwork(ctx: CanvasRenderingContext2D, w: number, h: number) {
+    ctx.save();
+    ctx.lineCap = 'round';
+    for (let ri = 0; ri < 7; ri++) {
+        const sx = w * (0.05 + sr(ri * 5) * 0.9);
+        const ex = sx + (sr(ri * 5 + 1) - 0.5) * w * 0.5;
+        const ey = h * (0.28 + sr(ri * 5 + 2) * 0.72);
+        const c1x = sx + (sr(ri * 5 + 3) - 0.5) * 65;
+        const c1y = h * (0.12 + sr(ri * 5 + 4) * 0.08);
+        const c2x = ex + (sr(ri * 5 + 5) - 0.5) * 45;
+        const c2y = ey - h * 0.11;
+        const thick = 1 + sr(ri * 5 + 6) * 1.8;
+        const alpha = 0.22 + sr(ri * 5 + 7) * 0.14;
+
+        ctx.beginPath();
+        ctx.moveTo(sx, 0);
+        ctx.bezierCurveTo(c1x, c1y, c2x, c2y, ex, ey);
+        ctx.strokeStyle = `rgba(36,17,6,${alpha})`;
+        ctx.lineWidth = thick;
+        ctx.stroke();
+
+        // Lateral branches
+        const BC = 2 + Math.floor(sr(ri * 5 + 8) * 3);
+        for (let b = 0; b < BC; b++) {
+            const t = 0.12 + sr(ri * 22 + b * 4) * 0.68;
+            const bx = bezP(sx, c1x, c2x, ex, t);
+            const by = bezP(0, c1y, c2y, ey, t);
+            const bex = bx + (sr(ri * 22 + b * 4 + 1) - 0.5) * 42;
+            const bey = by + sr(ri * 22 + b * 4 + 2) * 32;
+            ctx.beginPath();
+            ctx.moveTo(bx, by);
+            ctx.quadraticCurveTo(bx + (sr(ri * 22 + b * 4 + 3) - 0.5) * 18, by + 10, bex, bey);
+            ctx.strokeStyle = `rgba(36,17,6,${(alpha * 0.55).toFixed(3)})`;
+            ctx.lineWidth = thick * 0.42;
+            ctx.stroke();
+        }
+    }
+    ctx.restore();
+}
+
+// ── Pebble debris on the lower chamber floor ──────────────────────────────────
+function drawChamberFloor(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, seed: number) {
+    const N = 5 + Math.floor(r / 9);
+    for (let i = 0; i < N; i++) {
+        const ang = 0.08 * Math.PI + sr(seed * 91 + i * 7) * 0.84 * Math.PI;
+        const d = r * (0.3 + sr(seed * 91 + i * 7 + 1) * 0.55);
+        const px = cx + Math.cos(ang) * d;
+        const py = cy + Math.sin(ang) * d;
+        const pr = 1.3 + sr(seed * 91 + i * 7 + 2) * 2.6;
+        const lv = sr(seed * 91 + i * 7 + 3);
+        ctx.fillStyle = lv > 0.65 ? 'rgba(88,64,40,0.55)'
+            : lv > 0.35   ? 'rgba(32,22,12,0.65)'
+            :                'rgba(14,9,5,0.75)';
+        ctx.beginPath();
+        ctx.ellipse(px, py, pr,
+            pr * (0.45 + sr(seed * 91 + i * 7 + 4) * 0.55),
+            sr(seed * 91 + i * 7 + 5) * Math.PI, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 export function renderNest(r: Renderer, world: World) {
     const ctx = r.nestCtx;
     const w = CONFIG.nestWidth;
     const h = CONFIG.nestHeight;
 
-    // Clear with Dark Soil Background
-    ctx.fillStyle = '#2e231d'; // Dark Earth
+    // Base dark soil
+    ctx.fillStyle = '#221611';
     ctx.fillRect(0, 0, w, h);
 
-    // Gradient for depth
-    const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
-    bgGrad.addColorStop(0, 'rgba(0,0,0,0.2)');
-    bgGrad.addColorStop(1, 'rgba(0,0,0,0.6)');
-    ctx.fillStyle = bgGrad;
+    // Depth gradient
+    const bg = ctx.createLinearGradient(0, 0, 0, h);
+    bg.addColorStop(0,   'rgba(0,0,0,0)');
+    bg.addColorStop(0.7, 'rgba(0,0,0,0.18)');
+    bg.addColorStop(1,   'rgba(0,0,0,0.45)');
+    ctx.fillStyle = bg;
     ctx.fillRect(0, 0, w, h);
 
-    // 1. Structure (Cached)
-    // Ensure cache exists and check dirty state
+    // Structure cache
     if (!r.nestStructureCanvas || world.nest.nodes.length !== r.lastNodeCount) {
         r.lastNodeCount = world.nest.nodes.length;
         renderNestStructure(r, world);
     }
     ctx.drawImage(r.nestStructureCanvas, 0, 0);
 
-    // Nest pheromones are intentionally NOT drawn: in the cramped nest the
-    // overlay becomes a dense, muddy blob. The nestGrid still drives ant
-    // navigation underground — only its visualisation is suppressed.
-
-    // Draw Food Piles BEFORE ants so ants walk ON TOP. The stockpile is shown
-    // split evenly across every granary, so a multi-chamber nest shows food in
-    // each storage room rather than one giant heap.
+    // Food piles
     const granaries = world.nest.getChambers('STORAGE');
     const piles = granaries.length > 0 ? granaries : [world.nest.getChamber('STORAGE')];
     if (piles[0]) {
@@ -47,27 +163,19 @@ export function renderNest(r: Renderer, world: World) {
         }
     }
 
-    // Interred corpses resting in the graveyard chamber(s). The nest panel shows
-    // colony 0, so only draw its own dead — a rival's interred corpses carry their
-    // colony's nest-local coords and would otherwise appear as phantom crumbs here.
+    // Corpses
     for (const corpse of world.graveyard) {
         if ((corpse.colonyId ?? 0) === 0) drawFood(r, corpse);
     }
 
-    // Draw Dynamic Entities
+    // Dynamic entities
     drawQueen(r, world.queen, ctx);
-
-    for (const b of world.brood) {
-        drawBrood(r, b, ctx);
-    }
-
-    // Nest interior shows colony 0 (the single nest canvas can't hold two nests
-    // at the same nest-local coords — rival nest rendering is a later step).
+    for (const b of world.brood) drawBrood(r, b, ctx);
     for (const ant of world.colonies[0].ants) {
         if (ant.location === 'NEST') drawAnt(r, ant, ctx);
     }
 
-    // Excavation dust + feeding droplets
+    // Particles
     if (world.nestParticles.length > 0) {
         ctx.save();
         for (const p of world.nestParticles) {
@@ -83,74 +191,157 @@ export function renderNestStructure(r: Renderer, world: World) {
     const ctx = r.nestStructureCtx;
     const w = r.nestStructureCanvas.width;
     const h = r.nestStructureCanvas.height;
-
     ctx.clearRect(0, 0, w, h);
 
-    // 1. Wall Cut (The "rim" of the tunnel - Rough hewn earth)
-    ctx.strokeStyle = '#6b5b4e'; // Earthy Rim
+    const useGrad = PerformanceManager.settings.gradients;
 
-    if (PerformanceManager.settings.shadows) {
-        ctx.shadowColor = 'rgba(0,0,0,0.5)';
-        ctx.shadowBlur = 4;
-    } else {
-        ctx.shadowBlur = 0;
-    }
+    // 1. Soil grain texture
+    drawSoilTexture(ctx, w, h);
 
-    ctx.lineWidth = 10; // Thicker rim for depth
+    // 2. Root network
+    drawRootNetwork(ctx, w, h);
+
+    // 3. Tunnel passages (drawn before chambers so chambers overlap)
     for (const node of world.nest.nodes) {
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, node.radius + 2, 0, Math.PI * 2);
-        ctx.stroke();
-    }
-    ctx.shadowBlur = 0; // Reset
+        if (node.type !== 'TUNNEL') continue;
+        const seed = node.x * 0.17 + node.y * 0.11;
 
-    // 2. Chamber Floor (Depth - Deep Shadow at edges)
-    // 2. Chamber Floor (Depth - Deep Shadow at edges)
-    for (const node of world.nest.nodes) {
-        if (PerformanceManager.settings.gradients) {
-            const grad = ctx.createRadialGradient(node.x, node.y, node.radius * 0.1, node.x, node.y, node.radius * 1.1);
-            grad.addColorStop(0, '#5a4a3a'); // Lit Floor (Center)
-            grad.addColorStop(0.7, '#3e3228'); // Standard Floor
-            grad.addColorStop(1, '#1a140f'); // Deep Walls (Edge)
-            ctx.fillStyle = grad;
+        // Wall rim
+        organicArc(ctx, node.x, node.y, node.radius + 3, seed + 1.1, 0.14, 8);
+        ctx.fillStyle = '#3d2b1c';
+        ctx.fill();
+
+        // Floor
+        organicArc(ctx, node.x, node.y, node.radius, seed, 0.14, 8);
+        if (useGrad) {
+            const tg = ctx.createRadialGradient(
+                node.x, node.y - node.radius * 0.15, 0,
+                node.x, node.y, node.radius);
+            tg.addColorStop(0, '#3e2d1c');
+            tg.addColorStop(1, '#1f1509');
+            ctx.fillStyle = tg;
         } else {
-            ctx.fillStyle = '#3e3228'; // Flat Standard Floor
+            ctx.fillStyle = '#2e2014';
+        }
+        ctx.fill();
+    }
+
+    // 4. Chambers
+    const chambers = world.nest.chambers;
+    for (let ci = 0; ci < chambers.length; ci++) {
+        const ch = chambers[ci];
+        const seed = ch.x * 0.17 + ch.y * 0.11 + ci * 13.7;
+
+        let fc0 = '#3a2a18', fc1 = '#16100a';
+        let gcR = 160, gcG = 120, gcB = 70, ga = 0.06;
+        switch (ch.type) {
+            case 'QUEEN':
+                fc0 = '#4a3214'; fc1 = '#1e1509';
+                gcR = 180; gcG = 100; gcB = 20; ga = 0.13; break;
+            case 'BROOD':
+                fc0 = '#3d2e1c'; fc1 = '#1a1208';
+                gcR = 200; gcG = 155; gcB = 90; ga = 0.08; break;
+            case 'STORAGE':
+                fc0 = '#3e2e0e'; fc1 = '#1c1607';
+                gcR = 200; gcG = 160; gcB = 45; ga = 0.09; break;
+            case 'CEMETERY':
+                fc0 = '#1e1a16'; fc1 = '#0e0c0a';
+                gcR = 100; gcG = 115; gcB = 130; ga = 0.04; break;
         }
 
+        // Deep shadow halo
+        ctx.save();
+        if (PerformanceManager.settings.shadows) {
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 10;
+        }
+        organicArc(ctx, ch.x, ch.y, ch.radius + 6, seed + 3.1, 0.09, 10);
+        ctx.fillStyle = '#120d08';
+        ctx.fill();
+        ctx.restore();
+
+        // Earthy wall rim
+        organicArc(ctx, ch.x, ch.y, ch.radius + 2.5, seed + 1.7, 0.10, 10);
+        if (useGrad) {
+            const rg = ctx.createRadialGradient(
+                ch.x - ch.radius * 0.3, ch.y - ch.radius * 0.35, 0,
+                ch.x, ch.y, ch.radius + 5);
+            rg.addColorStop(0, '#806040');
+            rg.addColorStop(0.5, '#5e4230');
+            rg.addColorStop(1, '#3a2818');
+            ctx.fillStyle = rg;
+        } else {
+            ctx.fillStyle = '#5e4230';
+        }
+        ctx.fill();
+
+        // Chamber floor
+        organicArc(ctx, ch.x, ch.y, ch.radius, seed, 0.10, 10);
+        if (useGrad) {
+            const fg = ctx.createRadialGradient(
+                ch.x, ch.y - ch.radius * 0.2, ch.radius * 0.08,
+                ch.x, ch.y, ch.radius * 1.15);
+            fg.addColorStop(0, fc0);
+            fg.addColorStop(0.65, '#2e2014');
+            fg.addColorStop(1, fc1);
+            ctx.fillStyle = fg;
+        } else {
+            ctx.fillStyle = fc0;
+        }
+        ctx.fill();
+
+        // Role glow overlay
+        if (useGrad && ga > 0.02) {
+            organicArc(ctx, ch.x, ch.y, ch.radius, seed, 0.10, 10);
+            const gg = ctx.createRadialGradient(ch.x, ch.y, 0, ch.x, ch.y, ch.radius);
+            gg.addColorStop(0, `rgba(${gcR},${gcG},${gcB},${ga})`);
+            gg.addColorStop(0.6, `rgba(${gcR},${gcG},${gcB},${(ga * 0.3).toFixed(3)})`);
+            gg.addColorStop(1, `rgba(${gcR},${gcG},${gcB},0)`);
+            ctx.fillStyle = gg;
+            ctx.fill();
+        }
+
+        // Floor debris pebbles
+        drawChamberFloor(ctx, ch.x, ch.y, ch.radius, seed + 7.3);
+    }
+
+    // 5. Entrance light
+    const ent = world.nest.entrances[0];
+    if (ent) {
+        const eg = ctx.createRadialGradient(ent.x, ent.y, 0, ent.x, ent.y, 65);
+        eg.addColorStop(0,    'rgba(210,185,120,0.28)');
+        eg.addColorStop(0.45, 'rgba(185,150,80,0.10)');
+        eg.addColorStop(1,    'rgba(0,0,0,0)');
+        ctx.fillStyle = eg;
         ctx.beginPath();
-        ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+        ctx.arc(ent.x, ent.y, 65, 0, Math.PI * 2);
         ctx.fill();
     }
 }
 
+// ── Queen (unchanged) ─────────────────────────────────────────────────────────
 export function drawQueen(r: Renderer, queen: any, ctx: CanvasRenderingContext2D) {
-    if (queen.dead) return; // a starved-out colony's queen is gone
+    if (queen.dead) return;
     ctx.save();
     ctx.translate(queen.x, queen.y);
     ctx.rotate(Math.sin(Date.now() * 0.001) * 0.05);
 
-    // Scale down to be less massive (0.45x previous size)
     const scale = 0.45;
     ctx.scale(scale, scale);
 
-    // Shadow
     drawShadow(r, 0, 0, 15, ctx);
 
-    // Same family as the new ants: colony body colour (own warm brown / rival amber)
-    // with a red head like the soldiers (Messor barbarus). She faces "up" (-y) here.
     const body: string = queen.colony?.workerColor2D || '#7a4f2c';
     const legCol = darken(body, 0.55);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    // Legs — jointed (attach → knee → foot), STATIC resting pose. She just sits and
-    // lays, so no walk cycle: front pair reaches forward, mid splays out, rear angles back.
     ctx.strokeStyle = legCol;
     ctx.lineWidth = 2;
     const qLegs: [number, number, number, number, number][] = [
-        [-6, 15, -9, 20, -15],   // front: reach forward
-        [ 0, 16,  1, 22,   2],   // mid: straight out
-        [ 6, 14,  9, 19,  16],   // rear: angle back
+        [-6, 15, -9, 20, -15],
+        [ 0, 16,  1, 22,   2],
+        [ 6, 14,  9, 19,  16],
     ];
     for (const [ay, kx, ky, fx, fy] of qLegs) {
         for (const s of [1, -1]) {
@@ -162,12 +353,10 @@ export function drawQueen(r: Renderer, queen: any, ctx: CanvasRenderingContext2D
         }
     }
 
-    // Abdomen (physogastric — swollen with eggs); a gentle breathing pulse only.
     const pulse = 1.0 + Math.sin(Date.now() * 0.002) * 0.02;
     const gcy = 26, grx = 14 * pulse, gry = 19 * pulse;
     ctx.fillStyle = body;
     ctx.beginPath(); ctx.ellipse(0, gcy, grx, gry, 0, 0, Math.PI * 2); ctx.fill();
-    // Segment bands — thin curved arcs following the gaster's curve.
     ctx.strokeStyle = 'rgba(0,0,0,0.22)';
     ctx.lineWidth = 1.2;
     for (let i = 1; i <= 4; i++) {
@@ -179,17 +368,14 @@ export function drawQueen(r: Renderer, queen: any, ctx: CanvasRenderingContext2D
         ctx.quadraticCurveTo(0, yy + 2.5, rw, yy);
         ctx.stroke();
     }
-    // Specular highlight
     ctx.fillStyle = 'rgba(255,255,255,0.18)';
     ctx.beginPath();
     ctx.ellipse(-5, 20, 4, 10, 0.2, 0, Math.PI * 2);
     ctx.fill();
 
-    // Petiole — thin wasp waist pinching the gaster off from the thorax.
     ctx.fillStyle = body;
     ctx.beginPath(); ctx.ellipse(0, 4, 3, 3, 0, 0, Math.PI * 2); ctx.fill();
 
-    // Thorax (humped mesosoma) + faint wing scars (queens shed their wings).
     ctx.fillStyle = body;
     ctx.beginPath(); ctx.ellipse(0, -9, 9, 11, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = 'rgba(0,0,0,0.28)';
@@ -198,40 +384,35 @@ export function drawQueen(r: Renderer, queen: any, ctx: CanvasRenderingContext2D
     ctx.ellipse(4, -11, 1.8, 4, -0.3, 0, Math.PI * 2);
     ctx.fill();
 
-    // Head — rounded, colony body colour (no red); eyes + geniculate antennae.
     ctx.save();
     ctx.translate(0, -21);
     ctx.fillStyle = body;
     ctx.beginPath(); ctx.ellipse(0, 0, 7.5, 7, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.18)'; // chitin highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
     ctx.beginPath(); ctx.ellipse(-2.5, -3, 2.5, 1.6, -0.5, 0, Math.PI * 2); ctx.fill();
-    // Eyes
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.beginPath();
     ctx.ellipse(-4, -1.5, 1.6, 2, 0, 0, Math.PI * 2);
     ctx.ellipse(4, -1.5, 1.6, 2, 0, 0, Math.PI * 2);
     ctx.fill();
-    // Antennae — scape ~90° out to the side, then funiculus bends forward (up).
     ctx.strokeStyle = legCol;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(-5, 0); ctx.lineTo(-11, -3); ctx.lineTo(-14, -10);
     ctx.moveTo(5, 0); ctx.lineTo(11, -3); ctx.lineTo(14, -10);
     ctx.stroke();
-    ctx.restore(); // End Head transform
+    ctx.restore();
 
-    ctx.restore(); // End Queen transform
+    ctx.restore();
 }
 
+// ── Food pile ─────────────────────────────────────────────────────────────────
 export function drawFoodPile(x: number, y: number, radius: number, amount: number, type: 'SUGAR' | 'PROTEIN', ctx: CanvasRenderingContext2D) {
     if (amount <= 0) return;
-
     const count = Math.min(200, Math.ceil(amount / 5));
-
     ctx.save();
     ctx.translate(x, y);
 
-    // Define 3 cluster centers relative to (0,0)
     const clusters = [
         { x: radius * 0.3, y: radius * 0.2 },
         { x: -radius * 0.3, y: radius * 0.3 },
@@ -239,36 +420,21 @@ export function drawFoodPile(x: number, y: number, radius: number, amount: numbe
     ];
 
     for (let i = 0; i < count; i++) {
-        // Deterministic random positions based on index i
         const cluster = clusters[i % clusters.length];
-
-        // Organic Polar Coordinates for circular distribution
-        // Use prime numbers for pseudo-randomness to avoid patterns
-        const angle = (i * 137.508) % (Math.PI * 2); // Golden angle approximation
-        // Sqrt for uniform distribution, but we want center-bias for a pile, so linear or squared is fine.
-        // Let's use a mix to keep it dense in center but spreading out.
-        const distFactor = Math.abs(Math.sin(i * 12.9898));
-        const dist = distFactor * (radius * 0.4); // Keep within 40% of radius per cluster
-
-        const offsetX = Math.cos(angle) * dist;
-        const offsetY = Math.sin(angle) * dist;
-
-        const px = cluster.x + offsetX;
-        const py = cluster.y + offsetY;
-
-        // Keep within bounds strictly
+        const angle = (i * 137.508) % (Math.PI * 2);
+        const dist = Math.abs(Math.sin(i * 12.9898)) * (radius * 0.4);
+        const px = cluster.x + Math.cos(angle) * dist;
+        const py = cluster.y + Math.sin(angle) * dist;
         const d = Math.sqrt(px * px + py * py);
         if (d > radius * 0.9) continue;
 
         if (type === 'SUGAR') {
-            // Honey Drops - Golden/Amber
-            ctx.fillStyle = `rgba(255, 180, 20, ${0.6 + (i % 5) * 0.1})`;
+            ctx.fillStyle = `rgba(255,180,20,${0.6 + (i % 5) * 0.1})`;
             ctx.beginPath();
             ctx.arc(px, py, 1.5 + (i % 3) * 0.5, 0, Math.PI * 2);
             ctx.fill();
         } else {
-            // Meat chunks
-            ctx.fillStyle = `rgba(200, 100, 100, ${0.8 + (i % 3) * 0.1})`;
+            ctx.fillStyle = `rgba(200,100,100,${0.8 + (i % 3) * 0.1})`;
             ctx.beginPath();
             ctx.arc(px, py, 2 + (i % 2), 0, Math.PI * 2);
             ctx.fill();
@@ -277,36 +443,97 @@ export function drawFoodPile(x: number, y: number, radius: number, amount: numbe
     ctx.restore();
 }
 
+// ── Brood (improved) ──────────────────────────────────────────────────────────
 export function drawBrood(r: Renderer, b: any, ctx: CanvasRenderingContext2D = r.nestCtx) {
     ctx.save();
     ctx.translate(b.x, b.y);
 
+    // Deterministic tilt from position
+    const seed = b.x * 17.3 + b.y * 31.7;
+    const tilt = (sr(seed) - 0.5) * 0.7;
+
     if (b.stage === 'EGG') {
-        ctx.fillStyle = '#FFF';
+        ctx.rotate(tilt);
+        // Pearl-white teardrop
+        ctx.fillStyle = 'rgba(245,242,235,0.95)';
+        ctx.shadowColor = 'rgba(255,255,255,0.25)';
+        ctx.shadowBlur = 2;
         ctx.beginPath();
-        ctx.ellipse(0, 0, 2, 1.5, Math.random(), 0, Math.PI * 2);
+        ctx.ellipse(0, 0.4, 2.0, 2.8, 0, 0, Math.PI * 2);
         ctx.fill();
+        ctx.shadowBlur = 0;
+        // Specular
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.beginPath();
+        ctx.ellipse(-0.6, -0.9, 0.7, 1.2, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+
     } else if (b.stage === 'LARVA') {
-        ctx.fillStyle = '#EEE';
+        const growth = Math.min(b.age, 2000) / 500; // 0..4
+        ctx.rotate(tilt);
+        const segs = 5;
+        const segR = 1.5 + growth * 0.35;
+        const stride = segR * 1.6;
+
+        for (let i = 0; i < segs; i++) {
+            const t = i / (segs - 1);
+            const px = (i - segs / 2) * stride;
+            const py = Math.sin(t * Math.PI) * -3.5; // C-curve upward
+            const sw = segR * (0.78 + Math.sin(t * Math.PI) * 0.38);
+            const sh = sw * 0.66;
+            const lum = Math.round(215 - t * 18);
+            ctx.fillStyle = `rgba(${lum},${lum - 22},${lum - 38},0.92)`;
+            ctx.beginPath();
+            ctx.ellipse(px, py, sw, sh, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // Head nub
+        const hx = -(segs / 2 - 0.6) * stride;
+        const hy = -1.8;
+        ctx.fillStyle = 'rgba(175,145,95,0.95)';
         ctx.beginPath();
-        const growth = Math.min(b.age, 2000) / 500;
-        ctx.ellipse(0, 0, 3 + growth, 1.5, 0, 0, Math.PI * 2);
+        ctx.ellipse(hx, hy, segR * 0.8, segR * 0.75, 0, 0, Math.PI * 2);
         ctx.fill();
-        // Segments
-        ctx.strokeStyle = '#CCC';
-        ctx.lineWidth = 0.5;
-        ctx.beginPath();
-        ctx.moveTo(-1, -1); ctx.lineTo(-1, 1);
-        ctx.moveTo(1, -1); ctx.lineTo(1, 1);
-        ctx.stroke();
+
     } else if (b.stage === 'PUPA') {
-        ctx.fillStyle = '#D2B48C'; // Tan
+        ctx.rotate(tilt * 0.5);
+        const pw = 3.5, ph = 5.5;
+
+        // Amber casing
+        ctx.fillStyle = 'rgba(178,148,95,0.92)';
+        ctx.shadowColor = 'rgba(0,0,0,0.35)';
+        ctx.shadowBlur = 3;
         ctx.beginPath();
-        ctx.ellipse(0, 0, 3.5, 2, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, pw, ph, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = '#8B4513';
+        ctx.shadowBlur = 0;
+
+        // Inner form outline
+        ctx.strokeStyle = 'rgba(110,82,48,0.55)';
         ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, pw - 0.7, ph - 0.8, 0, 0, Math.PI * 2);
         ctx.stroke();
+
+        // Segmentation arcs
+        ctx.strokeStyle = 'rgba(100,72,40,0.40)';
+        ctx.lineWidth = 0.45;
+        for (let i = 1; i <= 4; i++) {
+            const sy = -ph + (i / 4.5) * ph * 1.8;
+            const tt = sy / ph;
+            const sw = pw * Math.sqrt(Math.max(0, 1 - tt * tt)) * 0.88;
+            if (sw < 0.3) continue;
+            ctx.beginPath();
+            ctx.moveTo(-sw, sy);
+            ctx.quadraticCurveTo(0, sy + 0.8, sw, sy);
+            ctx.stroke();
+        }
+
+        // Chitin highlight
+        ctx.fillStyle = 'rgba(230,210,170,0.28)';
+        ctx.beginPath();
+        ctx.ellipse(-pw * 0.28, -ph * 0.22, pw * 0.22, ph * 0.28, 0.4, 0, Math.PI * 2);
+        ctx.fill();
     }
 
     ctx.restore();
