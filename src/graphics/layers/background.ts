@@ -428,21 +428,21 @@ function buildClockStoneCache(_r: Renderer, x: number, y: number): HTMLCanvasEle
     // ── Carved display recess — dark natural stone, not a black screen ──
     const faceW      = radius * 0.82;
     const faceH      = radius * 0.34;
-    const faceCorner = 11;
+    const faceCorner = 22;
     c.beginPath();
     (c as any).roundRect(-faceW, -faceH, faceW * 2, faceH * 2, faceCorner);
-    // Dark slate with a very faint green tint from the LED glow
+    // Warm dark stone — brown-grey, clearly not black, not a screen
     const faceGrad = c.createLinearGradient(0, -faceH, 0, faceH);
-    faceGrad.addColorStop(0,   '#1c211c');
-    faceGrad.addColorStop(0.4, '#161a15');
-    faceGrad.addColorStop(1,   '#111410');
+    faceGrad.addColorStop(0,   '#302a20');
+    faceGrad.addColorStop(0.5, '#26211a');
+    faceGrad.addColorStop(1,   '#1c1812');
     c.fillStyle = faceGrad;
     c.fill();
 
-    // Subtle stone grain inside the recess (carved, not digital)
+    // Subtle carved grain inside the recess
     c.save();
     c.clip();
-    c.strokeStyle = 'rgba(0,0,0,0.18)';
+    c.strokeStyle = 'rgba(0,0,0,0.14)';
     c.lineWidth   = 0.7;
     for (let i = -4; i <= 4; i++) {
         const gy = i * faceH * 0.22;
@@ -453,11 +453,11 @@ function buildClockStoneCache(_r: Renderer, x: number, y: number): HTMLCanvasEle
     }
     c.restore();
 
-    // Chiselled bezel: dark inner shadow, faint warm stone highlight outside
-    c.strokeStyle = 'rgba(0,0,0,0.60)';
+    // Chiselled bezel: dark inner shadow, warm stone highlight outside
+    c.strokeStyle = 'rgba(0,0,0,0.55)';
     c.lineWidth   = 3.5;
     c.stroke();
-    c.strokeStyle = 'rgba(160,145,120,0.22)';
+    c.strokeStyle = 'rgba(180,160,130,0.25)';
     c.lineWidth   = 1;
     c.stroke();
 
@@ -484,13 +484,13 @@ export function drawClockStone(r: Renderer, x: number, y: number) {
     ctx.font         = `bold ${CONFIG.clock.fontSize}px ${CONFIG.clock.font}`;
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
-    // Phosphor-green glow — outer halo then crisp text on top
-    ctx.shadowColor  = 'rgba(60,200,60,0.90)';
-    ctx.shadowBlur   = 14;
-    ctx.fillStyle    = 'rgba(80,220,80,0.55)';
+    // Warm amber phosphor glow — soft halo then solid text on top
+    ctx.shadowColor  = 'rgba(200,150,40,0.70)';
+    ctx.shadowBlur   = 12;
+    ctx.fillStyle    = 'rgba(210,160,50,0.45)';
     ctx.fillText(`${hh}:${mm}`, 0, 0);
-    ctx.shadowBlur   = 6;
-    ctx.fillStyle    = 'rgba(152,238,152,0.98)';
+    ctx.shadowBlur   = 5;
+    ctx.fillStyle    = 'rgba(235,195,110,0.97)';
     ctx.fillText(`${hh}:${mm}`, 0, 0);
     ctx.shadowBlur   = 0;
 
