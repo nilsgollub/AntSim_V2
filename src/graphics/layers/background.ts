@@ -276,13 +276,10 @@ export function drawEntrance(r: Renderer) {
     r.ctx.fill();
 }
 
-const CLOCK_ROMAN = ['XII', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'] as const;
-
-// Offscreen cache for the static parts (stone body + face + ticks + numerals).
-// Built once on first draw; only the moving hands are redrawn every frame.
+// Offscreen cache for the static parts (stone body + face border).
+// Built once on first draw; only the time text is redrawn every frame.
 let _clockStoneCache: HTMLCanvasElement | null = null;
-let _clockFaceR = 0;
-const _CLOCK_PAD = 12; // extra pixels around the stone so the shadow isn't clipped
+const _CLOCK_PAD = 12; // extra pixels so the shadow isn't clipped
 
 function buildClockStoneCache(r: Renderer, x: number, y: number): HTMLCanvasElement {
     const radius = CONFIG.clock.radius;
@@ -291,9 +288,8 @@ function buildClockStoneCache(r: Renderer, x: number, y: number): HTMLCanvasElem
     offscreen.width = size;
     offscreen.height = size;
     const c = offscreen.getContext('2d')!;
-    c.translate(radius + _CLOCK_PAD, radius + _CLOCK_PAD); // origin at stone centre
+    c.translate(radius + _CLOCK_PAD, radius + _CLOCK_PAD);
 
-    // Contact shadow
     drawShadow(r, 0, 0, radius, c);
 
     // Stone body — deterministic wobble seeded by position
@@ -303,10 +299,8 @@ function buildClockStoneCache(r: Renderer, x: number, y: number): HTMLCanvasElem
     for (let i = 0; i < verts; i++) {
         const a = (i / verts) * Math.PI * 2;
         const wobble = radius * (0.88 + 0.13 * Math.abs(Math.sin(seed + i * 97.3)));
-        const vx = Math.cos(a) * wobble;
-        const vy = Math.sin(a) * wobble;
-        if (i === 0) c.moveTo(vx, vy);
-        else c.lineTo(vx, vy);
+        if (i === 0) c.moveTo(Math.cos(a) * wobble, Math.sin(a) * wobble);
+        else         c.lineTo(Math.cos(a) * wobble, Math.sin(a) * wobble);
     }
     c.closePath();
 
@@ -333,47 +327,23 @@ function buildClockStoneCache(r: Renderer, x: number, y: number): HTMLCanvasElem
     c.lineWidth = 2;
     c.stroke();
 
-    // Clock face
+    // Display face (dark inset)
     const faceR = radius * 0.73;
-    _clockFaceR = faceR;
     c.beginPath();
     c.arc(0, 0, faceR, 0, Math.PI * 2);
-    const faceGrad = c.createRadialGradient(-faceR * 0.18, -faceR * 0.22, 1, 0, 0, faceR);
-    faceGrad.addColorStop(0, '#1e1c18');
-    faceGrad.addColorStop(1, '#0b0a08');
+    const faceGrad = c.createRadialGradient(0, 0, 1, 0, 0, faceR);
+    faceGrad.addColorStop(0, '#111210');
+    faceGrad.addColorStop(1, '#070807');
     c.fillStyle = faceGrad;
     c.fill();
-    c.strokeStyle = 'rgba(185,162,95,0.65)';
+    c.strokeStyle = 'rgba(180,210,160,0.5)';
     c.lineWidth = 1.5;
     c.stroke();
-
-    // Tick marks
-    for (let i = 0; i < 12; i++) {
-        const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
-        const isHour = i % 3 === 0;
-        c.strokeStyle = isHour ? 'rgba(215,192,118,0.9)' : 'rgba(180,158,90,0.6)';
-        c.lineWidth = isHour ? 1.8 : 0.9;
-        c.beginPath();
-        c.moveTo(Math.cos(a) * faceR * (isHour ? 0.77 : 0.85), Math.sin(a) * faceR * (isHour ? 0.77 : 0.85));
-        c.lineTo(Math.cos(a) * faceR * 0.93, Math.sin(a) * faceR * 0.93);
-        c.stroke();
-    }
-
-    // Roman numerals
-    c.font = `bold ${CONFIG.clock.fontSize}px ${CONFIG.clock.font}`;
-    c.textAlign = 'center';
-    c.textBaseline = 'middle';
-    c.fillStyle = 'rgba(218,196,126,0.92)';
-    const numR = faceR * 0.63;
-    for (let i = 0; i < 12; i++) {
-        const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
-        c.fillText(CLOCK_ROMAN[i], Math.cos(a) * numR, Math.sin(a) * numR);
-    }
 
     return offscreen;
 }
 
-export function drawClockStone(r: Renderer, x: number, y: number, timeOfDay: number) {
+export function drawClockStone(r: Renderer, x: number, y: number) {
     const ctx = r.ctx;
     const radius = CONFIG.clock.radius;
 
@@ -384,34 +354,24 @@ export function drawClockStone(r: Renderer, x: number, y: number, timeOfDay: num
     ctx.save();
     ctx.translate(x, y);
 
-    // Blit the cached static layer (stone + face + ticks + numerals)
+    // Blit cached stone + face
     ctx.drawImage(_clockStoneCache, -(radius + _CLOCK_PAD), -(radius + _CLOCK_PAD));
 
-    // Moving hands — only this part redraws every frame
-    const faceR = _clockFaceR;
-    // timeOfDay 0..1 = one full 24-hour day
-    const hourAngle   = timeOfDay * 4 * Math.PI - Math.PI / 2;  // 2 revolutions/day
-    const minuteAngle = timeOfDay * 48 * Math.PI - Math.PI / 2; // 24 revolutions/day
+    // Digital 24h time — only this changes each frame
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const timeStr = `${hh}:${mm}`;
 
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = 'rgba(212,190,115,0.95)';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(Math.cos(hourAngle) * faceR * 0.46, Math.sin(hourAngle) * faceR * 0.46);
-    ctx.stroke();
-
-    ctx.strokeStyle = 'rgba(232,218,158,0.9)';
-    ctx.lineWidth = 1.8;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(Math.cos(minuteAngle) * faceR * 0.68, Math.sin(minuteAngle) * faceR * 0.68);
-    ctx.stroke();
-
-    ctx.fillStyle = 'rgba(225,205,130,1)';
-    ctx.beginPath();
-    ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.font = `bold ${CONFIG.clock.fontSize}px ${CONFIG.clock.font}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // Subtle green glow (terminal / LED look)
+    ctx.shadowColor = 'rgba(120,220,120,0.7)';
+    ctx.shadowBlur = 6;
+    ctx.fillStyle = 'rgba(160,230,160,0.95)';
+    ctx.fillText(timeStr, 0, 0);
+    ctx.shadowBlur = 0;
 
     ctx.restore();
 }

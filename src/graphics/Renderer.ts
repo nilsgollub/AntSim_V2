@@ -225,7 +225,7 @@ export class Renderer {
         // Clock stone always draws on the 2D canvas — its hands are dynamic so it
         // cannot be baked into the WebGL/Pixi backdrop. Drawn before entities so rocks
         // and ants render on top at their correct depth.
-        drawClockStone(this, world.terrain.clockStone.x, world.terrain.clockStone.y, world.timeOfDay);
+        drawClockStone(this, world.terrain.clockStone.x, world.terrain.clockStone.y);
 
         // World entities (rocks, food, grass, insects, ants, particles). In WebGL
         // mode the Pixi layer draws these, so the 2D layer skips them and only

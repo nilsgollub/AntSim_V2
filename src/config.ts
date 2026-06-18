@@ -291,12 +291,12 @@ export const CONFIG = {
         maxDiggers: 4,
     },
 
-    // Clock Stone — the sundial-like landmark at the world centre.
-    // Change these three values to restyle the clock without touching any draw code.
+    // Clock Stone — digital 24h real-time display at the world centre.
+    // Change these three values to restyle without touching any draw code.
     clock: {
         radius: 55,                                        // collision + visual radius (px)
-        fontSize: 10,                                      // Roman numeral size (px)
-        font: '"Palatino Linotype", Palatino, "Book Antiqua", serif', // changeable typeface
+        fontSize: 16,                                      // HH:MM display size (px)
+        font: '"Courier New", Courier, monospace',         // changeable typeface
     },
 
     // World Generation
