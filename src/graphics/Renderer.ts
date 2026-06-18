@@ -2,7 +2,7 @@ import { CONFIG } from '../config';
 import { World } from '../simulation/World';
 import { PerformanceManager, QualityLevel } from '../PerformanceManager';
 import { Camera } from './Camera';
-import { drawEntrance, drawGrass, drawRock, generateBackground, initGrassSprites } from './layers/background';
+import { drawClockStone, drawEntrance, drawGrass, drawRock, generateBackground, initGrassSprites } from './layers/background';
 import { drawAnt, drawFood, drawInsect, drawParticles } from './layers/entities';
 import { renderNest } from './layers/nest';
 import { drawFireflies, drawGodRays, drawLighting, drawRain, drawShadows, drawVignette } from './layers/atmosphere';
@@ -230,6 +230,8 @@ export class Renderer {
         for (const obs of world.terrain.obstacles) {
             drawRock(this, obs.x, obs.y, obs.radius);
         }
+        // Clock stone (fixed world-centre landmark; collision handled by Terrain.clockStone)
+        drawClockStone(this, world.terrain.clockStone.x, world.terrain.clockStone.y, world.timeOfDay);
 
         // 2.5 Dynamic Shadows (Ants & Insects) - ULTRA
         if (PerformanceManager.settings.shadows) {
