@@ -292,52 +292,99 @@ function buildClockStoneCache(r: Renderer, x: number, y: number): HTMLCanvasElem
 
     drawShadow(r, 0, 0, radius, c);
 
-    // Stone body — deterministic wobble seeded by position
+    // Stone body — chunky organic silhouette, deterministic per position
     const seed = (x * 7 + y * 13) | 0;
-    const verts = 18;
-    c.beginPath();
+    // Fewer, more jagged vertices → boulder feel instead of smooth pebble
+    const verts = 11;
+    // Build vertices with strong low-frequency wobble + a second harmonic for
+    // smaller surface irregularities (two sin waves = natural-looking rock edge)
+    const pts: [number, number][] = [];
     for (let i = 0; i < verts; i++) {
         const a = (i / verts) * Math.PI * 2;
-        const wobble = radius * (0.88 + 0.13 * Math.abs(Math.sin(seed + i * 97.3)));
-        if (i === 0) c.moveTo(Math.cos(a) * wobble, Math.sin(a) * wobble);
-        else         c.lineTo(Math.cos(a) * wobble, Math.sin(a) * wobble);
+        const w1 = 0.72 + 0.30 * Math.abs(Math.sin(seed + i * 2.31));   // large bumps
+        const w2 = 0.96 + 0.06 * Math.sin(seed * 0.3 + i * 7.14);       // fine texture
+        const wobble = radius * w1 * w2;
+        pts.push([Math.cos(a) * wobble, Math.sin(a) * wobble]);
+    }
+    // Smooth with quadratic curves so edges look carved, not polygonal
+    c.beginPath();
+    c.moveTo((pts[0][0] + pts[verts - 1][0]) / 2, (pts[0][1] + pts[verts - 1][1]) / 2);
+    for (let i = 0; i < verts; i++) {
+        const [cx, cy] = pts[i];
+        const [nx, ny] = pts[(i + 1) % verts];
+        c.quadraticCurveTo(cx, cy, (cx + nx) / 2, (cy + ny) / 2);
     }
     c.closePath();
 
-    const stoneGrad = c.createRadialGradient(-radius * 0.3, -radius * 0.35, radius * 0.05, 0, 0, radius);
-    stoneGrad.addColorStop(0, '#9c9a96');
-    stoneGrad.addColorStop(0.55, '#6a6865');
-    stoneGrad.addColorStop(1, '#2c2c2a');
+    const stoneGrad = c.createRadialGradient(-radius * 0.28, -radius * 0.32, radius * 0.04, 0, 0, radius * 1.1);
+    stoneGrad.addColorStop(0,    '#a8a49e');
+    stoneGrad.addColorStop(0.4,  '#7a7672');
+    stoneGrad.addColorStop(0.75, '#504e4b');
+    stoneGrad.addColorStop(1,    '#252422');
     c.fillStyle = stoneGrad;
     c.fill();
 
+    // Surface detail clipped to the stone shape
     c.save();
     c.clip();
-    for (let i = 0; i < 14; i++) {
-        const sx = Math.sin(seed * (i + 1) * 12.7) * radius * 0.82;
-        const sy = Math.cos(seed * (i + 1) * 31.4) * radius * 0.82;
-        c.fillStyle = i % 3 === 0 ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.14)';
+
+    // Coarse surface speckles (weathering)
+    for (let i = 0; i < 22; i++) {
+        const sx = Math.sin(seed * (i + 1) * 12.7) * radius * 0.88;
+        const sy = Math.cos(seed * (i + 1) * 31.4) * radius * 0.88;
+        c.fillStyle = i % 4 === 0 ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.13)';
         c.beginPath();
-        c.arc(sx, sy, radius * 0.09 + (i % 4) * 1.5, 0, Math.PI * 2);
+        c.arc(sx, sy, radius * 0.06 + (i % 5) * 1.8, 0, Math.PI * 2);
         c.fill();
     }
+
+    // Moss patch (top-left quadrant — north-facing side stays damp)
+    const mx = -radius * 0.28, my = -radius * 0.32;
+    const mossGrad = c.createRadialGradient(mx, my, 0, mx, my, radius * 0.7);
+    mossGrad.addColorStop(0,   'rgba(72,130,60,0.55)');
+    mossGrad.addColorStop(0.5, 'rgba(48,95,38,0.28)');
+    mossGrad.addColorStop(1,   'rgba(0,0,0,0)');
+    c.fillStyle = mossGrad;
+    c.beginPath();
+    c.arc(mx, my, radius * 0.7, 0, Math.PI * 2);
+    c.fill();
+
+    // Lichen spots
+    for (let i = 0; i < 5; i++) {
+        const lx = Math.sin(seed * (i + 3) * 8.1) * radius * 0.55;
+        const ly = Math.cos(seed * (i + 3) * 19.7) * radius * 0.55;
+        c.fillStyle = `rgba(${100 + i * 8},${160 + i * 6},${80 + i * 4},0.25)`;
+        c.beginPath();
+        c.arc(lx, ly, radius * 0.08 + i * 1.2, 0, Math.PI * 2);
+        c.fill();
+    }
+
     c.restore();
 
-    c.strokeStyle = '#1a1a18';
-    c.lineWidth = 2;
+    // Outline — slightly rough, double-stroke for depth
+    c.strokeStyle = 'rgba(10,10,8,0.9)';
+    c.lineWidth = 3;
+    c.stroke();
+    c.strokeStyle = 'rgba(160,150,130,0.18)';
+    c.lineWidth = 1;
     c.stroke();
 
-    // Display face (dark inset)
-    const faceR = radius * 0.73;
+    // Carved display recess — slightly oval to look hand-chiselled
+    const faceR = radius * 0.58;
     c.beginPath();
-    c.arc(0, 0, faceR, 0, Math.PI * 2);
+    c.ellipse(0, 0, faceR, faceR * 0.92, 0, 0, Math.PI * 2);
     const faceGrad = c.createRadialGradient(0, 0, 1, 0, 0, faceR);
-    faceGrad.addColorStop(0, '#111210');
-    faceGrad.addColorStop(1, '#070807');
+    faceGrad.addColorStop(0,   '#151714');
+    faceGrad.addColorStop(0.7, '#0c0e0b');
+    faceGrad.addColorStop(1,   '#060706');
     c.fillStyle = faceGrad;
     c.fill();
-    c.strokeStyle = 'rgba(180,210,160,0.5)';
-    c.lineWidth = 1.5;
+    // Chiselled rim: dark inner shadow + faint light outer edge
+    c.strokeStyle = 'rgba(0,0,0,0.7)';
+    c.lineWidth = 3;
+    c.stroke();
+    c.strokeStyle = 'rgba(200,190,160,0.22)';
+    c.lineWidth = 1;
     c.stroke();
 
     return offscreen;
