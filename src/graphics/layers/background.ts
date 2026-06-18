@@ -287,10 +287,9 @@ const _SH = 0.60;   // stone half-height = radius × SH
 const _CLOCK_PAD = 22;
 
 function buildClockStoneCache(_r: Renderer, x: number, y: number): HTMLCanvasElement {
-    const radius  = CONFIG.clock.radius;
-    const sw      = (radius * _SW) | 0;    // stone half-width  px
-    const sh      = (radius * _SH) | 0;    // stone half-height px
-    const cornerR = 18;
+    const radius = CONFIG.clock.radius;
+    const sw     = (radius * _SW) | 0;   // stone half-width  px
+    const sh     = (radius * _SH) | 0;   // stone half-height px
 
     const offscreen = document.createElement('canvas');
     offscreen.width  = (sw + _CLOCK_PAD) * 2;
@@ -298,87 +297,131 @@ function buildClockStoneCache(_r: Renderer, x: number, y: number): HTMLCanvasEle
     const c = offscreen.getContext('2d')!;
     c.translate(sw + _CLOCK_PAD, sh + _CLOCK_PAD); // origin at stone centre
 
-    // ── Drop shadow ──
+    const seed = (x * 7 + y * 13) | 0;
+
+    // ── Organic stone outline — rectangular in proportion but naturally chipped ──
+    // 10 anchor points arranged around the rectangle with deterministic wobble.
+    // The wobble is larger perpendicular to each edge (chips/bulges in/out) and
+    // smaller along the edge (slight S-curves). Quadratic bezier through midpoints
+    // gives smooth, naturally carved looking edges.
+    const wb = (base: number, max: number, i: number) =>
+        base + Math.sin(seed * (i * 3.7 + 1.3)) * max;
+    const pts: [number, number][] = [
+        // top edge (left → right)
+        [wb(-sw * 0.52, sw * 0.05, 0),  wb(-sh, sh * 0.10, 0)],
+        [wb( sw * 0.00, sw * 0.04, 1),  wb(-sh, sh * 0.12, 1)],
+        [wb( sw * 0.52, sw * 0.05, 2),  wb(-sh, sh * 0.10, 2)],
+        // right edge (top → bottom)
+        [wb( sw, sw * 0.10, 3),          wb(-sh * 0.38, sh * 0.07, 3)],
+        [wb( sw, sw * 0.10, 4),          wb( sh * 0.38, sh * 0.07, 4)],
+        // bottom edge (right → left)
+        [wb( sw * 0.52, sw * 0.05, 5),  wb( sh, sh * 0.10, 5)],
+        [wb( sw * 0.00, sw * 0.04, 6),  wb( sh, sh * 0.12, 6)],
+        [wb(-sw * 0.52, sw * 0.05, 7),  wb( sh, sh * 0.10, 7)],
+        // left edge (bottom → top)
+        [wb(-sw, sw * 0.10, 8),          wb( sh * 0.38, sh * 0.07, 8)],
+        [wb(-sw, sw * 0.10, 9),          wb(-sh * 0.38, sh * 0.07, 9)],
+    ];
+    const n = pts.length;
+    const stonePathFn = () => {
+        c.beginPath();
+        c.moveTo((pts[0][0] + pts[n-1][0]) / 2, (pts[0][1] + pts[n-1][1]) / 2);
+        for (let i = 0; i < n; i++) {
+            const [cx, cy] = pts[i];
+            const [nx, ny] = pts[(i + 1) % n];
+            c.quadraticCurveTo(cx, cy, (cx + nx) / 2, (cy + ny) / 2);
+        }
+        c.closePath();
+    };
+
+    // ── Drop shadow (draw blurred silhouette slightly offset) ──
     c.save();
-    c.shadowColor   = 'rgba(0,0,0,0.70)';
+    c.shadowColor   = 'rgba(0,0,0,0.72)';
     c.shadowBlur    = 20;
     c.shadowOffsetX = 5;
     c.shadowOffsetY = 9;
-    c.beginPath();
-    (c as any).roundRect(-sw, -sh, sw * 2, sh * 2, cornerR);
+    stonePathFn();
     c.fillStyle = '#000';
     c.fill();
     c.restore();
 
-    // ── Stone body (rounded-rect slab, granite gradient) ──
-    c.beginPath();
-    (c as any).roundRect(-sw, -sh, sw * 2, sh * 2, cornerR);
-    const stoneGrad = c.createLinearGradient(-sw * 0.55, -sh, sw * 0.45, sh);
-    stoneGrad.addColorStop(0,    '#c4bfb8');
-    stoneGrad.addColorStop(0.22, '#9c9890');
-    stoneGrad.addColorStop(0.55, '#686460');
+    // ── Stone body — granite gradient ──
+    stonePathFn();
+    const stoneGrad = c.createLinearGradient(-sw * 0.55, -sh, sw * 0.42, sh);
+    stoneGrad.addColorStop(0,    '#c6c1ba');
+    stoneGrad.addColorStop(0.20, '#9e9a93');
+    stoneGrad.addColorStop(0.55, '#6a6662');
     stoneGrad.addColorStop(1,    '#2e2c2a');
     c.fillStyle = stoneGrad;
     c.fill();
 
-    // ── Surface texture clipped to stone shape ──
+    // ── Surface texture clipped to stone outline ──
     c.save();
+    stonePathFn();
     c.clip();
-
-    const seed = (x * 7 + y * 13) | 0;
 
     // Weathering speckles
     for (let i = 0; i < 32; i++) {
-        const sx = Math.sin(seed * (i + 1) * 12.7) * sw * 0.88;
-        const sy = Math.cos(seed * (i + 1) * 31.4) * sh * 0.82;
-        c.fillStyle = i % 4 === 0 ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.13)';
+        const sx = Math.sin(seed * (i + 1) * 12.7) * sw * 0.86;
+        const sy = Math.cos(seed * (i + 1) * 31.4) * sh * 0.80;
+        c.fillStyle = i % 4 === 0 ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.14)';
         c.beginPath();
-        c.arc(sx, sy, 1.8 + (i % 5) * 1.1, 0, Math.PI * 2);
+        c.arc(sx, sy, 1.6 + (i % 5) * 1.1, 0, Math.PI * 2);
         c.fill();
     }
 
     // Horizontal slate grain lines
     c.strokeStyle = 'rgba(0,0,0,0.09)';
     c.lineWidth   = 0.8;
-    for (let i = -4; i <= 4; i++) {
-        const gy = i * sh * 0.22;
+    for (let i = -5; i <= 5; i++) {
+        const gy     = i * sh * 0.19;
         const jitter = ((seed + i * 7) % 5) - 2;
         c.beginPath();
-        c.moveTo(-sw * 0.92, gy);
-        c.lineTo( sw * 0.92, gy + jitter);
+        c.moveTo(-sw * 0.90, gy);
+        c.lineTo( sw * 0.90, gy + jitter);
         c.stroke();
     }
 
-    // Moss patch — top-left corner (north-facing, stays damp)
-    const mx = -sw * 0.32, my = -sh * 0.45;
-    const mossGrad = c.createRadialGradient(mx, my, 0, mx, my, sw * 0.40);
-    mossGrad.addColorStop(0,   'rgba(64,118,52,0.55)');
-    mossGrad.addColorStop(0.5, 'rgba(40,82,32,0.25)');
+    // Moss patch — top-left (north-facing, stays damp)
+    const mx = -sw * 0.34, my = -sh * 0.44;
+    const mossGrad = c.createRadialGradient(mx, my, 0, mx, my, sw * 0.38);
+    mossGrad.addColorStop(0,   'rgba(60,112,48,0.58)');
+    mossGrad.addColorStop(0.5, 'rgba(38,78,30,0.26)');
     mossGrad.addColorStop(1,   'rgba(0,0,0,0)');
     c.fillStyle = mossGrad;
     c.beginPath();
-    c.arc(mx, my, sw * 0.40, 0, Math.PI * 2);
+    c.arc(mx, my, sw * 0.38, 0, Math.PI * 2);
     c.fill();
 
-    // A couple of lichen spots
-    for (let i = 0; i < 4; i++) {
-        const lx = Math.sin(seed * (i + 3) * 8.1) * sw * 0.60;
-        const ly = Math.cos(seed * (i + 3) * 19.7) * sh * 0.60;
-        c.fillStyle = `rgba(${96 + i * 10},${152 + i * 8},${72 + i * 5},0.22)`;
+    // Lichen spots
+    for (let i = 0; i < 5; i++) {
+        const lx = Math.sin(seed * (i + 3) * 8.1) * sw * 0.62;
+        const ly = Math.cos(seed * (i + 3) * 19.7) * sh * 0.62;
+        c.fillStyle = `rgba(${92 + i * 10},${148 + i * 8},${68 + i * 5},0.22)`;
         c.beginPath();
-        c.arc(lx, ly, 3 + i * 1.4, 0, Math.PI * 2);
+        c.arc(lx, ly, 3 + i * 1.3, 0, Math.PI * 2);
         c.fill();
     }
 
-    c.restore();
-
-    // ── Stone edge — bevel highlight then dark outer stroke ──
+    // Small surface crack (deterministic S-curve)
+    c.strokeStyle = 'rgba(0,0,0,0.28)';
+    c.lineWidth   = 0.9;
     c.beginPath();
-    (c as any).roundRect(-sw, -sh, sw * 2, sh * 2, cornerR);
-    c.strokeStyle = 'rgba(215,205,188,0.42)';
+    const ck0x = -sw * 0.15 + (seed % 12 - 6);
+    const ck0y = -sh * 0.55;
+    c.moveTo(ck0x, ck0y);
+    c.bezierCurveTo(ck0x + 8, ck0y + sh * 0.3, ck0x - 6, ck0y + sh * 0.55, ck0x + 4, ck0y + sh * 0.8);
+    c.stroke();
+
+    c.restore(); // end stone clip
+
+    // ── Stone edge: light bevel (top/left feel lit) + dark outer ──
+    stonePathFn();
+    c.strokeStyle = 'rgba(218,208,192,0.44)';
     c.lineWidth   = 3;
     c.stroke();
-    c.strokeStyle = 'rgba(8,6,4,0.90)';
+    stonePathFn();
+    c.strokeStyle = 'rgba(8,6,4,0.88)';
     c.lineWidth   = 1.5;
     c.stroke();
 
@@ -388,8 +431,6 @@ function buildClockStoneCache(_r: Renderer, x: number, y: number): HTMLCanvasEle
     const faceCorner = 11;
     c.beginPath();
     (c as any).roundRect(-faceW, -faceH, faceW * 2, faceH * 2, faceCorner);
-
-    // Engraved background: dark top, slightly lighter bottom (depth illusion)
     const faceGrad = c.createLinearGradient(0, -faceH, 0, faceH);
     faceGrad.addColorStop(0,   '#080a08');
     faceGrad.addColorStop(0.5, '#0d100c');
@@ -397,23 +438,21 @@ function buildClockStoneCache(_r: Renderer, x: number, y: number): HTMLCanvasEle
     c.fillStyle = faceGrad;
     c.fill();
 
-    // Subtle dot-matrix grid (LED panel look)
+    // Dot-matrix grid (LED panel feel)
     c.save();
     c.clip();
-    const dotStep = 6;
-    for (let dy = -faceH + 4; dy < faceH; dy += dotStep) {
-        for (let dx = -faceW + 4; dx < faceW; dx += dotStep) {
+    for (let dy = -faceH + 4; dy < faceH; dy += 6) {
+        for (let dx = -faceW + 4; dx < faceW; dx += 6) {
             c.fillStyle = 'rgba(0,45,0,0.32)';
             c.fillRect(dx, dy, 1.8, 1.8);
         }
     }
     c.restore();
 
-    // Inset bevel: dark top-left edge (chiselled into stone)
+    // Chiselled bezel + faint green ambient
     c.strokeStyle = 'rgba(0,0,0,0.78)';
     c.lineWidth   = 3.5;
     c.stroke();
-    // Faint green ambient from the LED screen bleeding onto the bezel
     c.strokeStyle = 'rgba(50,170,50,0.20)';
     c.lineWidth   = 1;
     c.stroke();
