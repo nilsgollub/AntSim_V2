@@ -232,16 +232,16 @@ export function renderNestStructure(r: Renderer, world: World) {
     for (const node of world.nest.nodes) {
         if (node.type !== 'TUNNEL') continue;
 
-        // Earthy wall rim
+        // Earthy wall rim — slightly lighter than background so tunnel edges read as carved soil
         ctx.beginPath();
         ctx.arc(node.x, node.y, node.radius + 4, 0, Math.PI * 2);
-        ctx.fillStyle = '#261a0f';
+        ctx.fillStyle = '#3a2818';
         ctx.fill();
 
-        // Tunnel interior — near-black so chambers stand out clearly
+        // Tunnel interior — medium-dark (clearly darker than chambers but not near-black)
         ctx.beginPath();
         ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
-        ctx.fillStyle = '#0d0906';
+        ctx.fillStyle = '#1e1410';
         ctx.fill();
     }
 
