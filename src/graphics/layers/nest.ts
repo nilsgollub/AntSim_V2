@@ -25,18 +25,22 @@ function smoothPath(ctx: CanvasRenderingContext2D, pts: [number, number][]) {
 }
 
 // ── Organic (wobbled) circle path ─────────────────────────────────────────────
+// maxInwardFraction: caps how far the shape can dip inward (as fraction of radius).
+// Keeps brood/items visually inside chambers even with high outward wobble.
 function organicArc(
     ctx: CanvasRenderingContext2D,
     cx: number, cy: number, radius: number,
-    seed: number, wobble = 0.11, nPts = 10
+    seed: number, wobble = 0.11, nPts = 10,
+    maxInwardFraction = 1.0
 ) {
     const amp = radius * wobble;
+    const minR = radius * (1 - maxInwardFraction);
     const pts: [number, number][] = [];
     for (let i = 0; i < nPts; i++) {
         const ang = (i / nPts) * Math.PI * 2 - Math.PI / 2;
-        const r = radius
-            + Math.sin(seed * (i * 7.31 + 1.97)) * amp
-            + Math.cos(seed * (i * 3.17 + 4.63)) * amp * 0.4;
+        const noise = Math.sin(seed * (i * 7.31 + 1.97)) * amp
+                    + Math.cos(seed * (i * 3.17 + 4.63)) * amp * 0.4;
+        const r = Math.max(minR, radius + noise);
         pts.push([cx + Math.cos(ang) * r, cy + Math.sin(ang) * r]);
     }
     smoothPath(ctx, pts);
@@ -295,8 +299,8 @@ export function renderNestStructure(r: Renderer, world: World) {
         }
         ctx.fill();
 
-        // Chamber floor — clearly lighter than tunnel #0d0906
-        organicArc(ctx, ch.x, ch.y, ch.radius, seed, 0.24, 7);
+        // Chamber floor — clearly lighter than tunnels; maxInwardFraction=0.14 keeps brood inside
+        organicArc(ctx, ch.x, ch.y, ch.radius, seed, 0.24, 7, 0.14);
         if (useGrad) {
             const fg = ctx.createRadialGradient(
                 ch.x, ch.y - ch.radius * 0.2, ch.radius * 0.08,
@@ -312,7 +316,7 @@ export function renderNestStructure(r: Renderer, world: World) {
 
         // Role glow overlay
         if (useGrad && ga > 0.02) {
-            organicArc(ctx, ch.x, ch.y, ch.radius, seed, 0.24, 7);
+            organicArc(ctx, ch.x, ch.y, ch.radius, seed, 0.24, 7, 0.14);
             const gg = ctx.createRadialGradient(ch.x, ch.y, 0, ch.x, ch.y, ch.radius);
             gg.addColorStop(0, `rgba(${gcR},${gcG},${gcB},${ga})`);
             gg.addColorStop(0.6, `rgba(${gcR},${gcG},${gcB},${(ga * 0.3).toFixed(3)})`);
