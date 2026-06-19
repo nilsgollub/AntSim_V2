@@ -81,11 +81,11 @@ export class Queen {
                         this.energy -= CONFIG.eggCost;
                         this.colony.proteinStockpile -= 5; // Eggs need protein too
 
-                        // Spawn Egg
-                        // Spawn Egg at the tip of the abdomen (Queen is vertical, head up)
-                        // Abdomen tip is approx +45px down
-                        const eggX = this.x + (rand() - 0.5) * 10;
-                        const eggY = this.y + 45 + (rand() * 5);
+                        // Spawn Egg near the queen center.
+                        // The +45 offset was in draw-space (queen rendered at scale 0.45),
+                        // which equals ~20 world pixels — below the founding chamber radius.
+                        const eggX = this.x + (rand() - 0.5) * 8;
+                        const eggY = this.y + 20 + (rand() * 4);
                         this.colony.brood.push(new Brood(eggX, eggY));
 
                         this.state = 'IDLE';

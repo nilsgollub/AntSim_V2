@@ -25,37 +25,70 @@ function smoothPath(ctx: CanvasRenderingContext2D, pts: [number, number][]) {
 }
 
 // ── Organic (wobbled) circle path ─────────────────────────────────────────────
+// maxInwardFraction: caps how far the shape can dip inward (as fraction of radius).
+// Keeps brood/items visually inside chambers even with high outward wobble.
 function organicArc(
     ctx: CanvasRenderingContext2D,
     cx: number, cy: number, radius: number,
-    seed: number, wobble = 0.11, nPts = 10
+    seed: number, wobble = 0.11, nPts = 10,
+    maxInwardFraction = 1.0
 ) {
     const amp = radius * wobble;
+    const minR = radius * (1 - maxInwardFraction);
     const pts: [number, number][] = [];
     for (let i = 0; i < nPts; i++) {
         const ang = (i / nPts) * Math.PI * 2 - Math.PI / 2;
-        const r = radius
-            + Math.sin(seed * (i * 7.31 + 1.97)) * amp
-            + Math.cos(seed * (i * 3.17 + 4.63)) * amp * 0.4;
+        const noise = Math.sin(seed * (i * 7.31 + 1.97)) * amp
+                    + Math.cos(seed * (i * 3.17 + 4.63)) * amp * 0.4;
+        const r = Math.max(minR, radius + noise);
         pts.push([cx + Math.cos(ang) * r, cy + Math.sin(ang) * r]);
     }
     smoothPath(ctx, pts);
 }
 
-// ── Soil grain stipple ────────────────────────────────────────────────────────
-function drawSoilTexture(ctx: CanvasRenderingContext2D, w: number, h: number) {
-    ctx.save();
-    const N = 900;
-    for (let i = 0; i < N; i++) {
+// ── Soil texture — baked once into a permanent offscreen canvas ───────────────
+let _soilCache: { canvas: HTMLCanvasElement; w: number; h: number } | null = null;
+function getSoilCanvas(w: number, h: number): HTMLCanvasElement {
+    if (_soilCache && _soilCache.w === w && _soilCache.h === h) return _soilCache.canvas;
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const cx = c.getContext('2d');
+    if (!cx) return c;
+
+    // Geological layer bands (subtle horizontal gradients)
+    for (let band = 0; band < 4; band++) {
+        const y0 = h * (band / 4);
+        const grad = cx.createLinearGradient(0, y0, 0, y0 + h / 4);
+        const hue = [28, 24, 22, 18][band];
+        grad.addColorStop(0, `rgba(${hue + 14},${hue},${hue - 4},0)`);
+        grad.addColorStop(0.5, `rgba(${hue + 14},${hue},${hue - 4},0.06)`);
+        grad.addColorStop(1, `rgba(${hue + 14},${hue},${hue - 4},0)`);
+        cx.fillStyle = grad;
+        cx.fillRect(0, y0, w, h / 4 + 1);
+    }
+
+    // Light grain pass (single fillStyle, many rects)
+    cx.fillStyle = '#6b4828';
+    for (let i = 0; i < 550; i++) {
         const x = sr(i * 3) * w;
         const y = sr(i * 3 + 1) * h;
-        const sz = 1 + sr(i * 3 + 2) * 2.2;
-        ctx.globalAlpha = 0.15 + sr(i + 500) * 0.12;
-        ctx.fillStyle = sr(i + 400) > 0.55 ? '#5c3e24' : '#0b0706';
-        ctx.fillRect(x, y, sz, sz * (0.4 + sr(i + 600) * 0.6));
+        const sz = 0.8 + sr(i * 3 + 2) * 1.8;
+        cx.globalAlpha = 0.12 + sr(i + 500) * 0.10;
+        cx.fillRect(x, y, sz, sz * (0.5 + sr(i + 600) * 0.5));
     }
-    ctx.globalAlpha = 1;
-    ctx.restore();
+    // Dark grain pass
+    cx.fillStyle = '#0a0705';
+    for (let i = 0; i < 400; i++) {
+        const x = sr(i * 3 + 1000) * w;
+        const y = sr(i * 3 + 1001) * h;
+        const sz = 0.7 + sr(i + 1002) * 1.5;
+        cx.globalAlpha = 0.12 + sr(i + 1100) * 0.09;
+        cx.fillRect(x, y, sz, sz * (0.4 + sr(i + 1200) * 0.6));
+    }
+    cx.globalAlpha = 1;
+
+    _soilCache = { canvas: c, w, h };
+    return c;
 }
 
 // ── Cubic bezier single-axis point ────────────────────────────────────────────
@@ -64,41 +97,42 @@ function bezP(p0: number, p1: number, p2: number, p3: number, t: number): number
     return m * m * m * p0 + 3 * m * m * t * p1 + 3 * m * t * t * p2 + t * t * t * p3;
 }
 
-// ── Root network ──────────────────────────────────────────────────────────────
+// ── Root network — drawn LAST so it overlays soil + tunnels + chambers ────────
 function drawRootNetwork(ctx: CanvasRenderingContext2D, w: number, h: number) {
     ctx.save();
     ctx.lineCap = 'round';
-    for (let ri = 0; ri < 7; ri++) {
-        const sx = w * (0.05 + sr(ri * 5) * 0.9);
-        const ex = sx + (sr(ri * 5 + 1) - 0.5) * w * 0.5;
-        const ey = h * (0.28 + sr(ri * 5 + 2) * 0.72);
-        const c1x = sx + (sr(ri * 5 + 3) - 0.5) * 65;
-        const c1y = h * (0.12 + sr(ri * 5 + 4) * 0.08);
-        const c2x = ex + (sr(ri * 5 + 5) - 0.5) * 45;
-        const c2y = ey - h * 0.11;
-        const thick = 1 + sr(ri * 5 + 6) * 1.8;
-        const alpha = 0.22 + sr(ri * 5 + 7) * 0.14;
+    for (let ri = 0; ri < 8; ri++) {
+        const sx = w * (0.04 + sr(ri * 5) * 0.92);
+        const ex = sx + (sr(ri * 5 + 1) - 0.5) * w * 0.55;
+        const ey = h * (0.25 + sr(ri * 5 + 2) * 0.74);
+        const c1x = sx + (sr(ri * 5 + 3) - 0.5) * 70;
+        const c1y = h * (0.10 + sr(ri * 5 + 4) * 0.09);
+        const c2x = ex + (sr(ri * 5 + 5) - 0.5) * 50;
+        const c2y = ey - h * 0.12;
+        const thick = 1.4 + sr(ri * 5 + 6) * 2.2;
+        // Warm tan — visible over dark tunnel floor (#0e0a06) and earthy chambers
+        const alpha = 0.45 + sr(ri * 5 + 7) * 0.18;
 
         ctx.beginPath();
         ctx.moveTo(sx, 0);
         ctx.bezierCurveTo(c1x, c1y, c2x, c2y, ex, ey);
-        ctx.strokeStyle = `rgba(36,17,6,${alpha})`;
+        ctx.strokeStyle = `rgba(95,58,22,${alpha.toFixed(3)})`;
         ctx.lineWidth = thick;
         ctx.stroke();
 
         // Lateral branches
-        const BC = 2 + Math.floor(sr(ri * 5 + 8) * 3);
+        const BC = 2 + Math.floor(sr(ri * 5 + 8) * 4);
         for (let b = 0; b < BC; b++) {
-            const t = 0.12 + sr(ri * 22 + b * 4) * 0.68;
+            const t = 0.10 + sr(ri * 22 + b * 4) * 0.70;
             const bx = bezP(sx, c1x, c2x, ex, t);
             const by = bezP(0, c1y, c2y, ey, t);
-            const bex = bx + (sr(ri * 22 + b * 4 + 1) - 0.5) * 42;
-            const bey = by + sr(ri * 22 + b * 4 + 2) * 32;
+            const bex = bx + (sr(ri * 22 + b * 4 + 1) - 0.5) * 48;
+            const bey = by + sr(ri * 22 + b * 4 + 2) * 36;
             ctx.beginPath();
             ctx.moveTo(bx, by);
-            ctx.quadraticCurveTo(bx + (sr(ri * 22 + b * 4 + 3) - 0.5) * 18, by + 10, bex, bey);
-            ctx.strokeStyle = `rgba(36,17,6,${(alpha * 0.55).toFixed(3)})`;
-            ctx.lineWidth = thick * 0.42;
+            ctx.quadraticCurveTo(bx + (sr(ri * 22 + b * 4 + 3) - 0.5) * 20, by + 12, bex, bey);
+            ctx.strokeStyle = `rgba(95,58,22,${(alpha * 0.6).toFixed(3)})`;
+            ctx.lineWidth = thick * 0.45;
             ctx.stroke();
         }
     }
@@ -195,94 +229,86 @@ export function renderNestStructure(r: Renderer, world: World) {
 
     const useGrad = PerformanceManager.settings.gradients;
 
-    // 1. Soil grain texture
-    drawSoilTexture(ctx, w, h);
+    // 1. Soil texture — permanent cache, never rebuilds on node count change
+    ctx.drawImage(getSoilCanvas(w, h), 0, 0);
 
-    // 2. Root network
-    drawRootNetwork(ctx, w, h);
-
-    // 3. Tunnel passages (drawn before chambers so chambers overlap)
+    // 2. Tunnel passages — simple ctx.arc() for speed (100+ nodes, organicArc too costly)
+    //    Very dark floor makes tunnels distinct corridors between lighter chambers.
     for (const node of world.nest.nodes) {
         if (node.type !== 'TUNNEL') continue;
-        const seed = node.x * 0.17 + node.y * 0.11;
 
-        // Wall rim
-        organicArc(ctx, node.x, node.y, node.radius + 3, seed + 1.1, 0.14, 8);
-        ctx.fillStyle = '#3d2b1c';
+        // Earthy wall rim — slightly lighter than background so tunnel edges read as carved soil
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, node.radius + 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#3a2818';
         ctx.fill();
 
-        // Floor
-        organicArc(ctx, node.x, node.y, node.radius, seed, 0.14, 8);
-        if (useGrad) {
-            const tg = ctx.createRadialGradient(
-                node.x, node.y - node.radius * 0.15, 0,
-                node.x, node.y, node.radius);
-            tg.addColorStop(0, '#3e2d1c');
-            tg.addColorStop(1, '#1f1509');
-            ctx.fillStyle = tg;
-        } else {
-            ctx.fillStyle = '#2e2014';
-        }
+        // Tunnel interior — medium-dark (clearly darker than chambers but not near-black)
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#1e1410';
         ctx.fill();
     }
 
-    // 4. Chambers
-    const chambers = world.nest.chambers;
+    // 3. Chambers — organic shapes with high wobble (0.24) and fewer points (7)
+    const chambers = world.nest.chambers || [];
     for (let ci = 0; ci < chambers.length; ci++) {
         const ch = chambers[ci];
         const seed = ch.x * 0.17 + ch.y * 0.11 + ci * 13.7;
 
-        let fc0 = '#3a2a18', fc1 = '#16100a';
+        // Distinctly lighter chamber floors vs near-black tunnels
+        let fc0 = '#5c3c20', fc1 = '#281a0e';
         let gcR = 160, gcG = 120, gcB = 70, ga = 0.06;
         switch (ch.type) {
             case 'QUEEN':
-                fc0 = '#4a3214'; fc1 = '#1e1509';
-                gcR = 180; gcG = 100; gcB = 20; ga = 0.13; break;
+                fc0 = '#6a4020'; fc1 = '#2e1a08';
+                gcR = 210; gcG = 130; gcB = 35; ga = 0.20; break;
             case 'BROOD':
-                fc0 = '#3d2e1c'; fc1 = '#1a1208';
-                gcR = 200; gcG = 155; gcB = 90; ga = 0.08; break;
+                fc0 = '#5a3e28'; fc1 = '#22180a';
+                gcR = 215; gcG = 175; gcB = 105; ga = 0.14; break;
             case 'STORAGE':
-                fc0 = '#3e2e0e'; fc1 = '#1c1607';
-                gcR = 200; gcG = 160; gcB = 45; ga = 0.09; break;
+                fc0 = '#62481c'; fc1 = '#261a06';
+                gcR = 225; gcG = 185; gcB = 65; ga = 0.16; break;
             case 'CEMETERY':
-                fc0 = '#1e1a16'; fc1 = '#0e0c0a';
-                gcR = 100; gcG = 115; gcB = 130; ga = 0.04; break;
+                fc0 = '#282220'; fc1 = '#10100e';
+                gcR = 110; gcG = 125; gcB = 148; ga = 0.06; break;
         }
 
-        // Deep shadow halo
+        // Deep shadow halo — large to separate chamber from surrounding soil
         ctx.save();
         if (PerformanceManager.settings.shadows) {
-            ctx.shadowColor = 'rgba(0,0,0,0.8)';
-            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'rgba(0,0,0,0.9)';
+            ctx.shadowBlur = 16;
         }
-        organicArc(ctx, ch.x, ch.y, ch.radius + 6, seed + 3.1, 0.09, 10);
-        ctx.fillStyle = '#120d08';
+        organicArc(ctx, ch.x, ch.y, ch.radius + 9, seed + 3.1, 0.24, 7);
+        ctx.fillStyle = '#080604';
         ctx.fill();
         ctx.restore();
 
-        // Earthy wall rim
-        organicArc(ctx, ch.x, ch.y, ch.radius + 2.5, seed + 1.7, 0.10, 10);
+        // Earthy wall rim — noticeably lighter than shadow, organic shape
+        organicArc(ctx, ch.x, ch.y, ch.radius + 3.5, seed + 1.7, 0.22, 7);
         if (useGrad) {
             const rg = ctx.createRadialGradient(
                 ch.x - ch.radius * 0.3, ch.y - ch.radius * 0.35, 0,
-                ch.x, ch.y, ch.radius + 5);
-            rg.addColorStop(0, '#806040');
-            rg.addColorStop(0.5, '#5e4230');
-            rg.addColorStop(1, '#3a2818');
+                ch.x, ch.y, ch.radius + 7);
+            rg.addColorStop(0, '#a07858');
+            rg.addColorStop(0.5, '#785848');
+            rg.addColorStop(1, '#4a3020');
             ctx.fillStyle = rg;
         } else {
-            ctx.fillStyle = '#5e4230';
+            ctx.fillStyle = '#785848';
         }
         ctx.fill();
 
-        // Chamber floor
-        organicArc(ctx, ch.x, ch.y, ch.radius, seed, 0.10, 10);
+        // Chamber floor — perfect circle matching simulation radius so brood is always inside
+        ctx.beginPath();
+        ctx.arc(ch.x, ch.y, ch.radius, 0, Math.PI * 2);
         if (useGrad) {
             const fg = ctx.createRadialGradient(
                 ch.x, ch.y - ch.radius * 0.2, ch.radius * 0.08,
                 ch.x, ch.y, ch.radius * 1.15);
             fg.addColorStop(0, fc0);
-            fg.addColorStop(0.65, '#2e2014');
+            fg.addColorStop(0.65, '#3a2816');
             fg.addColorStop(1, fc1);
             ctx.fillStyle = fg;
         } else {
@@ -290,9 +316,10 @@ export function renderNestStructure(r: Renderer, world: World) {
         }
         ctx.fill();
 
-        // Role glow overlay
+        // Role glow overlay — also a circle so it stays aligned with the floor
         if (useGrad && ga > 0.02) {
-            organicArc(ctx, ch.x, ch.y, ch.radius, seed, 0.10, 10);
+            ctx.beginPath();
+            ctx.arc(ch.x, ch.y, ch.radius, 0, Math.PI * 2);
             const gg = ctx.createRadialGradient(ch.x, ch.y, 0, ch.x, ch.y, ch.radius);
             gg.addColorStop(0, `rgba(${gcR},${gcG},${gcB},${ga})`);
             gg.addColorStop(0.6, `rgba(${gcR},${gcG},${gcB},${(ga * 0.3).toFixed(3)})`);
@@ -305,7 +332,7 @@ export function renderNestStructure(r: Renderer, world: World) {
         drawChamberFloor(ctx, ch.x, ch.y, ch.radius, seed + 7.3);
     }
 
-    // 5. Entrance light
+    // 4. Entrance light
     const ent = world.nest.entrances?.[0];
     if (ent) {
         const eg = ctx.createRadialGradient(ent.x, ent.y, 0, ent.x, ent.y, 65);
@@ -317,6 +344,9 @@ export function renderNestStructure(r: Renderer, world: World) {
         ctx.arc(ent.x, ent.y, 65, 0, Math.PI * 2);
         ctx.fill();
     }
+
+    // 5. Root network overlay — drawn LAST so it's visible over tunnels and chambers
+    drawRootNetwork(ctx, w, h);
 }
 
 // ── Queen (unchanged) ─────────────────────────────────────────────────────────

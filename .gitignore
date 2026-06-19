@@ -24,6 +24,9 @@ dist-ssr
 *.sln
 *.sw?
 
+# Screenshots
+screenshot*.png
+
 # Graphify
 graphify-out/*
 !graphify-out/graph.json
