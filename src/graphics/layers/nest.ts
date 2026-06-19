@@ -52,7 +52,8 @@ function getSoilCanvas(w: number, h: number): HTMLCanvasElement {
     if (_soilCache && _soilCache.w === w && _soilCache.h === h) return _soilCache.canvas;
     const c = document.createElement('canvas');
     c.width = w; c.height = h;
-    const cx = c.getContext('2d')!;
+    const cx = c.getContext('2d');
+    if (!cx) return c;
 
     // Geological layer bands (subtle horizontal gradients)
     for (let band = 0; band < 4; band++) {
@@ -250,7 +251,7 @@ export function renderNestStructure(r: Renderer, world: World) {
     }
 
     // 3. Chambers — organic shapes with high wobble (0.24) and fewer points (7)
-    const chambers = world.nest.chambers;
+    const chambers = world.nest.chambers || [];
     for (let ci = 0; ci < chambers.length; ci++) {
         const ch = chambers[ci];
         const seed = ch.x * 0.17 + ch.y * 0.11 + ci * 13.7;
