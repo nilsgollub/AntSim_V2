@@ -299,8 +299,9 @@ export function renderNestStructure(r: Renderer, world: World) {
         }
         ctx.fill();
 
-        // Chamber floor — clearly lighter than tunnels; maxInwardFraction=0.14 keeps brood inside
-        organicArc(ctx, ch.x, ch.y, ch.radius, seed, 0.24, 7, 0.14);
+        // Chamber floor — perfect circle matching simulation radius so brood is always inside
+        ctx.beginPath();
+        ctx.arc(ch.x, ch.y, ch.radius, 0, Math.PI * 2);
         if (useGrad) {
             const fg = ctx.createRadialGradient(
                 ch.x, ch.y - ch.radius * 0.2, ch.radius * 0.08,
@@ -314,9 +315,10 @@ export function renderNestStructure(r: Renderer, world: World) {
         }
         ctx.fill();
 
-        // Role glow overlay
+        // Role glow overlay — also a circle so it stays aligned with the floor
         if (useGrad && ga > 0.02) {
-            organicArc(ctx, ch.x, ch.y, ch.radius, seed, 0.24, 7, 0.14);
+            ctx.beginPath();
+            ctx.arc(ch.x, ch.y, ch.radius, 0, Math.PI * 2);
             const gg = ctx.createRadialGradient(ch.x, ch.y, 0, ch.x, ch.y, ch.radius);
             gg.addColorStop(0, `rgba(${gcR},${gcG},${gcB},${ga})`);
             gg.addColorStop(0.6, `rgba(${gcR},${gcG},${gcB},${(ga * 0.3).toFixed(3)})`);
