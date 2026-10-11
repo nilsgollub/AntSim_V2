@@ -263,6 +263,14 @@ The build is a static bundle (`dist/`), hostable anywhere. Two documented target
   `/antsim/` to the Home-Assistant build, strips `X-Frame-Options` (so it can be embedded)
   and forces `Cache-Control: no-store` (so new builds appear immediately). AntSim is
   deployed **once** (on HA); the kiosk just displays it.
+- **Android app** (Capacitor, `android/`): the workflow `.github/workflows/android.yml`
+  builds an APK on every push and PR. On `main` it replaces the asset of the rolling
+  release `android-latest`, so the phone always downloads from
+  `https://github.com/nilsgollub/AntSim_V2/releases/download/android-latest/AntSim.apk`.
+  Release builds are signed with a fixed key (secrets `ANTSIM_KEYSTORE_BASE64`,
+  `ANTSIM_KEYSTORE_PASSWORD`, alias `antsim`); without them CI falls back to a debug APK.
+  The app runs fullscreen and keeps the screen on. Local build: `npm run build &&
+  npx cap sync android`, then `./gradlew assembleDebug` in `android/` (needs the Android SDK).
 
 ---
 
