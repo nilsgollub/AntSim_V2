@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">AntSim</string>
     <string name="title_activity_main">AntSim</string>
-    <string name="package_name">de.nilsgollub.antsim</string>
-    <string name="custom_url_scheme">de.nilsgollub.antsim</string>
+    <string name="package_name">ch.gollub.antsim</string>
+    <string name="custom_url_scheme">ch.gollub.antsim</string>
 </resources>

@@ -1,4 +1,4 @@
-package de.nilsgollub.antsim;
+package ch.gollub.antsim;
 
 import android.os.Bundle;
 import android.view.WindowManager;

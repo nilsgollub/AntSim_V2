@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'de.nilsgollub.antsim',
+  appId: 'ch.gollub.antsim',
   appName: 'AntSim',
   webDir: 'dist'
 };

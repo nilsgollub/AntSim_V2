@@ -1,15 +1,20 @@
 apply plugin: 'com.android.application'
 
+// Versionsnummer = Anzahl Commits: steigt mit jedem Commit von selbst, F-Droid erkennt Updates daran
+def commitCount = providers.exec {
+    commandLine 'git', 'rev-list', '--count', 'HEAD'
+    ignoreExitValue = true
+}.standardOutput.asText.map { it.trim().isInteger() ? it.trim().toInteger() : 1 }.getOrElse(1)
+
 android {
-    namespace = "de.nilsgollub.antsim"
+    namespace = "ch.gollub.antsim"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "de.nilsgollub.antsim"
+        applicationId "ch.gollub.antsim"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // CI setzt ANTSIM_VERSION_CODE auf die Laufnummer, damit jede APK ein Update der vorigen ist
-        versionCode((System.getenv("ANTSIM_VERSION_CODE") ?: "1") as Integer)
-        versionName "0.1." + (System.getenv("ANTSIM_VERSION_CODE") ?: "0")
+        versionCode commitCount
+        versionName "0.$commitCount"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -17,23 +22,10 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
-    signingConfigs {
-        release {
-            // Fester Schlüssel aus GitHub-Secrets; ohne ihn bleibt die Release-APK unsigniert
-            def ks = System.getenv("ANTSIM_KEYSTORE_PATH")
-            if (ks) {
-                storeFile file(ks)
-                storePassword System.getenv("ANTSIM_KEYSTORE_PASSWORD")
-                keyAlias System.getenv("ANTSIM_KEY_ALIAS")
-                keyPassword System.getenv("ANTSIM_KEY_PASSWORD")
-            }
-        }
-    }
     buildTypes {
         release {
-            if (System.getenv("ANTSIM_KEYSTORE_PATH")) {
-                signingConfig signingConfigs.release
-            }
+            // Eigene App zum Sideloaden: der Debug-Schlüssel des Steuer-Containers reicht (wie Mikroskop/Alpaca)
+            signingConfig signingConfigs.debug
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
