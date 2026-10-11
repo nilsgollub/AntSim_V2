@@ -13,6 +13,7 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
     "@vitejs/plugin-legacy": "^7.2.1",
     "terser": "^5.44.1",
     "typescript": "~5.9.3",
@@ -20,6 +21,8 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
     "pixi-filters": "^6.1.5",
     "pixi.js": "^8.18.1"
   }

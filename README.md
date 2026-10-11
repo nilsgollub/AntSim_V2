@@ -263,6 +263,13 @@ The build is a static bundle (`dist/`), hostable anywhere. Two documented target
   `/antsim/` to the Home-Assistant build, strips `X-Frame-Options` (so it can be embedded)
   and forces `Cache-Control: no-store` (so new builds appear immediately). AntSim is
   deployed **once** (on HA); the kiosk just displays it.
+- **Android app** (Capacitor, `android/`, app id `ch.gollub.antsim`): built on the
+  Steuer-Container (Android SDK under `/opt/android-sdk`) with `android/publish.sh`, which
+  builds `dist/`, syncs it into the Android project, assembles the release APK and puts it
+  into the homelab F-Droid repo (`http://apps.srv.local/fdroid/repo`, see the Homeserver
+  repo). The version code is the commit count, so commit before publishing. Signed with the
+  Steuer-Container's debug key (like the Mikroskop and Alpaca apps); another key means
+  uninstalling first. The app runs fullscreen and keeps the screen on.
 
 ---
 
